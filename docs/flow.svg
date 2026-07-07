@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 260" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" role="img" aria-label="Daily flow: cron, read balance, Claude decides, guardrails clamp, swap, commit history">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f1524"/>
+      <stop offset="1" stop-color="#0a0e18"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#3d4a63"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1160" height="260" rx="16" fill="url(#bg)"/>
+
+  <text x="32" y="42" fill="#e6edf3" font-size="19" font-weight="700">Arc DCA Agent — one autonomous daily run</text>
+  <text x="32" y="66" fill="#7d8aa3" font-size="13">GitHub Actions cron · no server · Claude recommends, code decides</text>
+
+  <!-- connecting line -->
+  <line x1="112" y1="165" x2="1050" y2="165" stroke="#232c40" stroke-width="2"/>
+
+  <!-- Step 1: cron -->
+  <g>
+    <circle cx="112" cy="120" r="26" fill="#161f33" stroke="#f2b705" stroke-width="2"/>
+    <text x="112" y="127" text-anchor="middle" font-size="20">⏰</text>
+    <text x="112" y="200" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="600">Daily cron</text>
+    <text x="112" y="219" text-anchor="middle" fill="#7d8aa3" font-size="11">GitHub Actions</text>
+    <line x1="138" y1="165" x2="182" y2="165" stroke="#3d4a63" stroke-width="2" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- Step 2: balance -->
+  <g>
+    <circle cx="270" cy="120" r="26" fill="#161f33" stroke="#2775ca" stroke-width="2"/>
+    <text x="270" y="127" text-anchor="middle" font-size="20">💰</text>
+    <text x="270" y="200" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="600">Read balance</text>
+    <text x="270" y="219" text-anchor="middle" fill="#7d8aa3" font-size="11">USDC on Arc</text>
+    <line x1="296" y1="165" x2="340" y2="165" stroke="#3d4a63" stroke-width="2" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- Step 3: Claude -->
+  <g>
+    <circle cx="428" cy="120" r="26" fill="#161f33" stroke="#8a5cf6" stroke-width="2"/>
+    <text x="428" y="127" text-anchor="middle" font-size="20">🧠</text>
+    <text x="428" y="200" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="600">Claude decides</text>
+    <text x="428" y="219" text-anchor="middle" fill="#7d8aa3" font-size="11">amount + reasoning</text>
+    <line x1="454" y1="165" x2="498" y2="165" stroke="#3d4a63" stroke-width="2" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- Step 4: guardrails -->
+  <g>
+    <circle cx="586" cy="120" r="26" fill="#161f33" stroke="#2ea44f" stroke-width="2"/>
+    <text x="586" y="127" text-anchor="middle" font-size="20">🛡️</text>
+    <text x="586" y="200" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="600">Guardrails clamp</text>
+    <text x="586" y="219" text-anchor="middle" fill="#7d8aa3" font-size="11">code is the authority</text>
+    <line x1="612" y1="165" x2="656" y2="165" stroke="#3d4a63" stroke-width="2" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- Step 5: swap -->
+  <g>
+    <circle cx="744" cy="120" r="26" fill="#161f33" stroke="#2775ca" stroke-width="2"/>
+    <text x="744" y="127" text-anchor="middle" font-size="20">🔄</text>
+    <text x="744" y="200" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="600">Swap</text>
+    <text x="744" y="219" text-anchor="middle" fill="#7d8aa3" font-size="11">USDC → cirBTC</text>
+    <line x1="770" y1="165" x2="814" y2="165" stroke="#3d4a63" stroke-width="2" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- Step 6: commit -->
+  <g>
+    <circle cx="902" cy="120" r="26" fill="#161f33" stroke="#f2b705" stroke-width="2"/>
+    <text x="902" y="127" text-anchor="middle" font-size="20">📝</text>
+    <text x="902" y="200" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="600">Commit history</text>
+    <text x="902" y="219" text-anchor="middle" fill="#7d8aa3" font-size="11">audit trail in repo</text>
+  </g>
+
+  <!-- Swap Kit badge on the right -->
+  <g>
+    <rect x="984" y="98" width="150" height="46" rx="10" fill="#0d2340" stroke="#2775ca" stroke-width="1.5"/>
+    <text x="1059" y="120" text-anchor="middle" fill="#cfe0f5" font-size="12" font-weight="700">Circle Swap Kit</text>
+    <text x="1059" y="136" text-anchor="middle" fill="#6f93c2" font-size="10">official swap path</text>
+  </g>
+</svg>

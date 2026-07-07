@@ -6,9 +6,11 @@
 [![Circle Swap Kit](https://img.shields.io/badge/swaps%20via-Circle%20Swap%20Kit-2775CA)](https://docs.arc.io/app-kit/swap.md)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 
+![Daily flow: cron → read balance → Claude decides → guardrails clamp → swap → commit history](docs/flow.svg)
+
 > **An LLM-driven dollar-cost-averaging agent that runs itself.** Every day a GitHub Actions cron wakes up, asks **Claude** how much USDC to allocate, enforces hard spend guardrails in code, executes a real **USDC → cirBTC** swap on **Arc Testnet** via Circle's official Swap Kit, and commits the audit trail back to this repo — no server, no human in the loop.
 
-Built for the **Encode Club × Circle Programmable Money Hackathon** — see [`SUBMISSION.md`](SUBMISSION.md) for the full write-up.
+Built for the **Encode Club × Circle Programmable Money Hackathon** — full write-up: [`SUBMISSION.md`](SUBMISSION.md) · bản tiếng Việt: [`SUBMISSION.vi.md`](SUBMISSION.vi.md).
 
 Every day, a GitHub Actions cron job:
 
@@ -28,6 +30,15 @@ This isn't a mockup. The agent has executed a **real swap on Arc Testnet**:
 
 - **Transaction:** [`0x83097f…50933`](https://testnet.arcscan.app/tx/0x83097f432db9c013b3f8d7748b58f18484c2a5fde4ce500c221ee38524250933) — swapped `0.10 USDC → cirBTC`
 - **The daily cron runs autonomously in CI:** see the green [Actions runs](https://github.com/thanhphuc85/ArcDCA/actions/workflows/dca.yml) and the bot's own `chore: record DCA run …` commits to [`data/history.json`](data/history.json).
+
+<!--
+  To add static screenshots: save two PNGs into docs/ named ci-run.png and
+  tx.png, then delete this comment's opening/closing markers so the images
+  below render.
+
+![Green CI run — Daily DCA Bot workflow succeeded](docs/ci-run.png)
+![On-chain USDC → cirBTC swap on ArcScan](docs/tx.png)
+-->
 
 A real audit-trail entry the agent wrote (`data/history.json`), showing Claude's own reasoning:
 

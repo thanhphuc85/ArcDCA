@@ -3,7 +3,8 @@
 // Put the printed WALLET_ID in your .env / GitHub secrets, and fund the
 // printed address from faucet.circle.com before running the bot.
 //
-// Usage:
+// Usage (reads from .env, or pass inline):
+//   npm run create-wallet
 //   CIRCLE_API_KEY=... CIRCLE_ENTITY_SECRET=... node scripts/create-arc-wallet.mjs
 //
 // CIRCLE_API_KEY: from https://console.circle.com/api-keys
@@ -14,6 +15,7 @@
 //   then register it via the Circle Console UI (or registerEntitySecretCiphertext)
 //   before running this script.
 
+import "dotenv/config";
 import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets";
 
 const apiKey = process.env.CIRCLE_API_KEY;

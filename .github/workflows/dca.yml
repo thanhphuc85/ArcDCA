@@ -27,7 +27,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # Node 24: Circle SDKs require >=22, and Node 24's CJS named-export
+          # detection resolves the Circle package's ESM exports (Node 22 fails on it).
+          node-version: 24
           cache: npm
 
       # npm install (not ci) tolerates minor lockfile/npm-version resolution

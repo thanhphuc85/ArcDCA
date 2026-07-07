@@ -16,15 +16,17 @@ const envSchema = z.object({
   WALLET_ID: z.string().min(1, "WALLET_ID is required"),
   KIT_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
   ANTHROPIC_API_KEY: z.string().min(1, "ANTHROPIC_API_KEY is required"),
-  MAX_DAILY_USDC: decimalString.default("1.00"),
-  MIN_USDC_RESERVE: decimalString.default("0.50"),
-  MIN_SWAP_USDC: decimalString.default("0.10"),
+  // zod's .default() only fills in for `undefined`, NOT for "" — an unset
+  // GitHub Actions variable arrives as an empty string, so preprocess "" to
+  // undefined first or the default never applies and validation fails.
+  MAX_DAILY_USDC: z.preprocess(emptyToUndefined, decimalString.default("1.00")),
+  MIN_USDC_RESERVE: z.preprocess(emptyToUndefined, decimalString.default("0.50")),
+  MIN_SWAP_USDC: z.preprocess(emptyToUndefined, decimalString.default("0.10")),
   CAMPAIGN_TOTAL_BUDGET_USDC: z.preprocess(emptyToUndefined, decimalString.optional()),
   CAMPAIGN_DURATION_DAYS: z.preprocess(emptyToUndefined, z.coerce.number().int().positive().optional()),
-  TOKEN_OUT: z.string().default("cirBTC"),
+  TOKEN_OUT: z.preprocess(emptyToUndefined, z.string().default("cirBTC")),
   DRY_RUN: z
-    .string()
-    .default("true")
+    .preprocess(emptyToUndefined, z.string().default("true"))
     .transform((v) => v.toLowerCase() === "true"),
 });
 

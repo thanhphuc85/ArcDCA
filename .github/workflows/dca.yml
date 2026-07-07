@@ -27,10 +27,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
-      - run: npm ci
+      # npm install (not ci) tolerates minor lockfile/npm-version resolution
+      # drift for tsx/vitest's typescript peer ranges across runner npm versions.
+      - run: npm install --no-audit --no-fund
 
       - name: Run daily DCA
         id: run

@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "date": "2026-07-07",
+    "timestamp": "2026-07-07T23:43:52.861Z",
+    "status": "error_config",
+    "tokenOut": "",
+    "message": "Invalid configuration: MAX_DAILY_USDC: must be a non-negative decimal string; MIN_USDC_RESERVE: must be a non-negative decimal string; MIN_SWAP_USDC: must be a non-negative decimal string"
+  }
+]

@@ -108,6 +108,49 @@
   .addr { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; background: rgba(0,0,0,.28); border: 1px solid var(--glass-brd); border-radius: 10px; padding: 8px 12px; }
   .status-note { font-size: 13px; color: var(--muted); margin-top: 12px; min-height: 18px; }
 
+  /* wallet profile */
+  .wp-connect { text-align: center; padding: 40px 20px; }
+  .wp-connect .wp-icon { font-size: 48px; margin-bottom: 16px; }
+  .wp-connect p { color: var(--muted); font-size: 14px; margin: 10px 0 20px; max-width: 400px; display: inline-block; }
+  .wp-header { display: flex; align-items: center; gap: 16px; padding-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,.06); margin-bottom: 18px; }
+  .wp-avatar { width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0; border: 2px solid rgba(138,92,246,.4); }
+  .wp-info { flex: 1; min-width: 0; }
+  .wp-addr-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .wp-addr { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; font-weight: 600; }
+  .wp-copy { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px; padding: 2px 6px; border-radius: 6px; transition: color .15s, background .15s; }
+  .wp-copy:hover { color: var(--text); background: rgba(255,255,255,.08); }
+  .wp-net { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--green); background: rgba(52,211,153,.1); border: 1px solid rgba(52,211,153,.25); border-radius: 999px; padding: 3px 10px; margin-top: 4px; }
+  .wp-net .wp-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px rgba(52,211,153,.6); }
+  .wp-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .wp-actions .btn { font-size: 12px; padding: 7px 14px; border-radius: 10px; }
+  .wp-balances { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+  .wp-bal { background: rgba(255,255,255,.03); border: 1px solid var(--glass-brd); border-radius: 16px; padding: 16px; position: relative; overflow: hidden; }
+  .wp-bal::after { content: ""; position: absolute; inset: 0; background: radial-gradient(160px 80px at 100% 0, var(--bal-glow, rgba(138,92,246,.08)), transparent 70%); pointer-events: none; }
+  .wp-bal-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .wp-bal-icon { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 14px; color: #fff; }
+  .wp-bal-icon.usdc { background: linear-gradient(135deg,#2775ca,#4f9dff); }
+  .wp-bal-icon.cirbtc { background: linear-gradient(135deg,#f59e0b,#fb923c); }
+  .wp-bal-icon.eth { background: linear-gradient(135deg,#627eea,#8fa8ff); }
+  .wp-bal-name { font-size: 13px; color: var(--muted); }
+  .wp-bal-amt { font-family: Sora; font-size: 24px; font-weight: 800; letter-spacing: -.5px; line-height: 1.2; }
+  .wp-bal-usd { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .wp-portfolio { margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.06); }
+  .wp-portfolio-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .wp-portfolio-head .wp-total { font-family: Sora; font-size: 20px; font-weight: 800; }
+  .wp-portfolio-head .wp-label { font-size: 12px; color: var(--muted); }
+  .wp-alloc-bar { display: flex; height: 8px; border-radius: 8px; overflow: hidden; gap: 2px; }
+  .wp-alloc-bar > div { border-radius: 8px; }
+  .wp-alloc-bar .seg-usdc { background: linear-gradient(90deg,#2775ca,#4f9dff); }
+  .wp-alloc-bar .seg-btc { background: linear-gradient(90deg,#f59e0b,#fb923c); }
+  .wp-alloc-bar .seg-eth { background: linear-gradient(90deg,#627eea,#8fa8ff); }
+  .wp-alloc-legend { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+  .wp-alloc-legend span { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+  .wp-alloc-legend .ldot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .wp-disconnect { margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.06); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .wp-disconnect .wp-since { font-size: 12px; color: var(--muted); }
+  .btn-disconnect { background: rgba(251,113,133,.1); color: #fda4af; border: 1px solid rgba(251,113,133,.25); font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 10px; cursor: pointer; transition: background .15s; }
+  .btn-disconnect:hover { background: rgba(251,113,133,.2); }
+
   /* tiles */
   .tile .n { font-family: Sora; font-size: 30px; font-weight: 800; letter-spacing: -.6px; display: block; }
   .tile .l { color: var(--muted); font-size: 13px; }
@@ -229,15 +272,19 @@
   </div>
 
   <section class="reveal">
-    <div class="card">
-      <h3>Your Arc Testnet wallet</h3>
-      <p class="cs">Connect MetaMask (or any EIP-1193 wallet). We add / switch to Arc Testnet and read your on-chain balances — read-only, this page never sends a transaction.</p>
-      <div class="wallet-row" id="walletBody">
+    <div class="eyebrow">Wallet</div>
+    <div class="h2">Your Arc Testnet wallet</div>
+    <p class="sub">Connect your wallet to view on-chain balances. Read-only — this page never sends a transaction.</p>
+    <div class="card" id="walletCard">
+      <div class="wp-connect" id="walletConnect">
+        <div class="wp-icon">🔗</div>
+        <h3>Connect your wallet</h3>
+        <p>Link MetaMask or any EIP-1193 wallet to view your Arc Testnet balances, portfolio allocation, and activity.</p>
         <button class="btn" id="connectBtn2">Connect Wallet</button>
-        <a class="btn ghost" href="https://faucet.circle.com" target="_blank" rel="noopener">Get testnet USDC ↗</a>
       </div>
-      <div class="status-note" id="walletStatus"></div>
+      <div id="walletProfile" style="display:none;"></div>
     </div>
+    <div class="status-note" id="walletStatus"></div>
   </section>
 
   <section class="reveal">
@@ -439,6 +486,28 @@
   document.querySelectorAll(".reveal").forEach(function (el) { io.observe(el); });
 
   // ---------- wallet ----------
+  function generateAvatar(address) {
+    var hash = 0;
+    for (var i = 0; i < address.length; i++) hash = ((hash << 5) - hash) + address.charCodeAt(i);
+    var h1 = ((hash >>> 0) % 360), h2 = (h1 + 40) % 360, h3 = (h1 + 160) % 360;
+    var size = 52, cells = 5, cell = size / cells;
+    var rects = '';
+    for (var row = 0; row < cells; row++) {
+      for (var col = 0; col < Math.ceil(cells / 2); col++) {
+        var idx = row * cells + col;
+        var charCode = address.charCodeAt((idx % (address.length - 2)) + 2);
+        if (charCode % 3 === 0) continue;
+        var fill = charCode % 2 === 0 ? 'hsl(' + h2 + ',70%,60%)' : 'hsl(' + h3 + ',65%,55%)';
+        rects += '<rect x="' + (col * cell) + '" y="' + (row * cell) + '" width="' + cell + '" height="' + cell + '" fill="' + fill + '"/>';
+        if (col !== cells - 1 - col) rects += '<rect x="' + ((cells - 1 - col) * cell) + '" y="' + (row * cell) + '" width="' + cell + '" height="' + cell + '" fill="' + fill + '"/>';
+      }
+    }
+    return 'data:image/svg+xml,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + size + ' ' + size + '">' +
+      '<rect width="' + size + '" height="' + size + '" fill="hsl(' + h1 + ',40%,18%)"/>' + rects + '</svg>'
+    );
+  }
+
   async function connect() {
     var status = $("walletStatus");
     if (!window.ethereum) {
@@ -468,23 +537,78 @@
         var raw = await window.ethereum.request({ method: "eth_call", params: [{ to: token, data: data }, "latest"] });
         return BigInt(raw || "0x0");
       }
+      var nativeRaw = await window.ethereum.request({ method: "eth_getBalance", params: [account, "latest"] });
+      var nativeBal = Number(BigInt(nativeRaw || "0x0")) / 1e18;
       var usdc = Number(await tokenBalance(ARC.usdc)) / 1e6;
       var cirbtc = Number(await tokenBalance(ARC.cirbtc)) / 1e8;
 
-      $("walletBody").innerHTML =
-        '<span class="addr">' + short(account) + '</span>' +
-        '<div class="tok"><div class="coin usdc">$</div><div><div class="amt">' + fmt(usdc, 4) + '</div><div class="cap">USDC</div></div></div>' +
-        '<div class="tok"><div class="coin cirbtc">₿</div><div><div class="amt">' + fmt(cirbtc, 8) + '</div><div class="cap">cirBTC</div></div></div>' +
-        '<button class="btn ghost" id="copyAddr">Copy address</button>' +
-        '<a class="btn ghost" href="' + ARC.explorer + '/address/' + account + '" target="_blank" rel="noopener">ArcScan ↗</a>' +
-        '<a class="btn" href="' + ARC.faucet + '" target="_blank" rel="noopener">Get testnet USDC ↗</a>';
-      var copyBtn = $("copyAddr");
-      if (copyBtn) copyBtn.addEventListener("click", function () {
+      var totalUsd = usdc;
+      var usdcPct = totalUsd > 0 ? (usdc / totalUsd) * 100 : 100;
+      var btcPct = 0;
+
+      $("walletConnect").style.display = "none";
+      var prof = $("walletProfile");
+      prof.style.display = "";
+      prof.innerHTML =
+        '<div class="wp-header">' +
+          '<img class="wp-avatar" src="' + generateAvatar(account) + '" alt="wallet avatar"/>' +
+          '<div class="wp-info">' +
+            '<div class="wp-addr-row">' +
+              '<span class="wp-addr">' + account.slice(0, 6) + '…' + account.slice(-4) + '</span>' +
+              '<button class="wp-copy" id="wpCopy" title="Copy full address">📋</button>' +
+            '</div>' +
+            '<div class="wp-net"><span class="wp-dot"></span> Arc Testnet</div>' +
+          '</div>' +
+          '<div class="wp-actions">' +
+            '<a class="btn ghost" href="' + ARC.explorer + '/address/' + account + '" target="_blank" rel="noopener">ArcScan ↗</a>' +
+            '<a class="btn ghost" href="' + ARC.faucet + '" target="_blank" rel="noopener">Faucet ↗</a>' +
+          '</div>' +
+        '</div>' +
+        '<div class="wp-balances">' +
+          '<div class="wp-bal" style="--bal-glow:rgba(39,117,202,.12);">' +
+            '<div class="wp-bal-head"><div class="wp-bal-icon usdc">$</div><span class="wp-bal-name">USDC</span></div>' +
+            '<div class="wp-bal-amt">' + fmt(usdc, 4) + '</div>' +
+            '<div class="wp-bal-usd">≈ $' + fmt(usdc, 2) + ' USD</div>' +
+          '</div>' +
+          '<div class="wp-bal" style="--bal-glow:rgba(245,158,11,.12);">' +
+            '<div class="wp-bal-head"><div class="wp-bal-icon cirbtc">₿</div><span class="wp-bal-name">cirBTC</span></div>' +
+            '<div class="wp-bal-amt">' + fmt(cirbtc, 8) + '</div>' +
+            '<div class="wp-bal-usd">Testnet token</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="wp-portfolio">' +
+          '<div class="wp-portfolio-head">' +
+            '<div><span class="wp-label">Portfolio value</span><br/><span class="wp-total">$' + fmt(usdc, 2) + '</span></div>' +
+            '<div style="text-align:right;"><span class="wp-label">Native balance</span><br/><span style="font-family:Sora;font-weight:700;font-size:14px;">' + fmt(nativeBal, 6) + ' USDC</span></div>' +
+          '</div>' +
+          '<div class="wp-alloc-bar">' +
+            '<div class="seg-usdc" style="width:' + Math.max(2, usdcPct).toFixed(1) + '%;"></div>' +
+            (btcPct > 0 ? '<div class="seg-btc" style="width:' + btcPct.toFixed(1) + '%;"></div>' : '') +
+          '</div>' +
+          '<div class="wp-alloc-legend">' +
+            '<span><span class="ldot" style="background:linear-gradient(135deg,#2775ca,#4f9dff);"></span> USDC ' + fmt(usdcPct, 1) + '%</span>' +
+            (cirbtc > 0 ? '<span><span class="ldot" style="background:linear-gradient(135deg,#f59e0b,#fb923c);"></span> cirBTC</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="wp-disconnect">' +
+          '<span class="wp-since">Connected just now</span>' +
+          '<button class="btn-disconnect" id="wpDisconnect">Disconnect</button>' +
+        '</div>';
+
+      $("wpCopy").addEventListener("click", function () {
+        var btn = $("wpCopy");
         (navigator.clipboard ? navigator.clipboard.writeText(account) : Promise.reject())
-          .then(function () { copyBtn.textContent = "Copied ✓"; setTimeout(function () { copyBtn.textContent = "Copy address"; }, 1500); })
-          .catch(function () { status.textContent = "Your address: " + account; });
+          .then(function () { btn.textContent = "✓"; setTimeout(function () { btn.textContent = "📋"; }, 1500); })
+          .catch(function () { status.textContent = account; });
       });
-      status.textContent = "Connected to Arc Testnet · read-only. Fund your wallet at faucet.circle.com, then it'll show up above.";
+      $("wpDisconnect").addEventListener("click", function () {
+        state.account = null;
+        prof.style.display = "none";
+        $("walletConnect").style.display = "";
+        status.textContent = "";
+      });
+
+      status.textContent = "";
       refreshTreasury();
     } catch (err) {
       status.textContent = "Connection cancelled or failed: " + (err && err.message ? err.message : err);

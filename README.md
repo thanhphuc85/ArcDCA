@@ -5,7 +5,7 @@
 <h1 align="center">Arc DCA Agent</h1>
 
 <p align="center">
-  <a href="https://arcdca.xyz"><img src="https://img.shields.io/badge/%F0%9F%8C%90%20Live%20app-arcdca.xyz-2775CA" alt="Live app" /></a>
+  <a href="https://auradca.github.io"><img src="https://img.shields.io/badge/%F0%9F%8C%90%20Live%20app-auradca.github.io-2775CA" alt="Live app" /></a>
   <a href="https://github.com/thanhphuc85/ArcDCA/actions/workflows/dca.yml"><img src="https://github.com/thanhphuc85/ArcDCA/actions/workflows/dca.yml/badge.svg" alt="Daily DCA Bot" /></a>
   <a href="https://testnet.arcscan.app"><img src="https://img.shields.io/badge/Arc-Testnet-2ea44f" alt="Arc Testnet" /></a>
   <a href="https://www.anthropic.com"><img src="https://img.shields.io/badge/decisions%20by-Claude-8A2BE2" alt="Decisions by Claude" /></a>
@@ -13,7 +13,7 @@
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript" /></a>
 </p>
 
-**🌐 Live web app:** **https://arcdca.xyz** — connect your wallet to view your Arc Testnet balance and the agent's live on-chain track record.
+**🌐 Live web app:** **https://auradca.github.io** — connect your wallet to view your Arc Testnet balance and the agent's live on-chain track record.
 
 ![Daily flow: cron → read balance → Claude decides → guardrails clamp → swap → commit history](docs/flow.svg)
 

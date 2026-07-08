@@ -17,5 +17,17 @@
     "reasoning": "No campaign end date or budget was provided, so smoothing defaults to the daily cap. Wallet balance (~19.84 USDC) is well above the reserve and max daily amount, no spend has occurred today, and prior error was a config issue rather than a guardrail block, so proceeding with the full daily max of 1.00 USDC is reasonable.",
     "walletUsdcBalance": "19.8434085891759712",
     "message": "[DRY RUN] Would have swapped 1.000000 USDC -> cirBTC"
+  },
+  {
+    "date": "2026-07-08",
+    "timestamp": "2026-07-08T18:07:01.075Z",
+    "status": "error_swap_failed",
+    "requestedAmountUsdc": "1.00",
+    "clampedAmountUsdc": "1.000000",
+    "boundBy": "llm_recommendation",
+    "tokenOut": "cirBTC",
+    "reasoning": "No campaign budget or end date is configured, so smoothing defaults to the daily cap; wallet balance (~29.84 USDC) is well above reserve, no spend has occurred today, and compute_allocation confirms 1.00 USDC passes cleanly at the daily max without clamping.",
+    "walletUsdcBalance": "29.8434085891759712",
+    "message": "Swap failed: Swap Kit execution failed (Stablecoin Service createSwap failed: Route or resource not found. Details: No route available)"
   }
 ]

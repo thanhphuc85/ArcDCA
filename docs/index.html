@@ -6,160 +6,233 @@
 <title>Arc DCA Agent — autonomous daily DCA on Arc Testnet</title>
 <meta name="description" content="An LLM-driven daily dollar-cost-averaging agent on Arc Testnet. Connect your wallet to view your Arc balance and the agent's live on-chain track record." />
 <link rel="icon" href="logo.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --bg: #0a0e18; --panel: #121a2b; --panel2: #0f1524; --line: #233049;
-    --text: #e6edf3; --muted: #8b97b0; --blue: #2775ca; --purple: #8a5cf6;
-    --green: #2ea44f; --amber: #f2b705; --red: #e5534b; --radius: 16px;
+    --bg: #060912; --text: #eaf0fb; --muted: #97a4bf;
+    --blue: #2f86e6; --violet: #8a5cf6; --cyan: #22d3ee; --amber: #f5a524; --green: #34d399; --red: #fb7185;
+    --glass: rgba(255,255,255,.045); --glass-brd: rgba(255,255,255,.09);
+    --radius: 20px;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; }
+  html { scroll-behavior: smooth; }
   body {
-    background: radial-gradient(1200px 600px at 80% -10%, #16203a 0%, var(--bg) 55%);
-    color: var(--text); font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    line-height: 1.55; -webkit-font-smoothing: antialiased;
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: Inter, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.6;
+    -webkit-font-smoothing: antialiased; overflow-x: hidden;
   }
-  a { color: #6ea8ff; text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+  h1, h2, h3, .display { font-family: Sora, Inter, sans-serif; }
+  a { color: #7fb4ff; text-decoration: none; }
+  a:hover { color: #a9ccff; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 22px; position: relative; z-index: 1; }
 
-  header { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; gap: 16px; flex-wrap: wrap; }
+  /* ---------- animated aurora background ---------- */
+  .aurora { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+  .blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .55; will-change: transform; }
+  .b1 { width: 620px; height: 620px; background: #1e5fbf; top: -220px; left: -160px; animation: float1 18s ease-in-out infinite; }
+  .b2 { width: 560px; height: 560px; background: #7c3aed; top: -120px; right: -180px; animation: float2 22s ease-in-out infinite; }
+  .b3 { width: 480px; height: 480px; background: #0e7490; bottom: -220px; left: 20%; animation: float3 26s ease-in-out infinite; opacity: .4; }
+  .grain { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .5;
+    background:
+      radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,.14) 50%, transparent 51%),
+      radial-gradient(1px 1px at 70% 60%, rgba(255,255,255,.10) 50%, transparent 51%),
+      radial-gradient(1px 1px at 40% 80%, rgba(255,255,255,.08) 50%, transparent 51%);
+    background-size: 240px 240px, 320px 320px, 180px 180px; }
+  @keyframes float1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(60px,50px)} }
+  @keyframes float2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-70px,40px)} }
+  @keyframes float3 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(40px,-40px)} }
+  @media (prefers-reduced-motion: reduce) { .blob { animation: none; } }
+
+  /* ---------- header ---------- */
+  header { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(14px);
+    background: linear-gradient(180deg, rgba(6,9,18,.82), rgba(6,9,18,.35)); border-bottom: 1px solid rgba(255,255,255,.06); }
+  .hd { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; gap: 14px; flex-wrap: wrap; }
   .brand { display: flex; align-items: center; gap: 12px; }
-  .brand img { width: 40px; height: 40px; }
-  .brand b { font-size: 18px; letter-spacing: .2px; }
-  .brand span { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
+  .brand img { width: 40px; height: 40px; filter: drop-shadow(0 4px 14px rgba(138,92,246,.45)); }
+  .brand b { font-family: Sora; font-size: 18px; letter-spacing: .2px; }
+  .brand span { display: block; font-size: 11px; color: var(--muted); }
 
-  .btn {
-    border: 0; cursor: pointer; font-weight: 700; font-size: 14px; color: #fff;
-    padding: 11px 18px; border-radius: 12px;
-    background: linear-gradient(135deg, var(--blue), var(--purple));
-  }
-  .btn:hover { filter: brightness(1.08); }
-  .btn.secondary { background: #1b2740; color: var(--text); border: 1px solid var(--line); }
-  .btn[disabled] { opacity: .6; cursor: default; filter: none; }
+  /* ---------- buttons ---------- */
+  .btn { position: relative; border: 0; cursor: pointer; font-weight: 700; font-size: 14px; color: #fff;
+    padding: 12px 20px; border-radius: 13px; font-family: Inter;
+    background: linear-gradient(135deg, var(--blue), var(--violet)); box-shadow: 0 8px 26px -8px rgba(93,72,246,.7);
+    transition: transform .16s ease, box-shadow .16s ease, filter .16s ease; }
+  .btn:hover { transform: translateY(-2px); filter: brightness(1.07); box-shadow: 0 14px 34px -8px rgba(93,72,246,.85); }
+  .btn:active { transform: translateY(0); }
+  .btn.ghost { background: rgba(255,255,255,.05); color: var(--text); border: 1px solid var(--glass-brd); box-shadow: none; }
+  .btn.ghost:hover { background: rgba(255,255,255,.09); }
 
-  .hero { padding: 26px 0 8px; }
-  .pill { display: inline-block; font-size: 12px; font-weight: 700; color: #bcd3f7;
-    background: #0d2340; border: 1px solid #1c3a5e; border-radius: 999px; padding: 5px 12px; }
-  .hero h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.08; margin: 16px 0 10px; letter-spacing: -.5px; }
-  .hero h1 .grad { background: linear-gradient(120deg, #4f9dff, var(--purple)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .hero p { color: var(--muted); font-size: 17px; max-width: 640px; margin: 0; }
-  .cta { display: flex; gap: 12px; margin: 22px 0 6px; flex-wrap: wrap; }
+  /* ---------- hero ---------- */
+  .hero { padding: 62px 0 26px; text-align: center; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #cfe0ff;
+    background: rgba(47,134,230,.12); border: 1px solid rgba(47,134,230,.35); border-radius: 999px; padding: 7px 15px; }
+  .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 0 rgba(52,211,153,.6); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(52,211,153,.6)} 70%{box-shadow:0 0 0 8px rgba(52,211,153,0)} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0)} }
+  .hero h1 { font-size: clamp(34px, 6vw, 62px); line-height: 1.05; margin: 22px auto 16px; max-width: 14ch; font-weight: 800; letter-spacing: -1.2px; }
+  .grad { background: linear-gradient(100deg, #5aa0ff, #a78bfa 45%, #22d3ee); background-size: 200% auto;
+    -webkit-background-clip: text; background-clip: text; color: transparent; animation: shift 6s linear infinite; }
+  @keyframes shift { to { background-position: 200% center; } }
+  .hero p { color: var(--muted); font-size: clamp(16px,2vw,19px); max-width: 620px; margin: 0 auto; }
+  .cta { display: flex; gap: 12px; margin: 28px 0 6px; flex-wrap: wrap; justify-content: center; }
+
+  /* live stat band */
+  .band { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-top: 34px; }
+  .band .g { min-width: 150px; }
+  .g { background: var(--glass); border: 1px solid var(--glass-brd); border-radius: 16px; padding: 14px 18px; backdrop-filter: blur(8px); }
+  .g .n { font-family: Sora; font-size: 24px; font-weight: 800; letter-spacing: -.5px; }
+  .g .l { font-size: 12px; color: var(--muted); }
+
+  /* ---------- sections ---------- */
+  section { margin: 46px 0; }
+  .eyebrow { font-size: 12.5px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #7d8cad; }
+  .h2 { font-size: clamp(24px,3.4vw,34px); margin: 8px 0 6px; font-weight: 800; letter-spacing: -.6px; }
+  .sub { color: var(--muted); margin: 0 0 22px; max-width: 640px; }
+
+  .card { background: var(--glass); border: 1px solid var(--glass-brd); border-radius: var(--radius); padding: 22px; backdrop-filter: blur(10px); box-shadow: 0 24px 60px -30px rgba(0,0,0,.7); }
+  .card h3 { font-size: 15px; margin: 0 0 4px; }
+  .card .cs { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
 
   .grid { display: grid; gap: 16px; }
-  @media (min-width: 720px) { .cols-3 { grid-template-columns: repeat(3, 1fr); } .cols-2 { grid-template-columns: 1.1fr .9fr; } }
-
-  .card { background: linear-gradient(180deg, var(--panel), var(--panel2)); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
-  .card h2 { font-size: 15px; margin: 0 0 4px; letter-spacing: .3px; }
-  .card .sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
-
-  section { margin: 30px 0; }
-  .section-title { font-size: 22px; margin: 0 0 4px; }
-  .section-sub { color: var(--muted); margin: 0 0 18px; }
+  @media (min-width: 760px) { .cols-3 { grid-template-columns: repeat(3,1fr); } }
 
   /* wallet */
-  .wallet-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-  .kv { font-size: 13px; color: var(--muted); }
-  .kv b { color: var(--text); font-size: 22px; display: block; font-weight: 700; }
-  .addr { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; background: #0c1526; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
-  .status-note { font-size: 13px; color: var(--muted); margin-top: 10px; min-height: 18px; }
+  .wallet-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .tok { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border: 1px solid var(--glass-brd); border-radius: 14px; padding: 10px 14px; }
+  .coin { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; color: #fff; }
+  .coin.usdc { background: linear-gradient(135deg,#2775ca,#4f9dff); }
+  .coin.cirbtc { background: linear-gradient(135deg,#f59e0b,#fb923c); }
+  .tok .amt { font-family: Sora; font-weight: 700; font-size: 18px; line-height: 1; }
+  .tok .cap { font-size: 11px; color: var(--muted); }
+  .addr { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; background: rgba(0,0,0,.28); border: 1px solid var(--glass-brd); border-radius: 10px; padding: 8px 12px; }
+  .status-note { font-size: 13px; color: var(--muted); margin-top: 12px; min-height: 18px; }
 
-  /* stat tiles */
-  .tile b { font-size: 26px; display: block; font-weight: 800; letter-spacing: -.5px; }
-  .tile span { color: var(--muted); font-size: 13px; }
+  /* tiles */
+  .tile .n { font-family: Sora; font-size: 30px; font-weight: 800; letter-spacing: -.6px; display: block; }
+  .tile .l { color: var(--muted); font-size: 13px; }
+  .tile { position: relative; overflow: hidden; }
+  .tile::after { content: ""; position: absolute; inset: 0; background: radial-gradient(300px 120px at 100% 0, rgba(138,92,246,.16), transparent 70%); }
 
   /* chart */
-  .chart { width: 100%; height: 180px; }
-  .chart-empty { color: var(--muted); font-size: 14px; padding: 40px 0; text-align: center; }
+  .chart { width: 100%; height: 190px; display: block; }
+  .chart-empty { color: var(--muted); font-size: 14px; padding: 44px 0; text-align: center; }
+  .chart path.line { stroke-dasharray: var(--len); stroke-dashoffset: var(--len); animation: draw 1.4s ease forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
 
   /* table */
-  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
-  .badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
-  .b-success { background: rgba(46,164,79,.16); color: #4ade80; }
-  .b-dry { background: rgba(39,117,202,.16); color: #6ea8ff; }
-  .b-skip { background: rgba(242,183,5,.14); color: #f5c542; }
-  .b-error { background: rgba(229,83,75,.16); color: #ff8a80; }
-  .reason { color: var(--muted); max-width: 340px; }
-  .amt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 640px; }
+  th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,.06); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .6px; }
+  tbody tr { transition: background .15s; }
+  tbody tr:hover { background: rgba(255,255,255,.03); }
+  .badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; border: 1px solid transparent; }
+  .b-success { background: rgba(52,211,153,.14); color: #6ee7b7; border-color: rgba(52,211,153,.3); }
+  .b-dry { background: rgba(47,134,230,.14); color: #8fc0ff; border-color: rgba(47,134,230,.3); }
+  .b-skip { background: rgba(245,165,36,.13); color: #fbcf6b; border-color: rgba(245,165,36,.3); }
+  .b-error { background: rgba(251,113,133,.14); color: #fda4af; border-color: rgba(251,113,133,.3); }
+  .reason { color: var(--muted); max-width: 360px; }
+  .amt2 { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
-  .flow { display: grid; gap: 10px; }
-  @media (min-width: 720px) { .flow { grid-template-columns: repeat(3, 1fr); } }
-  .step { background: #0d1626; border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
-  .step b { display: block; font-size: 14px; margin-bottom: 2px; }
-  .step span { color: var(--muted); font-size: 13px; }
+  /* how it works */
+  .flow { display: grid; gap: 16px; }
+  @media (min-width: 760px) { .flow { grid-template-columns: repeat(3,1fr); } }
+  .step { position: relative; background: var(--glass); border: 1px solid var(--glass-brd); border-radius: 18px; padding: 22px 20px; backdrop-filter: blur(10px); transition: transform .2s, border-color .2s; }
+  .step:hover { transform: translateY(-4px); border-color: rgba(138,92,246,.5); }
+  .step .num { font-family: Sora; font-weight: 800; font-size: 15px; width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg,var(--blue),var(--violet)); margin-bottom: 14px; box-shadow: 0 8px 22px -8px rgba(93,72,246,.8); }
+  .step b { display: block; font-family: Sora; font-size: 16px; margin-bottom: 4px; }
+  .step span { color: var(--muted); font-size: 13.5px; }
 
-  footer { color: var(--muted); font-size: 13px; padding: 30px 0 50px; border-top: 1px solid var(--line); margin-top: 20px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  .note { font-size: 12.5px; color: var(--muted); background: #0c1526; border: 1px solid var(--line); border-left: 3px solid var(--amber); border-radius: 8px; padding: 10px 14px; }
+  .note { font-size: 13px; color: var(--muted); background: rgba(245,165,36,.06); border: 1px solid rgba(245,165,36,.25); border-radius: 14px; padding: 14px 18px; }
+
+  footer { color: var(--muted); font-size: 13px; padding: 34px 0 56px; border-top: 1px solid rgba(255,255,255,.07); margin-top: 26px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s ease; }
+  .reveal.in { opacity: 1; transform: none; }
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <header>
+<div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<div class="grain"></div>
+
+<header>
+  <div class="wrap hd">
     <div class="brand">
       <img src="logo.svg" alt="Arc DCA Agent logo" />
       <div><b>Arc DCA Agent</b><span>Autonomous daily DCA · Arc Testnet</span></div>
     </div>
     <button class="btn" id="connectBtn">Connect Wallet</button>
-  </header>
+  </div>
+</header>
+
+<div class="wrap">
 
   <div class="hero">
-    <span class="pill">Encode × Circle · Programmable Money Hackathon</span>
-    <h1>An LLM agent that <span class="grad">dollar-cost-averages</span> for you — every day, on-chain.</h1>
-    <p>Each day a scheduled agent asks <b>Claude</b> how much USDC to allocate, enforces hard spend guardrails in code, and executes a real <b>USDC&nbsp;→&nbsp;cirBTC</b> swap on Arc Testnet via Circle's Swap Kit. Connect your wallet to see your Arc balance and the agent's live track record below.</p>
+    <span class="chip"><span class="dot"></span> Encode × Circle · Programmable Money Hackathon</span>
+    <h1>An agent that <span class="grad">dollar-cost-averages</span> for you.</h1>
+    <p>Every day it asks <b>Claude</b> how much USDC to allocate, enforces hard spend guardrails in code, and executes a real <b>USDC → cirBTC</b> swap on Arc Testnet via Circle's Swap Kit — no server, no human in the loop.</p>
     <div class="cta">
-      <a class="btn secondary" href="https://github.com/thanhphuc85/ArcDCA" target="_blank" rel="noopener">View source ↗</a>
-      <a class="btn secondary" href="https://testnet.arcscan.app/tx/0x83097f432db9c013b3f8d7748b58f18484c2a5fde4ce500c221ee38524250933" target="_blank" rel="noopener">See a live swap ↗</a>
+      <button class="btn" id="connectHero">Connect Wallet</button>
+      <a class="btn ghost" href="https://github.com/thanhphuc85/ArcDCA" target="_blank" rel="noopener">View source ↗</a>
+      <a class="btn ghost" href="https://testnet.arcscan.app/tx/0x83097f432db9c013b3f8d7748b58f18484c2a5fde4ce500c221ee38524250933" target="_blank" rel="noopener">See a live swap ↗</a>
+    </div>
+    <div class="band reveal">
+      <div class="g"><div class="n" id="bTotal">—</div><div class="l">USDC deployed</div></div>
+      <div class="g"><div class="n" id="bRuns">—</div><div class="l">Agent runs</div></div>
+      <div class="g"><div class="n" id="bLast">—</div><div class="l">Last decision</div></div>
     </div>
   </div>
 
-  <section>
+  <section class="reveal">
     <div class="card">
-      <h2>Your Arc Testnet wallet</h2>
-      <p class="sub">Connect MetaMask (or any EIP-1193 wallet). We'll add / switch to Arc Testnet and read your on-chain USDC balance — read-only, no transaction is ever sent from this page.</p>
+      <h3>Your Arc Testnet wallet</h3>
+      <p class="cs">Connect MetaMask (or any EIP-1193 wallet). We add / switch to Arc Testnet and read your on-chain balances — read-only, this page never sends a transaction.</p>
       <div class="wallet-row" id="walletBody">
         <button class="btn" id="connectBtn2">Connect Wallet</button>
-        <a class="btn secondary" href="https://faucet.circle.com" target="_blank" rel="noopener">Get testnet USDC ↗</a>
+        <a class="btn ghost" href="https://faucet.circle.com" target="_blank" rel="noopener">Get testnet USDC ↗</a>
       </div>
       <div class="status-note" id="walletStatus"></div>
     </div>
   </section>
 
-  <section>
-    <h2 class="section-title">The agent's track record</h2>
-    <p class="section-sub">Live from <a href="https://github.com/thanhphuc85/ArcDCA/blob/main/data/history.json" target="_blank" rel="noopener"><code>data/history.json</code></a> — every run the bot commits back to its own repo.</p>
-    <div class="grid cols-3" id="tiles">
-      <div class="card tile"><b id="tTotal">—</b><span>USDC deployed</span></div>
-      <div class="card tile"><b id="tRuns">—</b><span>Runs recorded</span></div>
-      <div class="card tile"><b id="tLast">—</b><span>Last decision</span></div>
+  <section class="reveal">
+    <div class="eyebrow">Live track record</div>
+    <div class="h2">What the agent has done</div>
+    <p class="sub">Straight from <a href="https://github.com/thanhphuc85/ArcDCA/blob/main/data/history.json" target="_blank" rel="noopener"><code>data/history.json</code></a> — every run the bot commits back to its own repo.</p>
+
+    <div class="grid cols-3">
+      <div class="card tile"><span class="n" id="tTotal">—</span><span class="l">USDC deployed</span></div>
+      <div class="card tile"><span class="n" id="tRuns">—</span><span class="l">Runs recorded</span></div>
+      <div class="card tile"><span class="n" id="tLast">—</span><span class="l">Last decision</span></div>
     </div>
 
     <div class="card" style="margin-top:16px;">
-      <h2>Cumulative USDC deployed</h2>
-      <p class="sub" id="chartSub">Loading history…</p>
+      <h3>Cumulative USDC deployed</h3>
+      <p class="cs" id="chartSub">Loading history…</p>
       <div id="chartHost"><div class="chart-empty">Loading…</div></div>
     </div>
 
-    <div class="card" style="margin-top:16px; overflow-x:auto;">
-      <h2>Recent runs</h2>
-      <p class="sub">What Claude proposed, what the guardrails allowed, and why.</p>
+    <div class="card tbl-wrap" style="margin-top:16px;">
+      <h3>Recent runs</h3>
+      <p class="cs">What Claude proposed, what the guardrails allowed, and why.</p>
       <table id="runsTable"><thead>
         <tr><th>Date</th><th>Status</th><th>Requested</th><th>Executed</th><th>Bound by</th><th>Claude's reasoning</th><th>Tx</th></tr>
       </thead><tbody id="runsBody"><tr><td colspan="7" class="reason">Loading…</td></tr></tbody></table>
     </div>
   </section>
 
-  <section>
-    <h2 class="section-title">How it works</h2>
-    <p class="section-sub">Claude recommends; code decides. The LLM is never the final authority on how much money moves.</p>
+  <section class="reveal">
+    <div class="eyebrow">How it works</div>
+    <div class="h2">Claude recommends. Code decides.</div>
+    <p class="sub">The LLM is never the final authority on how much money moves.</p>
     <div class="flow">
-      <div class="step"><b>1 · Claude decides</b><span>Given balance, budget, day count &amp; history, Claude returns a proposed amount + reasoning via a forced, schema-validated tool call.</span></div>
-      <div class="step"><b>2 · Guardrails clamp</b><span>A pure, unit-tested function re-derives the cap from hard limits (max/day, reserve, dust, budget). This is the sole spending authority.</span></div>
-      <div class="step"><b>3 · Swap &amp; record</b><span>Circle Swap Kit executes USDC → cirBTC on Arc Testnet; the run is appended to a public audit trail committed back to the repo.</span></div>
+      <div class="step"><div class="num">1</div><b>Claude decides</b><span>Given balance, budget, day count &amp; history, Claude returns a proposed amount + reasoning via a forced, schema-validated tool call.</span></div>
+      <div class="step"><div class="num">2</div><b>Guardrails clamp</b><span>A pure, unit-tested function re-derives the cap from hard limits (max/day, reserve, dust, budget). The sole spending authority.</span></div>
+      <div class="step"><div class="num">3</div><b>Swap &amp; record</b><span>Circle Swap Kit executes USDC → cirBTC on Arc Testnet; the run is appended to a public audit trail committed back to the repo.</span></div>
     </div>
-    <p class="note" style="margin-top:16px;">The autonomous trading runs <b>server-side</b> (a GitHub Actions cron with a Circle Developer-Controlled Wallet), so no API keys are ever exposed to the browser. This page is a read-only dashboard: connecting your wallet only reads your Arc balance.</p>
+    <p class="note" style="margin-top:18px;">The autonomous trading runs <b>server-side</b> (a GitHub Actions cron with a Circle Developer-Controlled Wallet), so no API keys ever reach the browser. This page is a read-only dashboard — connecting your wallet only reads your Arc balance.</p>
   </section>
 
   <footer>
@@ -184,11 +257,43 @@
     usdc: "0x3600000000000000000000000000000000000000",   // ERC-20 USDC, 6 decimals
     cirbtc: "0xf0c4a4ce82a5746abaad9425360ab04fbba432bf", // cirBTC, 8 decimals
   };
-  var HISTORY_URL = "https://raw.githubusercontent.com/thanhphuc85/ArcDCA/main/data/history.json";
+  // jsDelivr CDN first (robust CORS, no rate-limit 429s; cached up to ~12h),
+  // raw.githubusercontent as a fresher fallback.
+  var HISTORY_SOURCES = [
+    "https://cdn.jsdelivr.net/gh/thanhphuc85/ArcDCA@main/data/history.json",
+    "https://raw.githubusercontent.com/thanhphuc85/ArcDCA/main/data/history.json",
+  ];
+  function fetchHistory() {
+    return HISTORY_SOURCES.reduce(function (p, url) {
+      return p.catch(function () {
+        return fetch(url, { cache: "no-store" }).then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        });
+      });
+    }, Promise.reject(new Error("init")));
+  }
 
   function $(id) { return document.getElementById(id); }
   function short(a) { return a.slice(0, 6) + "…" + a.slice(-4); }
   function fmt(n, d) { return Number(n).toLocaleString("en-US", { maximumFractionDigits: d == null ? 4 : d }); }
+
+  // count-up animation
+  function countUp(el, target, suffix, decimals) {
+    var start = 0, t0 = performance.now(), dur = 900;
+    function step(t) {
+      var p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      el.textContent = fmt(target * e, decimals == null ? 0 : decimals) + (suffix || "");
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  // reveal on scroll
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); } });
+  }, { threshold: 0.12 });
+  document.querySelectorAll(".reveal").forEach(function (el) { io.observe(el); });
 
   // ---------- wallet ----------
   async function connect() {
@@ -206,30 +311,28 @@
         await window.ethereum.request({
           method: "wallet_addEthereumChain",
           params: [{
-            chainId: ARC.chainIdHex,
-            chainName: ARC.chainName,
+            chainId: ARC.chainIdHex, chainName: ARC.chainName,
             nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-            rpcUrls: [ARC.rpc],
-            blockExplorerUrls: [ARC.explorer],
+            rpcUrls: [ARC.rpc], blockExplorerUrls: [ARC.explorer],
           }],
         });
-      } catch (e) { /* user may already be on Arc */ }
+      } catch (e) { /* may already be on Arc */ }
 
       status.textContent = "Reading balances…";
       async function tokenBalance(token) {
-        var data = "0x70a08231" + account.slice(2).toLowerCase().padStart(64, "0"); // balanceOf(address)
+        var data = "0x70a08231" + account.slice(2).toLowerCase().padStart(64, "0");
         var raw = await window.ethereum.request({ method: "eth_call", params: [{ to: token, data: data }, "latest"] });
         return BigInt(raw || "0x0");
       }
-      var usdc = Number(await tokenBalance(ARC.usdc)) / 1e6;    // 6 decimals
-      var cirbtc = Number(await tokenBalance(ARC.cirbtc)) / 1e8; // 8 decimals
+      var usdc = Number(await tokenBalance(ARC.usdc)) / 1e6;
+      var cirbtc = Number(await tokenBalance(ARC.cirbtc)) / 1e8;
 
       $("walletBody").innerHTML =
-        '<div class="kv">Address<span class="addr">' + short(account) + '</span></div>' +
-        '<div class="kv" style="margin-left:8px">USDC<b>' + fmt(usdc, 4) + '</b></div>' +
-        '<div class="kv" style="margin-left:8px">cirBTC<b>' + fmt(cirbtc, 8) + '</b></div>' +
-        '<button class="btn secondary" id="copyAddr">Copy address</button>' +
-        '<a class="btn secondary" href="' + ARC.explorer + '/address/' + account + '" target="_blank" rel="noopener">ArcScan ↗</a>' +
+        '<span class="addr">' + short(account) + '</span>' +
+        '<div class="tok"><div class="coin usdc">$</div><div><div class="amt">' + fmt(usdc, 4) + '</div><div class="cap">USDC</div></div></div>' +
+        '<div class="tok"><div class="coin cirbtc">₿</div><div><div class="amt">' + fmt(cirbtc, 8) + '</div><div class="cap">cirBTC</div></div></div>' +
+        '<button class="btn ghost" id="copyAddr">Copy address</button>' +
+        '<a class="btn ghost" href="' + ARC.explorer + '/address/' + account + '" target="_blank" rel="noopener">ArcScan ↗</a>' +
         '<a class="btn" href="' + ARC.faucet + '" target="_blank" rel="noopener">Get testnet USDC ↗</a>';
       var copyBtn = $("copyAddr");
       if (copyBtn) copyBtn.addEventListener("click", function () {
@@ -242,8 +345,9 @@
       status.textContent = "Connection cancelled or failed: " + (err && err.message ? err.message : err);
     }
   }
-  $("connectBtn").addEventListener("click", connect);
-  $("connectBtn2").addEventListener("click", connect);
+  ["connectBtn", "connectBtn2", "connectHero"].forEach(function (id) {
+    var el = $(id); if (el) el.addEventListener("click", connect);
+  });
 
   // ---------- history dashboard ----------
   var SUCCESS = { success: 1, dry_run: 1 };
@@ -258,25 +362,27 @@
   function renderChart(points) {
     var host = $("chartHost");
     if (!points.length) { host.innerHTML = '<div class="chart-empty">No completed runs yet — check back after the next daily run.</div>'; return; }
-    var W = 900, H = 180, padL = 8, padR = 8, padT = 12, padB = 12;
-    var max = points[points.length - 1].cum || 1;
-    var n = points.length;
+    var W = 920, H = 190, padL = 6, padR = 6, padT = 14, padB = 14;
+    var max = points[points.length - 1].cum || 1, n = points.length;
     function x(i) { return padL + (n === 1 ? (W - padL - padR) / 2 : (i * (W - padL - padR) / (n - 1))); }
     function y(v) { return padT + (H - padT - padB) * (1 - v / max); }
-    var line = "", area = "M" + x(0) + " " + (H - padB);
+    var line = "", area = "M" + x(0) + " " + (H - padB), len = 0, px0 = x(0), py0 = y(points[0].cum);
     for (var i = 0; i < n; i++) {
       var px = x(i), py = y(points[i].cum);
+      if (i) len += Math.hypot(px - px0, py - py0);
+      px0 = px; py0 = py;
       line += (i ? "L" : "M") + px.toFixed(1) + " " + py.toFixed(1) + " ";
       area += " L" + px.toFixed(1) + " " + py.toFixed(1);
     }
     area += " L" + x(n - 1) + " " + (H - padB) + " Z";
     var dots = "";
-    for (var j = 0; j < n; j++) { dots += '<circle cx="' + x(j).toFixed(1) + '" cy="' + y(points[j].cum).toFixed(1) + '" r="3" fill="#8a5cf6"/>'; }
+    for (var j = 0; j < n; j++) dots += '<circle cx="' + x(j).toFixed(1) + '" cy="' + y(points[j].cum).toFixed(1) + '" r="3.2" fill="#a78bfa"/>';
     host.innerHTML =
       '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
-      '<defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a5cf6" stop-opacity="0.35"/><stop offset="1" stop-color="#8a5cf6" stop-opacity="0"/></linearGradient></defs>' +
+      '<defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a5cf6" stop-opacity="0.4"/><stop offset="1" stop-color="#8a5cf6" stop-opacity="0"/></linearGradient>' +
+      '<linearGradient id="lg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2f86e6"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs>' +
       '<path d="' + area + '" fill="url(#ag)"/>' +
-      '<path d="' + line + '" fill="none" stroke="#8a5cf6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>' +
+      '<path class="line" style="--len:' + (len + 4).toFixed(0) + '" d="' + line + '" fill="none" stroke="url(#lg)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>' +
       dots + '</svg>';
   }
 
@@ -284,17 +390,19 @@
     if (!Array.isArray(history)) history = [];
     var completed = history.filter(function (e) { return SUCCESS[e.status]; });
     var total = 0, points = [];
-    completed.forEach(function (e) {
-      total += parseFloat(e.clampedAmountUsdc || "0") || 0;
-      points.push({ cum: total });
-    });
-    $("tTotal").textContent = fmt(total, 4) + " USDC";
-    $("tRuns").textContent = history.length;
+    completed.forEach(function (e) { total += parseFloat(e.clampedAmountUsdc || "0") || 0; points.push({ cum: total }); });
+
     var last = history[history.length - 1];
-    $("tLast").textContent = last ? (statusLabel(last.status)) : "—";
-    if (last && last.clampedAmountUsdc && SUCCESS[last.status]) {
-      $("tLast").textContent = fmt(parseFloat(last.clampedAmountUsdc), 3) + " USDC";
-    }
+    var lastTxt = last ? statusLabel(last.status) : "—";
+    if (last && last.clampedAmountUsdc && SUCCESS[last.status]) lastTxt = fmt(parseFloat(last.clampedAmountUsdc), 3) + " USDC";
+
+    countUp($("tTotal"), total, " USDC", 3);
+    countUp($("tRuns"), history.length, "", 0);
+    $("tLast").textContent = lastTxt;
+    countUp($("bTotal"), total, "", 3);
+    countUp($("bRuns"), history.length, "", 0);
+    $("bLast").textContent = lastTxt;
+
     $("chartSub").textContent = completed.length + " completed run(s) · " + fmt(total, 4) + " USDC total";
     renderChart(points);
 
@@ -306,23 +414,22 @@
       return "<tr>" +
         "<td>" + (e.date || "") + "</td>" +
         '<td><span class="badge ' + statusClass(e.status) + '">' + statusLabel(e.status) + "</span></td>" +
-        '<td class="amt">' + (e.requestedAmountUsdc != null ? e.requestedAmountUsdc : "—") + "</td>" +
-        '<td class="amt">' + (e.clampedAmountUsdc != null ? e.clampedAmountUsdc : "—") + "</td>" +
+        '<td class="amt2">' + (e.requestedAmountUsdc != null ? e.requestedAmountUsdc : "—") + "</td>" +
+        '<td class="amt2">' + (e.clampedAmountUsdc != null ? e.clampedAmountUsdc : "—") + "</td>" +
         "<td>" + (e.boundBy ? e.boundBy.replace(/_/g, " ") : "—") + "</td>" +
         '<td class="reason">' + reason + "</td>" +
-        "<td>" + tx + "</td>" +
-        "</tr>";
+        "<td>" + tx + "</td></tr>";
     }).join("");
     $("runsBody").innerHTML = rows || '<tr><td colspan="7" class="reason">No runs recorded yet.</td></tr>';
   }
 
-  fetch(HISTORY_URL, { cache: "no-store" })
-    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+  fetchHistory()
     .then(render)
     .catch(function (err) {
       $("chartSub").textContent = "Could not load history: " + err.message;
       $("chartHost").innerHTML = '<div class="chart-empty">History unavailable right now.</div>';
       $("runsBody").innerHTML = '<tr><td colspan="7" class="reason">Could not load history.</td></tr>';
+      ["tTotal","tRuns","tLast","bTotal","bRuns","bLast"].forEach(function (id) { $(id).textContent = "—"; });
     });
 })();
 </script>

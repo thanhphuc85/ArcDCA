@@ -198,6 +198,29 @@
   </section>
 
   <section class="reveal">
+    <div class="eyebrow">Use the agent</div>
+    <div class="h2">Fund the agent's DCA treasury</div>
+    <p class="sub">Deposit testnet USDC to the agent's wallet and its daily cron will dollar-cost-average the pooled balance into cirBTC — the agent works for the treasury, autonomously.</p>
+    <div class="card">
+      <div class="wallet-row" style="justify-content:space-between;">
+        <div class="tok"><div class="coin usdc">$</div><div><div class="amt" id="treasuryBal">—</div><div class="cap">Agent treasury (USDC)</div></div></div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span class="addr" id="agentAddr"></span>
+          <button class="btn ghost" id="copyAgent">Copy</button>
+          <a class="btn ghost" id="agentScan" target="_blank" rel="noopener">ArcScan ↗</a>
+        </div>
+      </div>
+      <div class="wallet-row" style="margin-top:16px;">
+        <input id="depositAmt" type="number" min="0" step="0.01" placeholder="Amount in USDC"
+          style="flex:1;min-width:160px;background:rgba(0,0,0,.28);border:1px solid var(--glass-brd);border-radius:12px;color:var(--text);padding:12px 14px;font-size:15px;font-family:inherit;" />
+        <button class="btn" id="depositBtn">Deposit to agent</button>
+      </div>
+      <div class="status-note" id="depositStatus"></div>
+      <p class="note" style="margin-top:16px;">⚠️ <b>Testnet demo.</b> USDC is sent to the agent's shared Circle wallet, which funds the autonomous daily DCA. There is no per-user accounting or withdrawal — deposit only valueless testnet USDC you're happy to contribute to the demo treasury. You confirm every transfer yourself in your wallet.</p>
+    </div>
+  </section>
+
+  <section class="reveal">
     <div class="eyebrow">Live track record</div>
     <div class="h2">What the agent has done</div>
     <p class="sub">Straight from <a href="https://github.com/thanhphuc85/ArcDCA/blob/main/data/history.json" target="_blank" rel="noopener"><code>data/history.json</code></a> — every run the bot commits back to its own repo.</p>
@@ -256,7 +279,9 @@
     faucet: "https://faucet.circle.com",
     usdc: "0x3600000000000000000000000000000000000000",   // ERC-20 USDC, 6 decimals
     cirbtc: "0xf0c4a4ce82a5746abaad9425360ab04fbba432bf", // cirBTC, 8 decimals
+    agent: "0x00Ebbd3aFCCaD08970ED8FdaE591244c8475a0aC",  // the agent's Circle wallet (DCA treasury)
   };
+  var state = { account: null };
   // jsDelivr CDN first (robust CORS, no rate-limit 429s; cached up to ~12h),
   // raw.githubusercontent as a fresher fallback.
   var HISTORY_SOURCES = [
@@ -306,6 +331,7 @@
       status.textContent = "Requesting accounts…";
       var accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
       var account = accounts[0];
+      state.account = account;
       status.textContent = "Adding / switching to Arc Testnet…";
       try {
         await window.ethereum.request({
@@ -341,6 +367,7 @@
           .catch(function () { status.textContent = "Your address: " + account; });
       });
       status.textContent = "Connected to Arc Testnet · read-only. Fund your wallet at faucet.circle.com, then it'll show up above.";
+      refreshTreasury();
     } catch (err) {
       status.textContent = "Connection cancelled or failed: " + (err && err.message ? err.message : err);
     }
@@ -348,6 +375,64 @@
   ["connectBtn", "connectBtn2", "connectHero"].forEach(function (id) {
     var el = $(id); if (el) el.addEventListener("click", connect);
   });
+
+  // ---------- fund the agent (deposit USDC) ----------
+  function toBaseUnits(str, decimals) {
+    var parts = String(str).split(".");
+    var whole = parts[0] || "0";
+    var frac = (parts[1] || "").slice(0, decimals);
+    while (frac.length < decimals) frac += "0";
+    return BigInt(whole || "0") * (BigInt(10) ** BigInt(decimals)) + BigInt(frac || "0");
+  }
+  async function readUsdcBalance(holder) {
+    var data = "0x70a08231" + holder.slice(2).toLowerCase().padStart(64, "0");
+    // Prefer the connected wallet's provider; fall back to a direct RPC call.
+    if (window.ethereum) {
+      try { return BigInt(await window.ethereum.request({ method: "eth_call", params: [{ to: ARC.usdc, data: data }, "latest"] }) || "0x0"); } catch (e) {}
+    }
+    var r = await fetch(ARC.rpc, { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to: ARC.usdc, data: data }, "latest"] }) });
+    var j = await r.json();
+    return BigInt(j.result || "0x0");
+  }
+  async function refreshTreasury() {
+    try {
+      var bal = Number(await readUsdcBalance(ARC.agent)) / 1e6;
+      $("treasuryBal").textContent = fmt(bal, 2);
+    } catch (e) { $("treasuryBal").textContent = "—"; }
+  }
+  async function deposit() {
+    var status = $("depositStatus");
+    if (!window.ethereum || !state.account) { status.textContent = "Connect your wallet first (button above)."; return; }
+    var amt = parseFloat($("depositAmt").value);
+    if (!(amt > 0)) { status.textContent = "Enter an amount greater than 0."; return; }
+    var base = toBaseUnits($("depositAmt").value, 6);
+    var data = "0xa9059cbb" + ARC.agent.slice(2).toLowerCase().padStart(64, "0") + base.toString(16).padStart(64, "0");
+    try {
+      status.textContent = "Confirm the transfer in your wallet…";
+      var txHash = await window.ethereum.request({
+        method: "eth_sendTransaction",
+        params: [{ from: state.account, to: ARC.usdc, data: data }],
+      });
+      status.innerHTML = 'Deposited ' + fmt(amt, 4) + ' USDC to the agent · <a href="' + ARC.explorer + '/tx/' + txHash + '" target="_blank" rel="noopener">view tx ↗</a>. The daily agent run will DCA it.';
+      $("depositAmt").value = "";
+      setTimeout(refreshTreasury, 3500);
+    } catch (err) {
+      status.textContent = "Transfer cancelled or failed: " + (err && err.message ? err.message : err);
+    }
+  }
+  (function initAgentBox() {
+    $("agentAddr").textContent = short(ARC.agent);
+    $("agentScan").href = ARC.explorer + "/address/" + ARC.agent;
+    var cp = $("copyAgent");
+    if (cp) cp.addEventListener("click", function () {
+      (navigator.clipboard ? navigator.clipboard.writeText(ARC.agent) : Promise.reject())
+        .then(function () { cp.textContent = "Copied ✓"; setTimeout(function () { cp.textContent = "Copy"; }, 1500); })
+        .catch(function () { $("depositStatus").textContent = "Agent address: " + ARC.agent; });
+    });
+    var db = $("depositBtn"); if (db) db.addEventListener("click", deposit);
+    refreshTreasury();
+  })();
 
   // ---------- history dashboard ----------
   var SUCCESS = { success: 1, dry_run: 1 };

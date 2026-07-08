@@ -152,6 +152,32 @@
   .pnl-bar .pnl-neg { background: var(--red); }
   .chart2 { width: 100%; height: 160px; display: block; }
 
+  /* agent memory */
+  .memory-latest { padding: 22px; margin-bottom: 16px; }
+  .memory-latest .insight { font-size: 17px; font-weight: 600; line-height: 1.5; margin: 0 0 10px; }
+  .memory-latest .strategy { color: var(--cyan); font-size: 14px; margin: 0 0 8px; }
+  .memory-latest .meta { color: var(--muted); font-size: 12px; }
+  .tag-cloud { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .tag { font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 999px; background: rgba(138,92,246,.12); color: #c4b5fd; border: 1px solid rgba(138,92,246,.3); }
+  .tag .cnt { color: var(--muted); margin-left: 4px; }
+  .ref-timeline { display: flex; flex-direction: column; gap: 0; }
+  .ref-item { display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .ref-item:last-child { border-bottom: none; }
+  .ref-dot-col { display: flex; flex-direction: column; align-items: center; width: 14px; flex-shrink: 0; padding-top: 5px; }
+  .ref-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .ref-dot.high { background: var(--green); box-shadow: 0 0 8px rgba(52,211,153,.4); }
+  .ref-dot.medium { background: var(--amber); box-shadow: 0 0 8px rgba(245,165,36,.3); }
+  .ref-dot.low { background: var(--muted); }
+  .ref-body { flex: 1; min-width: 0; }
+  .ref-body .ref-insight { font-size: 13.5px; line-height: 1.5; margin: 0 0 4px; }
+  .ref-body .ref-meta { font-size: 11.5px; color: var(--muted); }
+  .ref-body .ref-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .ref-body .ref-tags .tag { font-size: 10px; padding: 3px 8px; }
+  .conf-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; margin-left: 6px; }
+  .conf-high { background: rgba(52,211,153,.14); color: #6ee7b7; }
+  .conf-medium { background: rgba(245,165,36,.13); color: #fbcf6b; }
+  .conf-low { background: rgba(151,164,191,.14); color: var(--muted); }
+
   /* how it works */
   .flow { display: grid; gap: 16px; }
   @media (min-width: 760px) { .flow { grid-template-columns: repeat(3,1fr); } }
@@ -307,6 +333,31 @@
     </div>
   </section>
 
+  <section class="reveal" id="memorySection" style="display:none;">
+    <div class="eyebrow">Agent memory</div>
+    <div class="h2">What the agent has learned</div>
+    <p class="sub">After every run, the agent reflects on its decisions and outcomes — building persistent memory that shapes future strategy.</p>
+
+    <div class="card memory-latest" id="latestReflection">
+      <h3>Latest insight</h3>
+      <p class="insight" id="memInsight">—</p>
+      <p class="strategy" id="memStrategy">—</p>
+      <p class="meta" id="memMeta">—</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3>Pattern recognition</h3>
+      <p class="cs">Most frequently observed patterns across all reflections</p>
+      <div class="tag-cloud" id="tagCloud"></div>
+    </div>
+
+    <div class="card">
+      <h3>Reflection timeline</h3>
+      <p class="cs" id="refTimelineSub">—</p>
+      <div class="ref-timeline" id="refTimeline"></div>
+    </div>
+  </section>
+
   <section class="reveal">
     <div class="eyebrow">How it works</div>
     <div class="h2">Claude recommends. Code decides.</div>
@@ -349,8 +400,12 @@
     "https://cdn.jsdelivr.net/gh/thanhphuc85/ArcDCA@main/data/history.json",
     "https://raw.githubusercontent.com/thanhphuc85/ArcDCA/main/data/history.json",
   ];
-  function fetchHistory() {
-    return HISTORY_SOURCES.reduce(function (p, url) {
+  var REFLECTION_SOURCES = [
+    "https://cdn.jsdelivr.net/gh/thanhphuc85/ArcDCA@main/data/reflections.json",
+    "https://raw.githubusercontent.com/thanhphuc85/ArcDCA/main/data/reflections.json",
+  ];
+  function fetchFromSources(sources) {
+    return sources.reduce(function (p, url) {
       return p.catch(function () {
         return fetch(url, { cache: "no-store" }).then(function (r) {
           if (!r.ok) throw new Error("HTTP " + r.status);
@@ -359,6 +414,8 @@
       });
     }, Promise.reject(new Error("init")));
   }
+  function fetchHistory() { return fetchFromSources(HISTORY_SOURCES); }
+  function fetchReflections() { return fetchFromSources(REFLECTION_SOURCES).catch(function () { return []; }); }
 
   function $(id) { return document.getElementById(id); }
   function short(a) { return a.slice(0, 6) + "…" + a.slice(-4); }
@@ -644,6 +701,55 @@
     $("pBarValue").textContent = "Current value: " + fmt(currentValue, 4) + " USDC";
   }
 
+  function renderReflections(reflections) {
+    if (!Array.isArray(reflections) || !reflections.length) {
+      $("memorySection").style.display = "none";
+      return;
+    }
+    $("memorySection").style.display = "";
+
+    var latest = reflections[reflections.length - 1];
+    $("memInsight").textContent = latest.insight;
+    $("memStrategy").textContent = "Strategy: " + latest.strategyAdjustment;
+    var confClass = latest.confidenceLevel === "high" ? "conf-high" : (latest.confidenceLevel === "medium" ? "conf-medium" : "conf-low");
+    $("memMeta").innerHTML = "Day " + latest.dayNumber + " · " + latest.date +
+      ' · <span class="conf-badge ' + confClass + '">' + latest.confidenceLevel + " confidence</span>";
+
+    var tagCounts = {};
+    reflections.forEach(function (r) {
+      (r.tags || []).forEach(function (t) { tagCounts[t] = (tagCounts[t] || 0) + 1; });
+    });
+    var sorted = Object.keys(tagCounts).sort(function (a, b) { return tagCounts[b] - tagCounts[a]; });
+    $("tagCloud").innerHTML = sorted.slice(0, 12).map(function (t) {
+      return '<span class="tag">' + t + '<span class="cnt">×' + tagCounts[t] + '</span></span>';
+    }).join("") || '<span style="color:var(--muted);font-size:13px;">No patterns yet</span>';
+
+    var patternCounts = {};
+    reflections.forEach(function (r) {
+      (r.patterns || []).forEach(function (p) { patternCounts[p] = (patternCounts[p] || 0) + 1; });
+    });
+    var topPatterns = Object.keys(patternCounts).sort(function (a, b) { return patternCounts[b] - patternCounts[a]; }).slice(0, 5);
+    if (topPatterns.length) {
+      $("tagCloud").innerHTML += '<div style="width:100%;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06);font-size:12px;color:var(--muted);">Top patterns: ' +
+        topPatterns.map(function (p) { return '<span style="color:var(--text);font-size:12px;">' + p + '</span> <span style="color:var(--muted);">(' + patternCounts[p] + '×)</span>'; }).join(" · ") + '</div>';
+    }
+
+    $("refTimelineSub").textContent = reflections.length + " reflection(s) stored";
+    var items = reflections.slice().reverse().slice(0, 10);
+    $("refTimeline").innerHTML = items.map(function (r) {
+      var dotClass = r.confidenceLevel || "low";
+      var tagsHtml = (r.tags || []).map(function (t) { return '<span class="tag">' + t + '</span>'; }).join("");
+      return '<div class="ref-item">' +
+        '<div class="ref-dot-col"><div class="ref-dot ' + dotClass + '"></div></div>' +
+        '<div class="ref-body">' +
+        '<p class="ref-insight">' + (r.insight || "") + '</p>' +
+        '<p class="ref-meta">' + r.date + ' · ' + (r.runStatus || "").replace(/_/g, " ") +
+        ' · <span class="conf-badge conf-' + dotClass + '">' + r.confidenceLevel + '</span></p>' +
+        (tagsHtml ? '<div class="ref-tags">' + tagsHtml + '</div>' : "") +
+        '</div></div>';
+    }).join("") || '<div style="color:var(--muted);padding:16px 0;font-size:13px;">No reflections yet.</div>';
+  }
+
   function render(history) {
     if (!Array.isArray(history)) history = [];
     var completed = history.filter(function (e) { return SUCCESS[e.status]; });
@@ -683,8 +789,11 @@
     renderPerformance(history);
   }
 
-  fetchHistory()
-    .then(render)
+  Promise.all([fetchHistory(), fetchReflections()])
+    .then(function (results) {
+      render(results[0]);
+      renderReflections(results[1]);
+    })
     .catch(function (err) {
       $("chartSub").textContent = "Could not load history: " + err.message;
       $("chartHost").innerHTML = '<div class="chart-empty">History unavailable right now.</div>';

@@ -62,3 +62,18 @@ export interface ClampedDecision {
   boundBy: string;
   skipReason?: "llm_declined" | "invalid_llm_amount" | "below_dust_threshold" | "daily_cap_exhausted";
 }
+
+export interface Reflection {
+  id: string;
+  date: string;
+  timestamp: string;
+  runStatus: RunStatus;
+  insight: string;
+  patterns: string[];
+  strategyAdjustment: string;
+  confidenceLevel: "low" | "medium" | "high";
+  cumulativeSpentUsdc: string;
+  dayNumber: number;
+  walletBalance: string;
+  tags: string[];
+}

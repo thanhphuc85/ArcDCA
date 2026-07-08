@@ -1,4 +1,4 @@
-import type { HistoryEntry } from "../types.js";
+import type { HistoryEntry, Reflection } from "../types.js";
 
 const SUCCESS_STATUSES = new Set(["success", "dry_run"]);
 
@@ -44,6 +44,53 @@ export const ANALYSIS_TOOLS = [
     },
   },
 ];
+
+export const RECALL_REFLECTIONS_TOOL = {
+  name: "recall_reflections",
+  description:
+    "Search your memory for past reflections and strategy insights from previous runs. Use this early in your analysis to recall what you learned from past decisions, patterns you observed, and strategy adjustments you planned. Filter by tags to find relevant lessons.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      tags: {
+        type: "array" as const,
+        items: { type: "string" as const },
+        description: "Optional tags to filter by, e.g. ['pacing', 'clamping', 'error-recovery']. Leave empty for most recent reflections.",
+      },
+      limit: {
+        type: "number" as const,
+        description: "Max reflections to return (default 5, max 10).",
+      },
+    },
+    required: [] as string[],
+  },
+};
+
+export function retrieveReflections(
+  reflections: Reflection[],
+  tags?: string[],
+  limit?: number,
+): { reflections: Array<{ date: string; insight: string; patterns: string[]; strategyAdjustment: string; tags: string[]; confidence: string }>; totalStored: number } {
+  const cap = Math.min(Math.max(limit ?? 5, 1), 10);
+  let results: Reflection[];
+  if (tags && tags.length > 0) {
+    const tagSet = new Set(tags.map((t) => t.toLowerCase()));
+    results = reflections.filter((r) => r.tags.some((t) => tagSet.has(t.toLowerCase())));
+  } else {
+    results = reflections;
+  }
+  return {
+    reflections: results.slice(-cap).map((r) => ({
+      date: r.date,
+      insight: r.insight,
+      patterns: r.patterns,
+      strategyAdjustment: r.strategyAdjustment,
+      tags: r.tags,
+      confidence: r.confidenceLevel,
+    })),
+    totalStored: reflections.length,
+  };
+}
 
 export const DECISION_TOOL = {
   name: "record_dca_decision",

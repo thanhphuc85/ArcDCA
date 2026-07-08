@@ -63,6 +63,6 @@ jobs:
         run: |
           git config user.name "arcdca-bot"
           git config user.email "arcdca-bot@users.noreply.github.com"
-          git add data/history.json
+          git add data/history.json data/reflections.json
           git diff --cached --quiet || git commit -m "chore: record DCA run $(date -u +%Y-%m-%d)"
           git push

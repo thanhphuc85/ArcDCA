@@ -1,15 +1,17 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import type { DecisionContext, ClaudeDecision, HistoryEntry } from "../types.js";
+import type { DecisionContext, ClaudeDecision, HistoryEntry, Reflection } from "../types.js";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt.js";
 import { withRetry } from "../retry.js";
 import { logger } from "../logger.js";
 import {
   ANALYSIS_TOOLS,
   DECISION_TOOL,
+  RECALL_REFLECTIONS_TOOL,
   computePacingMetrics,
   buildDetailedHistory,
   previewAllocation,
+  retrieveReflections,
 } from "./tools.js";
 
 export class DecisionError extends Error {
@@ -33,6 +35,7 @@ const MAX_TURNS = 6;
 
 export interface DecisionDeps {
   history: HistoryEntry[];
+  reflections: Reflection[];
   walletUsdcBalance: string;
   alreadySpentTodayUsdc: string;
   remainingCampaignBudgetUsdc?: string;
@@ -78,6 +81,17 @@ function handleToolCall(
         2,
       );
 
+    case "recall_reflections":
+      return JSON.stringify(
+        retrieveReflections(
+          deps.reflections,
+          (toolInput.tags as string[]) ?? [],
+          (toolInput.limit as number) ?? 5,
+        ),
+        null,
+        2,
+      );
+
     default:
       return JSON.stringify({ error: `Unknown tool: ${toolName}` });
   }
@@ -89,7 +103,7 @@ export async function getClaudeDecision(
   deps: DecisionDeps,
 ): Promise<ClaudeDecision> {
   const client = new Anthropic({ apiKey });
-  const allTools = [...ANALYSIS_TOOLS, DECISION_TOOL];
+  const allTools = [RECALL_REFLECTIONS_TOOL, ...ANALYSIS_TOOLS, DECISION_TOOL];
 
   const messages: Anthropic.MessageParam[] = [
     { role: "user", content: buildUserPrompt(context) },

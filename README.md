@@ -31,14 +31,15 @@ This isn't a mockup. The agent has executed a **real swap on Arc Testnet**:
 - **Transaction:** [`0x83097f…50933`](https://testnet.arcscan.app/tx/0x83097f432db9c013b3f8d7748b58f18484c2a5fde4ce500c221ee38524250933) — swapped `0.10 USDC → cirBTC`
 - **The daily cron runs autonomously in CI:** see the green [Actions runs](https://github.com/thanhphuc85/ArcDCA/actions/workflows/dca.yml) and the bot's own `chore: record DCA run …` commits to [`data/history.json`](data/history.json).
 
-<!--
-  To add static screenshots: save two PNGs into docs/ named ci-run.png and
-  tx.png, then delete this comment's opening/closing markers so the images
-  below render.
+**Autonomous run in CI** — [verify live on the Actions tab →](https://github.com/thanhphuc85/ArcDCA/actions/workflows/dca.yml)
 
-![Green CI run — Daily DCA Bot workflow succeeded](docs/ci-run.png)
-![On-chain USDC → cirBTC swap on ArcScan](docs/tx.png)
--->
+![Daily DCA Bot run #4 succeeded in 24s on GitHub Actions](docs/ci-run.svg)
+
+**The resulting on-chain swap** — [verify on ArcScan →](https://testnet.arcscan.app/tx/0x83097f432db9c013b3f8d7748b58f18484c2a5fde4ce500c221ee38524250933)
+
+![Swap of 0.1 USDC for cirBTC succeeded on Arc Testnet](docs/tx.svg)
+
+<sub>The two cards above summarize the real, independently verifiable events — the links are the source of truth.</sub>
 
 A real audit-trail entry the agent wrote (`data/history.json`), showing Claude's own reasoning:
 

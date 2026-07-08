@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" role="img" aria-label="ArcScan transaction: swap 0.1 USDC for cirBTC succeeded on Arc Testnet">
+  <rect x="0" y="0" width="760" height="320" rx="14" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+
+  <!-- header -->
+  <text x="28" y="42" fill="#0f172a" font-size="20" font-weight="700">Transaction details</text>
+  <rect x="640" y="26" width="92" height="22" rx="11" fill="#eef2ff"/>
+  <text x="686" y="41" text-anchor="middle" fill="#4f46e5" font-size="11" font-weight="700">Arc Testnet</text>
+
+  <!-- swap summary -->
+  <text x="28" y="80" fill="#0f172a" font-size="15">
+    <tspan fill="#f59e0b" font-weight="700">⚡ Swap</tspan>
+    <tspan font-weight="700"> 0.1 </tspan><tspan fill="#2775ca" font-weight="700">USDC</tspan>
+    <tspan fill="#64748b"> for </tspan><tspan font-weight="700">1.2e-7 </tspan><tspan fill="#7c3aed" font-weight="700">cirBTC</tspan>
+  </text>
+
+  <line x1="28" y1="98" x2="732" y2="98" stroke="#eef2f7" stroke-width="1"/>
+
+  <!-- testnet notice -->
+  <rect x="28" y="112" width="704" height="30" rx="6" fill="#fff7ed"/>
+  <text x="44" y="132" fill="#b45309" font-size="12">This is a testnet transaction only</text>
+
+  <!-- rows -->
+  <text x="28"  y="176" fill="#64748b" font-size="12">Transaction hash</text>
+  <text x="200" y="176" fill="#0f172a" font-size="12.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">0x83097f432db9c013b3f8d7748b58f18484c2a5fde4ce500c221ee38524250933</text>
+
+  <text x="28"  y="208" fill="#64748b" font-size="12">Status &amp; method</text>
+  <rect x="200" y="196" width="70" height="20" rx="10" fill="#dcfce7"/>
+  <text x="235" y="210" text-anchor="middle" fill="#15803d" font-size="11" font-weight="700">Success</text>
+  <rect x="280" y="196" width="66" height="20" rx="6" fill="#f1f5f9"/>
+  <text x="313" y="210" text-anchor="middle" fill="#475569" font-size="11">execute</text>
+
+  <text x="28"  y="240" fill="#64748b" font-size="12">Block</text>
+  <text x="200" y="240" fill="#2775ca" font-size="12.5" font-weight="600">50670048</text>
+  <text x="300" y="240" fill="#64748b" font-size="12">3390 confirmations · Jul 08 2026 · finalized in ≤0.51s</text>
+
+  <text x="28"  y="272" fill="#64748b" font-size="12">From (bot wallet)</text>
+  <text x="200" y="272" fill="#0f172a" font-size="12.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">0x00Ebbd3aFCCaD08970ED8FdaE591244c8475a0aC</text>
+
+  <text x="28"  y="304" fill="#64748b" font-size="12">Route</text>
+  <text x="200" y="304" fill="#475569" font-size="12">Circle Swap Kit → LiFi / DexAggregator → Pool → cirBTC</text>
+</svg>

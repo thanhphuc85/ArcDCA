@@ -480,6 +480,35 @@
   [data-theme="light"] .wp-popover { background: #fff; box-shadow: 0 24px 80px -16px rgba(0,0,0,.18), 0 0 0 1px rgba(0,0,0,.06); }
   @media (max-width: 600px) { .wp-popover { width: calc(100vw - 24px); right: -12px; } }
 
+  /* ---------- approval center ---------- */
+  .approval-pending { border: 1px solid rgba(245,165,36,.25); background: rgba(245,165,36,.04); border-radius: 20px; padding: 20px; margin-bottom: 16px; }
+  .approval-pending .ap-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .approval-pending .ap-badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; padding: 4px 10px; border-radius: 8px; background: rgba(245,165,36,.15); color: #f5a524; }
+  .approval-pending .ap-date { font-size: 12px; color: var(--muted); }
+  .approval-pending .ap-body { font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 16px; }
+  .approval-pending .ap-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .approval-pending .ap-stat { padding: 10px 14px; border-radius: 12px; background: var(--glass); border: 1px solid var(--glass-brd); }
+  .approval-pending .ap-stat .ap-val { font-family: Sora, sans-serif; font-weight: 700; font-size: 16px; }
+  .approval-pending .ap-stat .ap-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .approval-actions { display: flex; gap: 10px; }
+  .approval-actions .btn-approve { flex: 1; padding: 10px; border-radius: 12px; border: none; font-weight: 700; font-size: 13px; cursor: pointer; transition: all .18s; background: var(--green); color: #fff; }
+  .approval-actions .btn-approve:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .approval-actions .btn-reject { flex: 1; padding: 10px; border-radius: 12px; border: 1px solid rgba(251,113,133,.3); font-weight: 700; font-size: 13px; cursor: pointer; transition: all .18s; background: rgba(251,113,133,.08); color: #fb7185; }
+  .approval-actions .btn-reject:hover { background: rgba(251,113,133,.18); transform: translateY(-1px); }
+  .approval-history-list { display: flex; flex-direction: column; gap: 8px; }
+  .ah-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 14px; background: var(--glass); border: 1px solid var(--glass-brd); font-size: 13px; }
+  .ah-item .ah-icon { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; font-size: 15px; flex-shrink: 0; }
+  .ah-item .ah-icon.approved { background: rgba(52,211,153,.12); }
+  .ah-item .ah-icon.rejected { background: rgba(251,113,133,.12); }
+  .ah-item .ah-info { flex: 1; min-width: 0; }
+  .ah-item .ah-info b { font-weight: 600; }
+  .ah-item .ah-info .ah-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .ah-item .ah-amount { font-family: Sora, sans-serif; font-weight: 700; font-size: 14px; white-space: nowrap; }
+  .approval-empty { text-align: center; padding: 32px 20px; color: var(--muted); font-size: 13px; }
+  .approval-mode-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 8px; margin-left: 8px; }
+  .approval-mode-badge.on { background: rgba(245,165,36,.12); color: #f5a524; }
+  .approval-mode-badge.off { background: rgba(100,116,139,.12); color: var(--muted); }
+
   /* ---------- wallet connect modal ---------- */
   .wm-overlay { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); justify-content: center; align-items: center; padding: 20px; }
   .wm-overlay.open { display: flex; animation: wmFadeIn .2s ease; }
@@ -688,6 +717,13 @@
           <option value="0">Disabled — always fetch fresh</option>
         </select>
       </div>
+      <div class="setting-group">
+        <label for="setApprovalMode">Manual approval mode</label>
+        <select id="setApprovalMode">
+          <option value="0">Off — agent runs automatically</option>
+          <option value="1">On — require approval before swap</option>
+        </select>
+      </div>
     </div>
     <h3 style="margin:18px 0 14px;">DCA Strategy</h3>
     <div class="settings-grid">
@@ -856,6 +892,20 @@
           <div class="th-label">Strong dip</div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section class="reveal" id="approvalSection" style="display:none;">
+    <div class="eyebrow" data-t="approvalEye">Approval Center</div>
+    <div class="h2" data-t="approvalTitle">Review agent decisions<span class="approval-mode-badge on" id="approvalModeBadge">Manual</span></div>
+    <p class="sub" data-t="approvalSub">The agent proposes a DCA trade — you approve or reject before any swap executes.</p>
+
+    <div id="approvalPending"></div>
+
+    <div class="card" style="margin-top:16px;">
+      <h3 data-t="approvalHistoryTitle">Approval history</h3>
+      <p class="cs" id="approvalHistorySub" data-t="approvalHistorySub">Your past decisions on agent proposals</p>
+      <div id="approvalHistory"></div>
     </div>
   </section>
 
@@ -1182,6 +1232,8 @@
     if (sd && userSettings.defaultDeposit) sd.value = userSettings.defaultDeposit;
     if (sro) sro.value = String(userSettings.tableRows || 12);
     if (sc) sc.value = userSettings.cacheEnabled === false ? "0" : "1";
+    var sam = document.getElementById("setApprovalMode");
+    if (sam) sam.value = userSettings.approvalMode ? "1" : "0";
 
     var sba = document.getElementById("setBaseAmt");
     var smp = document.getElementById("setMildPct");
@@ -1203,8 +1255,10 @@
       userSettings.defaultDeposit = sd.value;
       userSettings.tableRows = parseInt(sro.value, 10) || 12;
       userSettings.cacheEnabled = sc.value !== "0";
+      userSettings.approvalMode = sam.value === "1";
       if (!userSettings.cacheEnabled) clearCache();
       saveSettings();
+      renderApprovalSection();
       setupAutoRefresh();
     }
     function onStratChange() {
@@ -1218,7 +1272,7 @@
       saveDcaStrategy();
       if (_historyData) renderStrategy(_historyData);
     }
-    [sr, sd, sro, sc].forEach(function (el) { if (el) el.addEventListener("change", onChange); });
+    [sr, sd, sro, sc, sam].forEach(function (el) { if (el) el.addEventListener("change", onChange); });
     [sba, smp, smop, ssp, smm, smom, ssm].forEach(function (el) { if (el) el.addEventListener("change", onStratChange); });
 
     var tgToken = document.getElementById("setTgToken");
@@ -1290,6 +1344,149 @@
       _lastNotifiedRun = runId;
       saveStore("aura-last-notified", runId);
     }).catch(function () {});
+  }
+
+  // ---------- approval center ----------
+  var approvalData = loadStore("aura-approvals", { pending: [], history: [] });
+  function saveApprovals() { saveStore("aura-approvals", approvalData); }
+
+  function addPendingApproval(entry) {
+    if (!userSettings.approvalMode) return;
+    var id = entry.timestamp || new Date().toISOString();
+    var exists = approvalData.pending.some(function (p) { return p.id === id; });
+    if (exists) return;
+    approvalData.pending.push({
+      id: id,
+      date: entry.date,
+      timestamp: entry.timestamp,
+      amount: entry.clampedAmountUsdc || entry.requestedAmountUsdc || "0",
+      boundBy: entry.boundBy || "—",
+      reasoning: entry.reasoning || "",
+      balance: entry.walletUsdcBalance || "—",
+      status: entry.status || "pending",
+      tokenOut: entry.tokenOut || "cirBTC"
+    });
+    saveApprovals();
+    renderApprovalSection();
+  }
+
+  function approveDecision(id) {
+    var idx = -1;
+    approvalData.pending.forEach(function (p, i) { if (p.id === id) idx = i; });
+    if (idx < 0) return;
+    var item = approvalData.pending.splice(idx, 1)[0];
+    item.verdict = "approved";
+    item.verdictAt = new Date().toISOString();
+    approvalData.history.unshift(item);
+    if (approvalData.history.length > 50) approvalData.history = approvalData.history.slice(0, 50);
+    saveApprovals();
+    renderApprovalSection();
+    var tg = loadStore("aura-telegram", {});
+    if (tg.token && tg.chatId) {
+      sendTelegram(tg.token, tg.chatId, "✅ Approved DCA: " + item.amount + " USDC → " + item.tokenOut + "\nDate: " + item.date).catch(function () {});
+    }
+  }
+
+  function rejectDecision(id) {
+    var idx = -1;
+    approvalData.pending.forEach(function (p, i) { if (p.id === id) idx = i; });
+    if (idx < 0) return;
+    var item = approvalData.pending.splice(idx, 1)[0];
+    item.verdict = "rejected";
+    item.verdictAt = new Date().toISOString();
+    approvalData.history.unshift(item);
+    if (approvalData.history.length > 50) approvalData.history = approvalData.history.slice(0, 50);
+    saveApprovals();
+    renderApprovalSection();
+    var tg = loadStore("aura-telegram", {});
+    if (tg.token && tg.chatId) {
+      sendTelegram(tg.token, tg.chatId, "❌ Rejected DCA: " + item.amount + " USDC → " + item.tokenOut + "\nDate: " + item.date).catch(function () {});
+    }
+  }
+
+  function renderApprovalSection() {
+    var section = $("approvalSection");
+    if (!section) return;
+    var isOn = userSettings.approvalMode;
+    section.style.display = isOn ? "" : "none";
+    var badge = $("approvalModeBadge");
+    if (badge) {
+      badge.className = "approval-mode-badge " + (isOn ? "on" : "off");
+      badge.textContent = isOn ? "Manual" : "Auto";
+    }
+    if (!isOn) return;
+    renderPendingApprovals();
+    renderApprovalHistory();
+  }
+
+  function renderPendingApprovals() {
+    var host = $("approvalPending");
+    if (!host) return;
+    var t = T[currentLang] || T.en;
+    if (!approvalData.pending.length) {
+      host.innerHTML = '<div class="approval-empty">' + (t.apEmpty || "No pending decisions.") + '</div>';
+      return;
+    }
+    host.innerHTML = approvalData.pending.map(function (p) {
+      var d = p.date || "—";
+      var ts = p.timestamp ? new Date(p.timestamp).toLocaleString() : "";
+      return '<div class="approval-pending">' +
+        '<div class="ap-header">' +
+          '<span class="ap-badge">' + (t.apPending || "Pending approval") + '</span>' +
+          '<span class="ap-date">' + d + (ts ? " · " + ts : "") + '</span>' +
+        '</div>' +
+        '<div class="ap-body">' + (p.reasoning || "No reasoning provided.") + '</div>' +
+        '<div class="ap-meta">' +
+          '<div class="ap-stat"><div class="ap-val">' + fmt(parseFloat(p.amount) || 0, 4) + ' USDC</div><div class="ap-label">' + (t.apAmount || "Amount") + '</div></div>' +
+          '<div class="ap-stat"><div class="ap-val">' + (p.boundBy || "—").replace(/_/g, " ") + '</div><div class="ap-label">' + (t.apBound || "Bound by") + '</div></div>' +
+          '<div class="ap-stat"><div class="ap-val">' + (p.balance !== "—" ? fmt(parseFloat(p.balance) || 0, 2) + " USDC" : "—") + '</div><div class="ap-label">' + (t.apBalance || "Balance") + '</div></div>' +
+        '</div>' +
+        '<div class="approval-actions">' +
+          '<button class="btn-approve" data-ap-id="' + p.id + '">' + (t.apBtnApprove || "Approve swap") + '</button>' +
+          '<button class="btn-reject" data-ap-id="' + p.id + '">' + (t.apBtnReject || "Reject") + '</button>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+    host.querySelectorAll(".btn-approve").forEach(function (btn) {
+      btn.addEventListener("click", function () { approveDecision(this.getAttribute("data-ap-id")); });
+    });
+    host.querySelectorAll(".btn-reject").forEach(function (btn) {
+      btn.addEventListener("click", function () { rejectDecision(this.getAttribute("data-ap-id")); });
+    });
+  }
+
+  function renderApprovalHistory() {
+    var host = $("approvalHistory");
+    if (!host) return;
+    var t = T[currentLang] || T.en;
+    if (!approvalData.history.length) {
+      host.innerHTML = '<div class="approval-empty">' + (t.apHistEmpty || "No approval history yet.") + '</div>';
+      return;
+    }
+    host.innerHTML = '<div class="approval-history-list">' + approvalData.history.slice(0, 20).map(function (h) {
+      var isApproved = h.verdict === "approved";
+      var icon = isApproved ? "✓" : "✕";
+      var cls = isApproved ? "approved" : "rejected";
+      var label = isApproved ? (t.apApproved || "Approved") : (t.apRejected || "Rejected");
+      var when = h.verdictAt ? new Date(h.verdictAt).toLocaleString() : h.date || "—";
+      return '<div class="ah-item">' +
+        '<div class="ah-icon ' + cls + '">' + icon + '</div>' +
+        '<div class="ah-info"><b>' + label + '</b> · ' + (h.tokenOut || "cirBTC") +
+          '<div class="ah-sub">' + when + (h.boundBy ? " · " + h.boundBy.replace(/_/g, " ") : "") + '</div>' +
+        '</div>' +
+        '<div class="ah-amount">' + fmt(parseFloat(h.amount) || 0, 4) + ' USDC</div>' +
+      '</div>';
+    }).join("") + '</div>';
+  }
+
+  function syncPendingFromHistory(history) {
+    if (!userSettings.approvalMode || !history || !history.length) return;
+    var latest = history[history.length - 1];
+    if (!latest || !latest.clampedAmountUsdc) return;
+    if (latest.status === "success" || latest.status === "error_config") return;
+    var alreadyDecided = approvalData.history.some(function (h) { return h.id === latest.timestamp; });
+    if (alreadyDecided) return;
+    addPendingApproval(latest);
   }
 
   var ARC = {
@@ -2865,6 +3062,14 @@
       wpDisconnect: "Disconnect", wpYourBal: "Your balance", wpAgentTreasury: "Agent treasury",
       perfDrawdown: "Max drawdown", perfVsLump: "DCA vs Lump sum", perfAvgPrice: "Avg buy price", perfTotalBtc: "Total cirBTC",
       perfDcaVsLump: "DCA vs Lump Sum",
+      approvalEye: "Approval Center", approvalTitle: "Review agent decisions",
+      approvalSub: "The agent proposes a DCA trade — you approve or reject before any swap executes.",
+      approvalHistoryTitle: "Approval history", approvalHistorySub: "Your past decisions on agent proposals",
+      apPending: "Pending approval", apApproved: "Approved", apRejected: "Rejected",
+      apAmount: "Amount", apBound: "Bound by", apBalance: "Balance",
+      apBtnApprove: "Approve swap", apBtnReject: "Reject",
+      apEmpty: "No pending decisions. The agent will submit proposals here when Manual Approval is enabled.",
+      apHistEmpty: "No approval history yet.",
     },
     vi: {
       heroChip: "Encode × Circle · Hackathon Tiền Lập Trình",
@@ -2908,6 +3113,14 @@
       wpDisconnect: "Ngắt kết nối", wpYourBal: "Số dư của bạn", wpAgentTreasury: "Quỹ agent",
       perfDrawdown: "Sụt giảm tối đa", perfVsLump: "DCA vs Mua 1 lần", perfAvgPrice: "Giá mua TB", perfTotalBtc: "Tổng cirBTC",
       perfDcaVsLump: "DCA vs Mua 1 lần",
+      approvalEye: "Trung tâm phê duyệt", approvalTitle: "Duyệt quyết định agent",
+      approvalSub: "Agent đề xuất giao dịch DCA — bạn phê duyệt hoặc từ chối trước khi swap được thực hiện.",
+      approvalHistoryTitle: "Lịch sử phê duyệt", approvalHistorySub: "Các quyết định trước đây của bạn về đề xuất của agent",
+      apPending: "Chờ phê duyệt", apApproved: "Đã duyệt", apRejected: "Đã từ chối",
+      apAmount: "Số lượng", apBound: "Giới hạn bởi", apBalance: "Số dư",
+      apBtnApprove: "Duyệt swap", apBtnReject: "Từ chối",
+      apEmpty: "Không có quyết định chờ duyệt. Agent sẽ gửi đề xuất tại đây khi bật chế độ Phê duyệt thủ công.",
+      apHistEmpty: "Chưa có lịch sử phê duyệt.",
     }
   };
   var currentLang = localStorage.getItem("aura-lang") || "en";
@@ -2958,6 +3171,7 @@
   });
   // Apply saved language on load
   if (currentLang !== "en") applyLang(currentLang);
+  renderApprovalSection();
 
   // ---------- add data-t attributes to sections for language support ----------
   (function markTranslatable() {
@@ -2986,6 +3200,8 @@
   function renderNewFeatures(history, reflections) {
     renderPriceChart(history || []);
     renderInsights(history, reflections);
+    syncPendingFromHistory(history);
+    renderApprovalSection();
   }
 
   Promise.all([fetchHistory(), fetchReflections()])

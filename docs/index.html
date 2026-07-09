@@ -257,6 +257,22 @@
   .conf-medium { background: rgba(245,165,36,.13); color: #fbcf6b; }
   .conf-low { background: rgba(151,164,191,.14); color: var(--muted); }
 
+  /* export/import */
+  .export-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .export-bar .export-label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  .btn-sm { font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 10px; border: 1px solid var(--glass-brd); background: var(--glass); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: background .15s, border-color .15s; backdrop-filter: blur(6px); }
+  .btn-sm:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.18); }
+  [data-theme="light"] .btn-sm:hover { background: rgba(0,0,0,.06); border-color: rgba(0,0,0,.15); }
+  .btn-sm .ic { font-size: 14px; }
+  .import-zone { border: 2px dashed var(--glass-brd); border-radius: 14px; padding: 24px; text-align: center; transition: border-color .2s, background .2s; cursor: pointer; }
+  .import-zone:hover, .import-zone.drag-over { border-color: var(--violet); background: rgba(138,92,246,.06); }
+  .import-zone .iz-icon { font-size: 28px; margin-bottom: 8px; }
+  .import-zone .iz-title { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
+  .import-zone .iz-desc { font-size: 12px; color: var(--muted); margin: 0; }
+  .import-status { font-size: 13px; margin-top: 10px; min-height: 18px; }
+  .import-status.ok { color: var(--green); }
+  .import-status.err { color: var(--red); }
+
   /* how it works */
   .flow { display: grid; gap: 16px; }
   @media (min-width: 760px) { .flow { grid-template-columns: repeat(3,1fr); } }
@@ -486,6 +502,11 @@
     <div class="eyebrow">Live track record</div>
     <div class="h2">What the agent has done</div>
     <p class="sub">Straight from <a href="https://github.com/thanhphuc85/ArcDCA/blob/main/data/history.json" target="_blank" rel="noopener"><code>data/history.json</code></a> — every run the bot commits back to its own repo.</p>
+    <div class="export-bar" id="historyExportBar" style="display:none;">
+      <span class="export-label">Export:</span>
+      <button class="btn-sm" id="exportHistCSV"><span class="ic">📄</span> CSV</button>
+      <button class="btn-sm" id="exportHistJSON"><span class="ic">{ }</span> JSON</button>
+    </div>
 
     <div class="grid cols-3">
       <div class="card tile"><span class="n" id="tTotal"><div class="skel skel-num"></div></span><span class="l">USDC deployed</span></div>
@@ -573,6 +594,11 @@
     <div class="eyebrow">Agent memory</div>
     <div class="h2">What the agent has learned</div>
     <p class="sub">After every run, the agent reflects on its decisions and outcomes — building persistent memory that shapes future strategy.</p>
+    <div class="export-bar" id="reflExportBar" style="display:none;">
+      <span class="export-label">Export:</span>
+      <button class="btn-sm" id="exportReflCSV"><span class="ic">📄</span> CSV</button>
+      <button class="btn-sm" id="exportReflJSON"><span class="ic">{ }</span> JSON</button>
+    </div>
 
     <div class="card memory-latest" id="latestReflection">
       <h3>Latest insight</h3>
@@ -604,6 +630,33 @@
       <div class="step"><div class="num">3</div><b>Swap &amp; record</b><span>Circle Swap Kit executes USDC → cirBTC on Arc Testnet; the run is appended to a public audit trail committed back to the repo.</span></div>
     </div>
     <p class="note" style="margin-top:18px;">The autonomous trading runs <b>server-side</b> (a GitHub Actions cron with a Circle Developer-Controlled Wallet), so no API keys ever reach the browser. This page is a read-only dashboard — connecting your wallet only reads your Arc balance.</p>
+  </section>
+
+  <section class="reveal">
+    <div class="eyebrow">Data management</div>
+    <div class="h2">Import & export your data</div>
+    <p class="sub">Download run history or reflections for offline analysis. Import a previously exported JSON backup to restore data.</p>
+    <div class="grid" style="grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="card">
+        <h3>Export all data</h3>
+        <p class="cs">Download a full backup of history and reflections as a single JSON file.</p>
+        <button class="btn-sm" id="exportAllJSON" style="margin-top:8px;"><span class="ic">💾</span> Export full backup (JSON)</button>
+        <div style="margin-top:12px;">
+          <button class="btn-sm" id="exportAllCSV"><span class="ic">📊</span> Export history (CSV)</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Import data</h3>
+        <p class="cs">Restore from a previously exported JSON backup file.</p>
+        <div class="import-zone" id="importZone">
+          <div class="iz-icon">📂</div>
+          <p class="iz-title">Drop JSON file here or click to browse</p>
+          <p class="iz-desc">Accepts exported .json backup files</p>
+        </div>
+        <input type="file" id="importFile" accept=".json" style="display:none;">
+        <div class="import-status" id="importStatus"></div>
+      </div>
+    </div>
   </section>
 
   <footer>
@@ -950,6 +1003,105 @@
     var db = $("depositBtn"); if (db) db.addEventListener("click", deposit);
     refreshTreasury();
   })();
+
+  // ---------- export / import ----------
+  var _historyData = null, _reflectionData = null;
+
+  function downloadFile(content, filename, mime) {
+    var blob = new Blob([content], { type: mime });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 100);
+  }
+
+  function toCsv(rows, columns) {
+    var esc = function (v) { var s = String(v == null ? "" : v); return s.indexOf(",") >= 0 || s.indexOf('"') >= 0 || s.indexOf("\n") >= 0 ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    var lines = [columns.map(esc).join(",")];
+    rows.forEach(function (r) { lines.push(columns.map(function (c) { return esc(r[c]); }).join(",")); });
+    return lines.join("\n");
+  }
+
+  function exportHistoryCSV() {
+    if (!_historyData || !_historyData.length) return;
+    var cols = ["date", "timestamp", "status", "requestedAmountUsdc", "clampedAmountUsdc", "boundBy", "tokenOut", "reasoning", "txHash", "explorerUrl", "amountOut", "walletUsdcBalance", "message"];
+    downloadFile(toCsv(_historyData, cols), "aura-dca-history.csv", "text/csv;charset=utf-8");
+  }
+  function exportHistoryJSON() {
+    if (!_historyData) return;
+    downloadFile(JSON.stringify(_historyData, null, 2), "aura-dca-history.json", "application/json");
+  }
+  function exportReflCSV() {
+    if (!_reflectionData || !_reflectionData.length) return;
+    var cols = ["date", "timestamp", "runStatus", "insight", "strategyAdjustment", "confidenceLevel", "cumulativeSpentUsdc", "dayNumber", "walletBalance"];
+    var rows = _reflectionData.map(function (r) {
+      var row = {}; cols.forEach(function (c) { row[c] = r[c]; });
+      row.patterns = (r.patterns || []).join("; ");
+      row.tags = (r.tags || []).join("; ");
+      return row;
+    });
+    downloadFile(toCsv(rows, cols.concat(["patterns", "tags"])), "aura-dca-reflections.csv", "text/csv;charset=utf-8");
+  }
+  function exportReflJSON() {
+    if (!_reflectionData) return;
+    downloadFile(JSON.stringify(_reflectionData, null, 2), "aura-dca-reflections.json", "application/json");
+  }
+  function exportAllJSON() {
+    var payload = { exportedAt: new Date().toISOString(), version: 1, history: _historyData || [], reflections: _reflectionData || [] };
+    downloadFile(JSON.stringify(payload, null, 2), "aura-dca-backup-" + new Date().toISOString().slice(0, 10) + ".json", "application/json");
+  }
+  function exportAllCSV() { exportHistoryCSV(); }
+
+  function handleImport(file) {
+    var status = $("importStatus");
+    if (!file || !file.name.endsWith(".json")) { status.textContent = "Please select a .json file."; status.className = "import-status err"; return; }
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      try {
+        var data = JSON.parse(ev.target.result);
+        var hist = data.history || (Array.isArray(data) ? data : null);
+        var refl = data.reflections || null;
+        if (!hist && !refl) { status.textContent = "No valid history or reflections found in file."; status.className = "import-status err"; return; }
+        var parts = [];
+        if (hist && Array.isArray(hist) && hist.length) {
+          _historyData = hist;
+          render(hist);
+          renderDailyChart(hist);
+          renderDonut(hist);
+          renderPerformance(hist);
+          parts.push(hist.length + " history entries");
+        }
+        if (refl && Array.isArray(refl) && refl.length) {
+          _reflectionData = refl;
+          renderReflections(refl);
+          parts.push(refl.length + " reflections");
+        }
+        status.textContent = "Imported " + parts.join(" and ") + " successfully.";
+        status.className = "import-status ok";
+      } catch (e) {
+        status.textContent = "Invalid JSON: " + e.message;
+        status.className = "import-status err";
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // wire up export buttons
+  ["exportHistCSV", "exportHistJSON", "exportReflCSV", "exportReflJSON", "exportAllJSON", "exportAllCSV"].forEach(function (id) {
+    var el = $(id);
+    if (el) el.addEventListener("click", { exportHistCSV: exportHistoryCSV, exportHistJSON: exportHistoryJSON, exportReflCSV: exportReflCSV, exportReflJSON: exportReflJSON, exportAllJSON: exportAllJSON, exportAllCSV: exportAllCSV }[id]);
+  });
+  // wire up import
+  var importZone = $("importZone"), importFile = $("importFile");
+  if (importZone && importFile) {
+    importZone.addEventListener("click", function () { importFile.click(); });
+    importFile.addEventListener("change", function () { if (this.files[0]) handleImport(this.files[0]); });
+    importZone.addEventListener("dragover", function (e) { e.preventDefault(); this.classList.add("drag-over"); });
+    importZone.addEventListener("dragleave", function () { this.classList.remove("drag-over"); });
+    importZone.addEventListener("drop", function (e) { e.preventDefault(); this.classList.remove("drag-over"); if (e.dataTransfer.files[0]) handleImport(e.dataTransfer.files[0]); });
+  }
 
   // ---------- history dashboard ----------
   var SUCCESS = { success: 1, dry_run: 1 };
@@ -1336,8 +1488,12 @@
 
   Promise.all([fetchHistory(), fetchReflections()])
     .then(function (results) {
+      _historyData = results[0];
+      _reflectionData = results[1];
       render(results[0]);
       renderReflections(results[1]);
+      if (Array.isArray(results[0]) && results[0].length) $("historyExportBar").style.display = "";
+      if (Array.isArray(results[1]) && results[1].length) $("reflExportBar").style.display = "";
     })
     .catch(function (err) {
       $("chartSub").textContent = "";

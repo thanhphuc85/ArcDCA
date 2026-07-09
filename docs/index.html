@@ -131,84 +131,51 @@
   .deposit-form input { flex: 1; min-width: 160px; background: rgba(0,0,0,.28); border: 1px solid var(--glass-brd); border-radius: 12px; color: var(--text); padding: 12px 14px; font-size: 15px; font-family: inherit; }
 
   /* wallet profile */
-  .wp-connect { text-align: center; padding: 40px 20px; }
-  .wp-connect .wp-icon { font-size: 48px; margin-bottom: 16px; }
-  .wp-connect p { color: var(--muted); font-size: 14px; margin: 10px 0 20px; max-width: 400px; display: inline-block; }
-  .connect-options { display: grid; gap: 12px; max-width: 380px; margin: 0 auto; }
-  .connect-opt { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-radius: 16px; border: 1px solid var(--glass-brd); background: var(--glass); cursor: pointer; transition: border-color .2s, background .2s, transform .15s; width: 100%; font-family: inherit; color: var(--text); text-align: left; font-size: 14px; font-weight: 600; }
-  .connect-opt:hover { border-color: rgba(138,92,246,.5); background: rgba(138,92,246,.06); transform: translateY(-2px); }
-  .connect-opt .co-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 20px; flex-shrink: 0; }
-  .connect-opt .co-icon.gmail { background: linear-gradient(135deg, #ea4335, #fbbc05, #34a853, #4285f4); background-size: 200% 200%; animation: gmailShift 3s ease infinite; }
   @keyframes gmailShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
-  .connect-opt .co-icon.metamask { background: linear-gradient(135deg, #e2761b, #f5841f); }
-  .connect-opt .co-info { flex: 1; }
-  .connect-opt .co-info .co-title { display: block; }
-  .connect-opt .co-info .co-desc { display: block; font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 2px; }
-  .connect-opt .co-arrow { color: var(--muted); font-size: 18px; }
-  .connect-divider { display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-  .connect-divider::before, .connect-divider::after { content: ""; flex: 1; height: 1px; background: var(--glass-brd); }
-  .gmail-form { max-width: 380px; margin: 0 auto; }
-  .gmail-form input { width: 100%; background: rgba(0,0,0,.28); border: 1px solid var(--glass-brd); border-radius: 12px; color: var(--text); padding: 12px 16px; font-size: 14px; font-family: inherit; margin-bottom: 10px; }
-  [data-theme="light"] .gmail-form input { background: rgba(0,0,0,.04); }
-  .gmail-form input::placeholder { color: var(--muted); }
-  .gmail-form input:focus { outline: none; border-color: var(--violet); }
-  .gmail-back { background: none; border: none; color: var(--muted); font-size: 13px; cursor: pointer; padding: 8px 0; margin-top: 4px; font-family: inherit; }
-  .gmail-back:hover { color: var(--text); }
-  .gmail-back { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; margin-top: 8px; padding: 4px; }
-  .gmail-back:hover { color: var(--text); }
-  .wp-txlist { margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.06); }
-  .wp-txlist h4 { font-size: 13px; font-weight: 700; margin: 0 0 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-  .wp-tx { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.04); font-size: 13px; }
-  .wp-tx:last-child { border-bottom: none; }
-  .wp-tx-icon { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; flex-shrink: 0; }
-  .wp-tx-icon.tx-out { background: rgba(251,113,133,.12); color: var(--red); }
-  .wp-tx-icon.tx-in { background: rgba(52,211,153,.12); color: var(--green); }
-  .wp-tx-info { flex: 1; min-width: 0; }
-  .wp-tx-info .tx-type { font-weight: 600; }
-  .wp-tx-info .tx-hash { font-size: 11px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .wp-tx-amt { text-align: right; font-family: Sora; font-weight: 700; font-size: 13px; }
-  .wp-login-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px; margin-top: 4px; }
+  .wp-card { border-radius: 24px; padding: 28px 24px 24px; }
+  .wp-top { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 20px; }
+  .wp-avatar { width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0; border: 2px solid rgba(138,92,246,.35); }
+  .wp-top-right { display: flex; gap: 8px; margin-left: auto; }
+  .wp-icon-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--glass-brd); background: rgba(255,255,255,.04); display: grid; place-items: center; cursor: pointer; font-size: 16px; color: var(--muted); transition: background .15s, color .15s; }
+  .wp-icon-btn:hover { background: rgba(255,255,255,.1); color: var(--text); }
+  [data-theme="light"] .wp-icon-btn { background: rgba(0,0,0,.03); }
+  [data-theme="light"] .wp-icon-btn:hover { background: rgba(0,0,0,.07); }
+  .wp-login-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
   .wp-login-badge.gmail { background: rgba(66,133,244,.1); color: #93bbfc; border: 1px solid rgba(66,133,244,.25); }
   .wp-login-badge.wallet { background: rgba(226,118,27,.1); color: #f5a623; border: 1px solid rgba(226,118,27,.25); }
-  .wp-header { display: flex; align-items: center; gap: 16px; padding-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,.06); margin-bottom: 18px; }
-  .wp-avatar { width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0; border: 2px solid rgba(138,92,246,.4); }
-  .wp-info { flex: 1; min-width: 0; }
-  .wp-addr-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .wp-addr { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; font-weight: 600; }
-  .wp-copy { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px; padding: 2px 6px; border-radius: 6px; transition: color .15s, background .15s; }
-  .wp-copy:hover { color: var(--text); background: rgba(255,255,255,.08); }
-  .wp-net { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--green); background: rgba(52,211,153,.1); border: 1px solid rgba(52,211,153,.25); border-radius: 999px; padding: 3px 10px; margin-top: 4px; }
-  .wp-net .wp-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px rgba(52,211,153,.6); }
-  .wp-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
-  .wp-actions .btn { font-size: 12px; padding: 7px 14px; border-radius: 10px; }
-  .wp-balances { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
-  .wp-bal { background: rgba(255,255,255,.03); border: 1px solid var(--glass-brd); border-radius: 16px; padding: 16px; position: relative; overflow: hidden; }
-  .wp-bal::after { content: ""; position: absolute; inset: 0; background: radial-gradient(160px 80px at 100% 0, var(--bal-glow, rgba(138,92,246,.08)), transparent 70%); pointer-events: none; }
-  .wp-bal-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-  .wp-bal-icon { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 14px; color: #fff; }
-  .wp-bal-icon.usdc { background: linear-gradient(135deg,#2775ca,#4f9dff); }
-  .wp-bal-icon.cirbtc { background: linear-gradient(135deg,#f59e0b,#fb923c); }
-  .wp-bal-icon.eth { background: linear-gradient(135deg,#627eea,#8fa8ff); }
-  .wp-bal-name { font-size: 13px; color: var(--muted); }
-  .wp-bal-amt { font-family: Sora; font-size: 24px; font-weight: 800; letter-spacing: -.5px; line-height: 1.2; }
-  .wp-bal-usd { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .wp-portfolio { margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.06); }
-  .wp-portfolio-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
-  .wp-portfolio-head .wp-total { font-family: Sora; font-size: 20px; font-weight: 800; }
-  .wp-portfolio-head .wp-label { font-size: 12px; color: var(--muted); }
-  .wp-alloc-bar { display: flex; height: 8px; border-radius: 8px; overflow: hidden; gap: 2px; }
-  .wp-alloc-bar > div { border-radius: 8px; }
-  .wp-alloc-bar .seg-usdc { background: linear-gradient(90deg,#2775ca,#4f9dff); }
-  .wp-alloc-bar .seg-btc { background: linear-gradient(90deg,#f59e0b,#fb923c); }
-  .wp-alloc-bar .seg-eth { background: linear-gradient(90deg,#627eea,#8fa8ff); }
-  .wp-alloc-legend { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
-  .wp-alloc-legend span { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
-  .wp-alloc-legend .ldot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .wp-disconnect { margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.06); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
-  .wp-disconnect .wp-since { font-size: 12px; color: var(--muted); }
+  .wp-addr { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; font-weight: 600; }
+  .wp-balance { font-family: Sora; font-size: clamp(32px, 6vw, 42px); font-weight: 800; letter-spacing: -1px; margin: 8px 0 4px; line-height: 1.1; }
+  .wp-balance-sub { font-size: 13px; color: var(--muted); }
+  .wp-welcome { margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,.06); }
+  .wp-welcome-title { font-family: Sora; font-size: 16px; font-weight: 700; margin: 0 0 4px; }
+  .wp-welcome-desc { font-size: 13px; color: var(--muted); margin: 0; }
+  .wp-actions-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+  .wp-action { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 16px; border: 1px solid var(--glass-brd); background: rgba(255,255,255,.03); cursor: pointer; transition: border-color .2s, background .15s, transform .12s; }
+  .wp-action:hover { border-color: rgba(138,92,246,.35); background: rgba(138,92,246,.04); transform: translateY(-1px); }
+  [data-theme="light"] .wp-action { background: rgba(0,0,0,.02); }
+  [data-theme="light"] .wp-action:hover { background: rgba(138,92,246,.04); }
+  .wp-action-icon { width: 40px; height: 40px; border-radius: 14px; display: grid; place-items: center; font-size: 20px; flex-shrink: 0; }
+  .wp-action-icon.buy { background: rgba(138,92,246,.12); }
+  .wp-action-icon.transfer { background: rgba(251,113,133,.1); }
+  .wp-action-icon.exchange { background: rgba(47,134,230,.1); }
+  .wp-action-info { flex: 1; min-width: 0; }
+  .wp-action-info b { display: block; font-size: 14px; }
+  .wp-action-info span { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .wp-token-row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .wp-token { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.03); border: 1px solid var(--glass-brd); border-radius: 14px; padding: 12px 16px; flex: 1; min-width: 140px; }
+  .wp-token-icon { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; color: #fff; flex-shrink: 0; }
+  .wp-token-icon.usdc { background: linear-gradient(135deg,#2775ca,#4f9dff); }
+  .wp-token-icon.cirbtc { background: linear-gradient(135deg,#f59e0b,#fb923c); }
+  .wp-token-amt { font-family: Sora; font-weight: 700; font-size: 15px; line-height: 1; }
+  .wp-token-name { font-size: 11px; color: var(--muted); }
+  .wp-bottom { margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.06); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .wp-bottom .wp-net { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--green); background: rgba(52,211,153,.1); border: 1px solid rgba(52,211,153,.25); border-radius: 999px; padding: 3px 10px; }
+  .wp-bottom .wp-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px rgba(52,211,153,.6); }
   .btn-disconnect { background: rgba(251,113,133,.1); color: #fda4af; border: 1px solid rgba(251,113,133,.25); font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 10px; cursor: pointer; transition: background .15s; }
   .btn-disconnect:hover { background: rgba(251,113,133,.2); }
-
+  [data-theme="light"] .wp-welcome { border-top-color: rgba(0,0,0,.07); }
+  [data-theme="light"] .wp-bottom { border-top-color: rgba(0,0,0,.07); }
+  [data-theme="light"] .wp-token { background: rgba(0,0,0,.02); }
   /* tiles */
   .tile .n { font-family: Sora; font-size: 30px; font-weight: 800; letter-spacing: -.6px; display: block; }
   .tile .l { color: var(--muted); font-size: 13px; }
@@ -476,14 +443,9 @@
     .step span { font-size: 12px; }
     .note { font-size: 12px; padding: 12px 14px; }
     footer { font-size: 12px; padding: 24px 0 40px; flex-direction: column; text-align: center; gap: 8px; }
-    .wp-header { flex-direction: column; gap: 12px; }
-    .wp-balances { grid-template-columns: 1fr; }
-    .wp-bal-amt { font-size: 18px; }
-    .wp-portfolio-head { flex-direction: column; gap: 8px; }
-    .wp-portfolio-head .wp-total { font-size: 16px; }
-    .wp-portfolio-head > div:last-child { text-align: left !important; }
-    .wp-actions { width: 100%; justify-content: flex-start; }
-    .wp-txlist .wp-tx { font-size: 12px; }
+    .wp-card { padding: 20px 16px 18px; }
+    .wp-balance { font-size: 30px; }
+    .wp-action { padding: 14px; }
     .memory-latest .insight { font-size: 15px; }
     .deposit-qr svg { width: 120px; height: 120px; }
     .deposit-qr { padding: 14px; }
@@ -594,9 +556,6 @@
   [data-theme="light"] .agent-addr-box,
   [data-theme="light"] .deposit-form input { background: rgba(0,0,0,.035); border-color: rgba(0,0,0,.1); color: var(--text); }
   [data-theme="light"] .tok { background: rgba(0,0,0,.025); border-color: rgba(0,0,0,.08); }
-  [data-theme="light"] .wp-bal { background: rgba(0,0,0,.02); border-color: rgba(0,0,0,.06); }
-  [data-theme="light"] .wp-header { border-bottom-color: rgba(0,0,0,.07); }
-  [data-theme="light"] .wp-portfolio, [data-theme="light"] .wp-disconnect { border-top-color: rgba(0,0,0,.07); }
   [data-theme="light"] .wp-copy:hover { color: var(--text); background: rgba(0,0,0,.06); }
   [data-theme="light"] .deposit-stat { background: rgba(0,0,0,.025); border-color: rgba(0,0,0,.06); }
   [data-theme="light"] th, [data-theme="light"] td { border-bottom-color: rgba(0,0,0,.06); }
@@ -1374,12 +1333,11 @@
   // ---------- show wallet profile ----------
   function showWalletProfile(account, nativeBal, usdc, cirbtc, loginType, txs) {
     var status = $("walletStatus");
+    var t = T[currentLang] || T.en;
     var totalUsd = usdc;
-    var usdcPct = totalUsd > 0 ? (usdc / totalUsd) * 100 : 100;
-    var btcPct = 0;
 
     var badge = loginType === "gmail"
-      ? '<span class="wp-login-badge gmail">G Signed in with Gmail</span>'
+      ? '<span class="wp-login-badge gmail">G Gmail</span>'
       : '<span class="wp-login-badge wallet">🦊 MetaMask</span>';
 
     $("walletCard").style.display = "";
@@ -1387,51 +1345,58 @@
     var prof = $("walletProfile");
     prof.style.display = "";
     prof.innerHTML =
-      '<div class="wp-header">' +
-        '<img class="wp-avatar" src="' + generateAvatar(account) + '" alt="wallet avatar"/>' +
-        '<div class="wp-info">' +
-          '<div class="wp-addr-row">' +
-            '<span class="wp-addr">' + account.slice(0, 6) + '…' + account.slice(-4) + '</span>' +
-            '<button class="wp-copy" id="wpCopy" title="Copy full address">📋</button>' +
+      '<div class="wp-card">' +
+        '<div class="wp-top">' +
+          '<img class="wp-avatar" src="' + generateAvatar(account) + '" alt="avatar"/>' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+              '<span class="wp-addr">' + account.slice(0, 6) + '…' + account.slice(-4) + '</span>' +
+              badge +
+            '</div>' +
           '</div>' +
+          '<div class="wp-top-right">' +
+            '<button class="wp-icon-btn" id="wpCopy" title="Copy address">📋</button>' +
+            '<a class="wp-icon-btn" href="' + ARC.explorer + '/address/' + account + '" target="_blank" rel="noopener" title="ArcScan">↗</a>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="wp-balance">' + fmt(totalUsd, 2) + ' US$</div>' +
+        '<div class="wp-balance-sub">' + (t.wpBalanceSub || 'Portfolio value on Arc Testnet') + '</div>' +
+
+        '<div class="wp-token-row">' +
+          '<div class="wp-token">' +
+            '<div class="wp-token-icon usdc">$</div>' +
+            '<div><div class="wp-token-amt">' + fmt(usdc, 4) + '</div><div class="wp-token-name">USDC</div></div>' +
+          '</div>' +
+          '<div class="wp-token">' +
+            '<div class="wp-token-icon cirbtc">₿</div>' +
+            '<div><div class="wp-token-amt">' + fmt(cirbtc, 8) + '</div><div class="wp-token-name">cirBTC</div></div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="wp-welcome">' +
+          '<div class="wp-welcome-title">' + (t.wpWelcome || 'Welcome!') + '</div>' +
+          '<p class="wp-welcome-desc">' + (t.wpWelcomeDesc || 'Get started with your first action below.') + '</p>' +
+          '<div class="wp-actions-grid">' +
+            '<a class="wp-action" href="' + ARC.faucet + '" target="_blank" rel="noopener">' +
+              '<div class="wp-action-icon buy">💰</div>' +
+              '<div class="wp-action-info"><b>' + (t.wpBuy || 'Get testnet USDC') + '</b><span>' + (t.wpBuyDesc || 'Use the Arc faucet to get free testnet tokens') + '</span></div>' +
+            '</a>' +
+            '<a class="wp-action" href="' + ARC.explorer + '/address/' + ARC.agent + '" target="_blank" rel="noopener">' +
+              '<div class="wp-action-icon transfer">📤</div>' +
+              '<div class="wp-action-info"><b>' + (t.wpTransfer || 'Deposit to agent') + '</b><span>' + (t.wpTransferDesc || 'Send USDC to the DCA treasury') + '</span></div>' +
+            '</a>' +
+            '<a class="wp-action" href="' + ARC.explorer + '/address/' + account + '" target="_blank" rel="noopener">' +
+              '<div class="wp-action-icon exchange">🔍</div>' +
+              '<div class="wp-action-info"><b>' + (t.wpExplore || 'View on ArcScan') + '</b><span>' + (t.wpExploreDesc || 'See your transaction history on the explorer') + '</span></div>' +
+            '</a>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="wp-bottom">' +
           '<div class="wp-net"><span class="wp-dot"></span> Arc Testnet</div>' +
-          badge +
+          '<button class="btn-disconnect" id="wpDisconnect">' + (t.wpDisconnect || 'Disconnect') + '</button>' +
         '</div>' +
-        '<div class="wp-actions">' +
-          '<a class="btn ghost" href="' + ARC.explorer + '/address/' + account + '" target="_blank" rel="noopener">ArcScan ↗</a>' +
-          '<a class="btn ghost" href="' + ARC.faucet + '" target="_blank" rel="noopener">Faucet ↗</a>' +
-        '</div>' +
-      '</div>' +
-      '<div class="wp-balances">' +
-        '<div class="wp-bal" style="--bal-glow:rgba(39,117,202,.12);">' +
-          '<div class="wp-bal-head"><div class="wp-bal-icon usdc">$</div><span class="wp-bal-name">USDC</span></div>' +
-          '<div class="wp-bal-amt">' + fmt(usdc, 4) + '</div>' +
-          '<div class="wp-bal-usd">≈ $' + fmt(usdc, 2) + ' USD</div>' +
-        '</div>' +
-        '<div class="wp-bal" style="--bal-glow:rgba(245,158,11,.12);">' +
-          '<div class="wp-bal-head"><div class="wp-bal-icon cirbtc">₿</div><span class="wp-bal-name">cirBTC</span></div>' +
-          '<div class="wp-bal-amt">' + fmt(cirbtc, 8) + '</div>' +
-          '<div class="wp-bal-usd">Testnet token</div>' +
-        '</div>' +
-      '</div>' +
-      '<div class="wp-portfolio">' +
-        '<div class="wp-portfolio-head">' +
-          '<div><span class="wp-label">Portfolio value</span><br/><span class="wp-total">$' + fmt(usdc, 2) + '</span></div>' +
-          '<div style="text-align:right;"><span class="wp-label">Native balance</span><br/><span style="font-family:Sora;font-weight:700;font-size:14px;">' + fmt(nativeBal, 6) + ' USDC</span></div>' +
-        '</div>' +
-        '<div class="wp-alloc-bar">' +
-          '<div class="seg-usdc" style="width:' + Math.max(2, usdcPct).toFixed(1) + '%;"></div>' +
-          (btcPct > 0 ? '<div class="seg-btc" style="width:' + btcPct.toFixed(1) + '%;"></div>' : '') +
-        '</div>' +
-        '<div class="wp-alloc-legend">' +
-          '<span><span class="ldot" style="background:linear-gradient(135deg,#2775ca,#4f9dff);"></span> USDC ' + fmt(usdcPct, 1) + '%</span>' +
-          (cirbtc > 0 ? '<span><span class="ldot" style="background:linear-gradient(135deg,#f59e0b,#fb923c);"></span> cirBTC</span>' : '') +
-        '</div>' +
-      '</div>' +
-      renderTxList(txs || []) +
-      '<div class="wp-disconnect">' +
-        '<span class="wp-since">Connected just now</span>' +
-        '<button class="btn-disconnect" id="wpDisconnect">Disconnect</button>' +
       '</div>';
 
     $("wpCopy").addEventListener("click", function () {
@@ -2681,6 +2646,12 @@
       wmTitle: "Connect Wallet", wmOr: "or", wmCreate: "Create account", wmSignin: "Sign in",
       wmBack: "Back", wmCreateSubmit: "Create wallet & sign in",
       wmFooter: 'By connecting a wallet, you agree this is a <b>testnet demo</b> with no real value. <a href="https://github.com/thanhphuc85/ArcDCA" target="_blank" rel="noopener">View source</a>.',
+      wpBalanceSub: "Portfolio value on Arc Testnet",
+      wpWelcome: "Welcome!", wpWelcomeDesc: "Get started with your first action below.",
+      wpBuy: "Get testnet USDC", wpBuyDesc: "Use the Arc faucet to get free testnet tokens",
+      wpTransfer: "Deposit to agent", wpTransferDesc: "Send USDC to the DCA treasury",
+      wpExplore: "View on ArcScan", wpExploreDesc: "See your transaction history on the explorer",
+      wpDisconnect: "Disconnect",
     },
     vi: {
       heroChip: "Encode × Circle · Hackathon Tiền Lập Trình",
@@ -2716,6 +2687,12 @@
       wmTitle: "Kết nối ví", wmOr: "hoặc", wmCreate: "Tạo tài khoản", wmSignin: "Đăng nhập",
       wmBack: "Quay lại", wmCreateSubmit: "Tạo ví & đăng nhập",
       wmFooter: 'Bằng việc kết nối ví, bạn đồng ý đây là <b>demo testnet</b> không có giá trị thực. <a href="https://github.com/thanhphuc85/ArcDCA" target="_blank" rel="noopener">Xem mã nguồn</a>.',
+      wpBalanceSub: "Giá trị danh mục trên Arc Testnet",
+      wpWelcome: "Chào mừng!", wpWelcomeDesc: "Bắt đầu với hành động đầu tiên bên dưới.",
+      wpBuy: "Nhận USDC testnet", wpBuyDesc: "Dùng faucet Arc để nhận token testnet miễn phí",
+      wpTransfer: "Nạp vào agent", wpTransferDesc: "Gửi USDC vào quỹ DCA",
+      wpExplore: "Xem trên ArcScan", wpExploreDesc: "Xem lịch sử giao dịch trên explorer",
+      wpDisconnect: "Ngắt kết nối",
     }
   };
   var currentLang = localStorage.getItem("aura-lang") || "en";

@@ -273,6 +273,33 @@
   .conf-medium { background: rgba(245,165,36,.13); color: #fbcf6b; }
   .conf-low { background: rgba(151,164,191,.14); color: var(--muted); }
 
+  /* agent intelligence */
+  .intel-grid { display: grid; gap: 14px; grid-template-columns: repeat(2,1fr); margin-bottom: 16px; }
+  @media (min-width: 760px) { .intel-grid { grid-template-columns: repeat(4,1fr); } }
+  .intel-card { background: var(--glass); border: 1px solid var(--glass-brd); border-radius: 16px; padding: 18px; backdrop-filter: blur(8px); position: relative; overflow: hidden; text-align: center; }
+  .intel-card::after { content: ""; position: absolute; inset: 0; background: radial-gradient(180px 80px at 50% 0, var(--ig, rgba(138,92,246,.10)), transparent 70%); pointer-events: none; }
+  .intel-icon { font-size: 28px; margin-bottom: 8px; display: block; }
+  .intel-val { font-family: Sora; font-size: 28px; font-weight: 800; letter-spacing: -.5px; display: block; position: relative; z-index: 1; }
+  .intel-label { color: var(--muted); font-size: 12px; display: block; margin-top: 2px; position: relative; z-index: 1; }
+  .intel-sub { font-size: 11px; margin-top: 6px; font-weight: 600; padding: 3px 10px; border-radius: 999px; display: inline-block; position: relative; z-index: 1; }
+  .risk-low { color: #6ee7b7; background: rgba(52,211,153,.14); }
+  .risk-med { color: #fbcf6b; background: rgba(245,165,36,.13); }
+  .risk-high { color: #fda4af; background: rgba(251,113,133,.14); }
+  .regime-trend-up { color: #6ee7b7; }
+  .regime-trend-down { color: #fda4af; }
+  .regime-range { color: #fbcf6b; }
+  .regime-volatile { color: #f472b6; }
+  .regime-nodata { color: var(--muted); }
+  .intel-gauge { width: 100%; height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); margin-top: 10px; position: relative; z-index: 1; overflow: hidden; }
+  .intel-gauge-fill { height: 100%; border-radius: 3px; transition: width .6s ease; }
+  .pattern-alerts { display: flex; flex-direction: column; gap: 8px; }
+  .pattern-alert { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 12px; background: var(--glass); border: 1px solid var(--glass-brd); font-size: 13px; line-height: 1.45; }
+  .pa-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .pa-text { flex: 1; min-width: 0; }
+  .pa-title { font-weight: 600; margin-bottom: 2px; }
+  .pa-detail { color: var(--muted); font-size: 12px; }
+  @media (max-width: 480px) { .intel-grid { grid-template-columns: 1fr 1fr; } .intel-val { font-size: 22px; } }
+
   /* settings panel */
   .settings-toggle { background: none; border: none; cursor: pointer; font-size: 20px; padding: 4px 8px; border-radius: 10px; transition: background .15s; color: var(--text); }
   .settings-toggle:hover { background: rgba(255,255,255,.1); }
@@ -628,6 +655,16 @@
   [data-theme="light"] .btn-disconnect { background: rgba(251,113,133,.08); }
   [data-theme="light"] .btn-disconnect:hover { background: rgba(251,113,133,.15); }
   [data-theme="light"] .memory-latest .strategy { color: #0e7490; }
+  [data-theme="light"] .intel-card { background: rgba(0,0,0,.02); border-color: rgba(0,0,0,.08); }
+  [data-theme="light"] .intel-gauge { background: rgba(0,0,0,.06); }
+  [data-theme="light"] .risk-low { background: rgba(16,185,129,.1); color: #047857; }
+  [data-theme="light"] .risk-med { background: rgba(217,119,6,.1); color: #b45309; }
+  [data-theme="light"] .risk-high { background: rgba(239,68,68,.1); color: #dc2626; }
+  [data-theme="light"] .pattern-alert { background: rgba(0,0,0,.02); border-color: rgba(0,0,0,.08); }
+  [data-theme="light"] .regime-trend-up { color: #047857; }
+  [data-theme="light"] .regime-trend-down { color: #dc2626; }
+  [data-theme="light"] .regime-range { color: #b45309; }
+  [data-theme="light"] .regime-volatile { color: #be185d; }
   [data-theme="light"] .grad { background-image: linear-gradient(100deg, #2563eb, #7c3aed 45%, #0e7490); }
   [data-theme="light"] .reconnect-bar { background: rgba(138,92,246,.06); border-color: rgba(138,92,246,.15); }
   [data-theme="light"] .wl-token { background: rgba(0,0,0,.02); border-color: rgba(0,0,0,.08); }
@@ -938,6 +975,50 @@
       <div class="status-note" id="rdmStatus" style="margin-top:12px;"></div>
     </div>
   </div>
+
+  <section class="reveal" id="intelligenceSection" style="display:none;">
+    <div class="eyebrow" data-t="intelEye">Agent Intelligence</div>
+    <div class="h2" data-t="intelTitle">Multi-factor analysis</div>
+    <p class="sub" data-t="intelSub">Real-time intelligence derived from swap history, price action, and agent reflections.</p>
+
+    <div class="intel-grid">
+      <div class="intel-card" style="--ig:rgba(52,211,153,.10);">
+        <span class="intel-icon">🛡️</span>
+        <span class="intel-val" id="intelRiskVal">—</span>
+        <span class="intel-label" data-t="intelRiskLabel">Risk Score</span>
+        <div class="intel-gauge"><div class="intel-gauge-fill" id="intelRiskGauge" style="width:0;background:var(--green);"></div></div>
+        <span class="intel-sub risk-low" id="intelRiskSub">—</span>
+      </div>
+      <div class="intel-card" style="--ig:rgba(138,92,246,.10);">
+        <span class="intel-icon">🧠</span>
+        <span class="intel-val" id="intelConfVal">—</span>
+        <span class="intel-label" data-t="intelConfLabel">Confidence</span>
+        <div class="intel-gauge"><div class="intel-gauge-fill" id="intelConfGauge" style="width:0;background:var(--violet);"></div></div>
+        <span class="intel-sub conf-medium" id="intelConfSub">—</span>
+      </div>
+      <div class="intel-card" style="--ig:rgba(34,211,238,.10);">
+        <span class="intel-icon">📊</span>
+        <span class="intel-val regime-nodata" id="intelRegimeVal">—</span>
+        <span class="intel-label" data-t="intelRegimeLabel">Market Regime</span>
+        <span class="intel-sub" id="intelRegimeSub" style="background:rgba(255,255,255,.06);color:var(--muted);">—</span>
+      </div>
+      <div class="intel-card" style="--ig:rgba(245,165,36,.10);">
+        <span class="intel-icon">⚡</span>
+        <span class="intel-val" id="intelMomentumVal">—</span>
+        <span class="intel-label" data-t="intelMomentumLabel">Momentum</span>
+        <div class="intel-gauge"><div class="intel-gauge-fill" id="intelMomentumGauge" style="width:0;background:var(--amber);"></div></div>
+        <span class="intel-sub" id="intelMomentumSub" style="background:rgba(255,255,255,.06);color:var(--muted);">—</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 data-t="intelPatternsTitle">Pattern alerts</h3>
+      <p class="cs" data-t="intelPatternsSub">Smart detection of recurring patterns across agent runs</p>
+      <div class="pattern-alerts" id="patternAlerts">
+        <div class="pattern-alert"><span class="pa-icon">📡</span><span class="pa-text"><span class="pa-detail" data-t="intelPatternsEmpty">Waiting for enough data to detect patterns...</span></span></div>
+      </div>
+    </div>
+  </section>
 
   <section class="reveal" id="approvalSection" style="display:none;">
     <div class="eyebrow" data-t="approvalEye">Approval Center</div>
@@ -3215,6 +3296,18 @@
       rdmAmount: "Amount", rdmToken: "Token", rdmBound: "Bound by", rdmBalance: "Wallet balance",
       rdmNoData: "No DCA proposal available. Wait for the next agent run.",
       rdmCreating: "Creating proposal…", rdmTgPending: "📋 Pending approval",
+      intelEye: "Agent Intelligence", intelTitle: "Multi-factor analysis",
+      intelSub: "Real-time intelligence derived from swap history, price action, and agent reflections.",
+      intelRiskLabel: "Risk Score", intelConfLabel: "Confidence", intelRegimeLabel: "Market Regime", intelMomentumLabel: "Momentum",
+      intelRiskLow: "Low risk", intelRiskMed: "Medium risk", intelRiskHigh: "High risk",
+      intelRegimeUp: "Trending ↑", intelRegimeDown: "Trending ↓", intelRegimeRange: "Ranging", intelRegimeVolatile: "Volatile", intelRegimeNoData: "Need more data",
+      intelConfNoData: "No reflections",
+      intelMomBullish: "Bullish", intelMomBearish: "Bearish", intelMomNeutral: "Neutral", intelMomNoData: "Need data",
+      intelPatternsTitle: "Pattern alerts", intelPatternsSub: "Smart detection of recurring patterns across agent runs",
+      intelPatternsEmpty: "Waiting for enough data to detect patterns...",
+      intelAlertErrorStreak: "Error streak", intelAlertDip: "Significant dip", intelAlertClamping: "Frequent clamping",
+      intelAlertLowSuccess: "Low success rate", intelAlertStrategy: "Strategy update",
+      intelNoAlerts: "All clear", intelNoAlertsDetail: "No unusual patterns detected. Agent is running normally.",
     },
     vi: {
       heroChip: "Encode × Circle · Hackathon Tiền Lập Trình",
@@ -3270,6 +3363,18 @@
       rdmAmount: "Số lượng", rdmToken: "Token", rdmBound: "Giới hạn bởi", rdmBalance: "Số dư ví",
       rdmNoData: "Chưa có đề xuất DCA. Đợi lần chạy tiếp theo của agent.",
       rdmCreating: "Đang tạo đề xuất…", rdmTgPending: "📋 Chờ phê duyệt",
+      intelEye: "Trí tuệ Agent", intelTitle: "Phân tích đa yếu tố",
+      intelSub: "Trí tuệ thời gian thực từ lịch sử swap, hành động giá, và phản chiếu của agent.",
+      intelRiskLabel: "Điểm rủi ro", intelConfLabel: "Độ tin cậy", intelRegimeLabel: "Chế độ thị trường", intelMomentumLabel: "Động lượng",
+      intelRiskLow: "Rủi ro thấp", intelRiskMed: "Rủi ro TB", intelRiskHigh: "Rủi ro cao",
+      intelRegimeUp: "Xu hướng ↑", intelRegimeDown: "Xu hướng ↓", intelRegimeRange: "Đi ngang", intelRegimeVolatile: "Biến động", intelRegimeNoData: "Cần thêm dữ liệu",
+      intelConfNoData: "Chưa có phản chiếu",
+      intelMomBullish: "Tăng", intelMomBearish: "Giảm", intelMomNeutral: "Trung tính", intelMomNoData: "Cần dữ liệu",
+      intelPatternsTitle: "Cảnh báo mẫu", intelPatternsSub: "Phát hiện thông minh các mẫu lặp lại qua các lần chạy",
+      intelPatternsEmpty: "Đang chờ đủ dữ liệu để phát hiện mẫu...",
+      intelAlertErrorStreak: "Chuỗi lỗi", intelAlertDip: "Giảm giá đáng kể", intelAlertClamping: "Bị giới hạn thường xuyên",
+      intelAlertLowSuccess: "Tỉ lệ thành công thấp", intelAlertStrategy: "Cập nhật chiến lược",
+      intelNoAlerts: "Bình thường", intelNoAlertsDetail: "Không phát hiện mẫu bất thường. Agent đang hoạt động bình thường.",
     }
   };
   var currentLang = localStorage.getItem("aura-lang") || "en";
@@ -3347,9 +3452,188 @@
   })();
 
   // ---------- wire up new features on data load ----------
+  function renderIntelligence(history, reflections) {
+    if (!Array.isArray(history) || history.length < 3) {
+      $("intelligenceSection").style.display = "none";
+      return;
+    }
+    $("intelligenceSection").style.display = "";
+
+    var successful = history.filter(function (e) { return e.status === "success" || e.status === "dry_run"; });
+    var prices = [];
+    successful.forEach(function (e) {
+      if (e.clampedAmountUsdc && e.amountOut) {
+        var u = parseFloat(e.clampedAmountUsdc);
+        var b = parseFloat(e.amountOut);
+        if (u > 0 && b > 0) prices.push(u / b);
+      }
+    });
+
+    // --- Risk Score ---
+    var riskScore = 0;
+    var riskFactors = [];
+    if (prices.length >= 3) {
+      var recent = prices.slice(-7);
+      var mean = recent.reduce(function (a, b) { return a + b; }, 0) / recent.length;
+      var variance = recent.reduce(function (a, p) { return a + Math.pow(p - mean, 2); }, 0) / recent.length;
+      var cv = mean > 0 ? Math.sqrt(variance) / mean : 0;
+      var volScore = Math.min(100, Math.round(cv * 500));
+      riskFactors.push({ name: "volatility", score: volScore, w: 0.3 });
+    }
+    var last10 = history.slice(-10);
+    var errorStreak = 0;
+    for (var i = last10.length - 1; i >= 0; i--) {
+      if (last10[i].status.indexOf("error") >= 0 || last10[i].status.indexOf("skip") >= 0) errorStreak++;
+      else break;
+    }
+    riskFactors.push({ name: "errors", score: Math.min(100, errorStreak * 25), w: 0.2 });
+    var recentSuccess = last10.filter(function (e) { return e.status === "success" || e.status === "dry_run"; }).length;
+    var sr = last10.length > 0 ? recentSuccess / last10.length : 1;
+    riskFactors.push({ name: "reliability", score: Math.min(100, Math.round((1 - sr) * 100)), w: 0.15 });
+    var totalSpent = successful.reduce(function (s, e) { return s + parseFloat(e.clampedAmountUsdc || "0"); }, 0);
+    var lastBal = history[history.length - 1].walletUsdcBalance ? parseFloat(history[history.length - 1].walletUsdcBalance) : 0;
+    var concRatio = lastBal > 0 ? totalSpent / (totalSpent + lastBal) : 0;
+    riskFactors.push({ name: "concentration", score: Math.min(100, Math.round(concRatio * 120)), w: 0.2 });
+    riskFactors.push({ name: "utilization", score: Math.round(sr * 50), w: 0.15 });
+    riskScore = Math.round(riskFactors.reduce(function (s, f) { return s + f.score * f.w; }, 0));
+
+    $("intelRiskVal").textContent = riskScore;
+    $("intelRiskGauge").style.width = riskScore + "%";
+    var riskEl = $("intelRiskSub");
+    if (riskScore <= 30) {
+      riskEl.textContent = T[currentLang].intelRiskLow || "Low risk";
+      riskEl.className = "intel-sub risk-low";
+      $("intelRiskGauge").style.background = "var(--green)";
+    } else if (riskScore <= 60) {
+      riskEl.textContent = T[currentLang].intelRiskMed || "Medium risk";
+      riskEl.className = "intel-sub risk-med";
+      $("intelRiskGauge").style.background = "var(--amber)";
+    } else {
+      riskEl.textContent = T[currentLang].intelRiskHigh || "High risk";
+      riskEl.className = "intel-sub risk-high";
+      $("intelRiskGauge").style.background = "var(--red)";
+    }
+
+    // --- Market Regime ---
+    var regimeEl = $("intelRegimeVal");
+    var regimeSub = $("intelRegimeSub");
+    if (prices.length < 3) {
+      regimeEl.textContent = "—";
+      regimeEl.className = "intel-val regime-nodata";
+      regimeSub.textContent = T[currentLang].intelRegimeNoData || "Need more data";
+    } else {
+      var rp = prices.slice(-7);
+      var rpMean = rp.reduce(function (a, b) { return a + b; }, 0) / rp.length;
+      var rpVar = rp.reduce(function (a, p) { return a + Math.pow(p - rpMean, 2); }, 0) / rp.length;
+      var rpCv = rpMean > 0 ? Math.sqrt(rpVar) / rpMean : 0;
+      var momentum = 0;
+      if (rp.length >= 2) {
+        var fh = rp.slice(0, Math.floor(rp.length / 2));
+        var sh = rp.slice(Math.floor(rp.length / 2));
+        var aF = fh.reduce(function (a, b) { return a + b; }, 0) / fh.length;
+        var aS = sh.reduce(function (a, b) { return a + b; }, 0) / sh.length;
+        momentum = aF > 0 ? (aS - aF) / aF : 0;
+      }
+      var consUp = 0, consDown = 0;
+      for (var j = 1; j < rp.length; j++) {
+        if (rp[j] > rp[j - 1]) { consUp++; consDown = 0; }
+        else { consDown++; consUp = 0; }
+      }
+      var regime, regimeClass;
+      if (rpCv > 0.15) { regime = T[currentLang].intelRegimeVolatile || "Volatile"; regimeClass = "regime-volatile"; }
+      else if (momentum > 0.03 && consUp >= 2) { regime = T[currentLang].intelRegimeUp || "Trending ↑"; regimeClass = "regime-trend-up"; }
+      else if (momentum < -0.03 && consDown >= 2) { regime = T[currentLang].intelRegimeDown || "Trending ↓"; regimeClass = "regime-trend-down"; }
+      else { regime = T[currentLang].intelRegimeRange || "Ranging"; regimeClass = "regime-range"; }
+      regimeEl.textContent = regime;
+      regimeEl.className = "intel-val " + regimeClass;
+      regimeSub.textContent = "CV " + (rpCv * 100).toFixed(1) + "%";
+      regimeSub.style.background = "rgba(255,255,255,.06)";
+      regimeSub.style.color = "var(--muted)";
+    }
+
+    // --- Confidence (from reflections) ---
+    var confEl = $("intelConfVal");
+    var confGauge = $("intelConfGauge");
+    var confSub = $("intelConfSub");
+    if (Array.isArray(reflections) && reflections.length > 0) {
+      var confMap = { high: 90, medium: 60, low: 30 };
+      var recentRefs = reflections.slice(-5);
+      var avgConf = Math.round(recentRefs.reduce(function (s, r) { return s + (confMap[r.confidenceLevel] || 50); }, 0) / recentRefs.length);
+      confEl.textContent = avgConf + "%";
+      confGauge.style.width = avgConf + "%";
+      var confLevel = avgConf >= 75 ? "high" : (avgConf >= 45 ? "medium" : "low");
+      confSub.textContent = confLevel.charAt(0).toUpperCase() + confLevel.slice(1);
+      confSub.className = "intel-sub conf-" + confLevel;
+    } else {
+      confEl.textContent = "—";
+      confGauge.style.width = "0%";
+      confSub.textContent = T[currentLang].intelConfNoData || "No reflections";
+      confSub.className = "intel-sub conf-low";
+    }
+
+    // --- Momentum ---
+    var momEl = $("intelMomentumVal");
+    var momGauge = $("intelMomentumGauge");
+    var momSub = $("intelMomentumSub");
+    if (prices.length >= 2) {
+      var momPrices = prices.slice(-7);
+      var fHalf = momPrices.slice(0, Math.floor(momPrices.length / 2));
+      var sHalf = momPrices.slice(Math.floor(momPrices.length / 2));
+      var avgF = fHalf.reduce(function (a, b) { return a + b; }, 0) / fHalf.length;
+      var avgS = sHalf.reduce(function (a, b) { return a + b; }, 0) / sHalf.length;
+      var momVal = avgF > 0 ? ((avgS - avgF) / avgF) * 100 : 0;
+      momEl.textContent = (momVal >= 0 ? "+" : "") + momVal.toFixed(1) + "%";
+      momEl.style.color = momVal >= 0 ? "var(--green)" : "var(--red)";
+      var momPct = Math.min(100, Math.abs(momVal) * 5);
+      momGauge.style.width = momPct + "%";
+      momGauge.style.background = momVal >= 0 ? "var(--green)" : "var(--red)";
+      momSub.textContent = momVal > 2 ? (T[currentLang].intelMomBullish || "Bullish") : (momVal < -2 ? (T[currentLang].intelMomBearish || "Bearish") : (T[currentLang].intelMomNeutral || "Neutral"));
+    } else {
+      momEl.textContent = "—";
+      momGauge.style.width = "0%";
+      momSub.textContent = T[currentLang].intelMomNoData || "Need data";
+    }
+
+    // --- Pattern Alerts ---
+    var alerts = [];
+    if (errorStreak >= 2) {
+      alerts.push({ icon: "🔴", title: T[currentLang].intelAlertErrorStreak || "Error streak", detail: errorStreak + " consecutive errors/skips" });
+    }
+    if (prices.length >= 3) {
+      var highP = Math.max.apply(null, prices);
+      var curP = prices[prices.length - 1];
+      var dd = Math.abs((curP - highP) / highP);
+      if (dd >= 0.10) {
+        alerts.push({ icon: "📉", title: T[currentLang].intelAlertDip || "Significant dip", detail: (dd * 100).toFixed(1) + "% from high — dip-buying opportunity" });
+      }
+    }
+    var clampCount = last10.filter(function (e) { return e.boundBy && e.boundBy !== "proposed_amount"; }).length;
+    if (clampCount >= 5) {
+      alerts.push({ icon: "⚠️", title: T[currentLang].intelAlertClamping || "Frequent clamping", detail: clampCount + "/10 recent runs clamped by guardrails" });
+    }
+    if (sr < 0.5 && last10.length >= 5) {
+      alerts.push({ icon: "📊", title: T[currentLang].intelAlertLowSuccess || "Low success rate", detail: Math.round(sr * 100) + "% success in last 10 runs" });
+    }
+    if (Array.isArray(reflections) && reflections.length >= 3) {
+      var latestRef = reflections[reflections.length - 1];
+      if (latestRef.strategyAdjustment && latestRef.confidenceLevel === "high") {
+        alerts.push({ icon: "🧠", title: T[currentLang].intelAlertStrategy || "Strategy update", detail: latestRef.strategyAdjustment.length > 80 ? latestRef.strategyAdjustment.slice(0, 80) + "…" : latestRef.strategyAdjustment });
+      }
+    }
+    var pa = $("patternAlerts");
+    if (alerts.length === 0) {
+      pa.innerHTML = '<div class="pattern-alert"><span class="pa-icon">✅</span><span class="pa-text"><span class="pa-title">' + (T[currentLang].intelNoAlerts || "All clear") + '</span><span class="pa-detail">' + (T[currentLang].intelNoAlertsDetail || "No unusual patterns detected. Agent is running normally.") + '</span></span></div>';
+    } else {
+      pa.innerHTML = alerts.map(function (a) {
+        return '<div class="pattern-alert"><span class="pa-icon">' + a.icon + '</span><span class="pa-text"><span class="pa-title">' + a.title + '</span><br><span class="pa-detail">' + a.detail + '</span></span></div>';
+      }).join("");
+    }
+  }
+
   function renderNewFeatures(history, reflections) {
     renderPriceChart(history || []);
     renderInsights(history, reflections);
+    renderIntelligence(history, reflections);
     syncPendingFromHistory(history);
     renderApprovalSection();
   }

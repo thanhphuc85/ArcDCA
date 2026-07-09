@@ -136,6 +136,167 @@ export function retrieveReflections(
   };
 }
 
+export const ASSESS_MARKET_REGIME_TOOL = {
+  name: "assess_market_regime",
+  description:
+    "Classify the current market regime by analyzing price volatility, momentum, and trend direction from swap history. Returns regime classification (trending_up, trending_down, ranging, volatile), volatility metrics, momentum score, and a risk-adjusted allocation recommendation.",
+  input_schema: {
+    type: "object" as const,
+    properties: {},
+    required: [] as string[],
+  },
+};
+
+export function computeMarketRegime(history: HistoryEntry[]): Record<string, unknown> {
+  const successful = history.filter(
+    (e) => (e.status === "success" || e.status === "dry_run") && e.clampedAmountUsdc && e.amountOut,
+  );
+  if (successful.length < 3) {
+    return {
+      regime: "insufficient_data",
+      confidence: 0,
+      volatility: null,
+      momentum: null,
+      recommendation: "Not enough swap history to classify market regime. Use base DCA amount.",
+    };
+  }
+
+  const prices = successful.map((e) => parseFloat(e.clampedAmountUsdc!) / parseFloat(e.amountOut!));
+  const recent = prices.slice(-7);
+
+  const mean = recent.reduce((a, b) => a + b, 0) / recent.length;
+  const variance = recent.reduce((a, p) => a + (p - mean) ** 2, 0) / recent.length;
+  const stdDev = Math.sqrt(variance);
+  const coeffOfVariation = mean > 0 ? stdDev / mean : 0;
+
+  let momentum = 0;
+  if (recent.length >= 2) {
+    const firstHalf = recent.slice(0, Math.floor(recent.length / 2));
+    const secondHalf = recent.slice(Math.floor(recent.length / 2));
+    const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+    const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+    momentum = avgFirst > 0 ? (avgSecond - avgFirst) / avgFirst : 0;
+  }
+
+  let consecutiveUp = 0;
+  let consecutiveDown = 0;
+  for (let i = 1; i < recent.length; i++) {
+    if (recent[i]! > recent[i - 1]!) { consecutiveUp++; consecutiveDown = 0; }
+    else { consecutiveDown++; consecutiveUp = 0; }
+  }
+
+  let regime: string;
+  let confidence: number;
+  let recommendation: string;
+
+  if (coeffOfVariation > 0.15) {
+    regime = "volatile";
+    confidence = Math.min(90, Math.round(coeffOfVariation * 400));
+    recommendation = "High volatility detected. Reduce allocation by 10-20% unless a clear dip signal overrides. Avoid chasing momentum.";
+  } else if (momentum > 0.03 && consecutiveUp >= 2) {
+    regime = "trending_up";
+    confidence = Math.min(85, Math.round(Math.abs(momentum) * 1000 + consecutiveUp * 10));
+    recommendation = "Uptrend detected. Slightly larger allocations are favorable as momentum supports price. Watch for reversal signals.";
+  } else if (momentum < -0.03 && consecutiveDown >= 2) {
+    regime = "trending_down";
+    confidence = Math.min(85, Math.round(Math.abs(momentum) * 1000 + consecutiveDown * 10));
+    recommendation = "Downtrend detected. Use dip-buying thresholds aggressively — prices may continue lower, offering better entry points.";
+  } else {
+    regime = "ranging";
+    confidence = Math.min(75, Math.round((1 - coeffOfVariation * 5) * 75));
+    recommendation = "Market is range-bound. Stick close to base DCA amount — no clear directional edge.";
+  }
+
+  return {
+    regime,
+    confidence,
+    volatility: { coeffOfVariation: (coeffOfVariation * 100).toFixed(2) + "%", stdDev: stdDev.toFixed(6) },
+    momentum: { score: (momentum * 100).toFixed(2) + "%", consecutiveUp, consecutiveDown },
+    recentPriceCount: recent.length,
+    recommendation,
+  };
+}
+
+export const EVALUATE_RISK_TOOL = {
+  name: "evaluate_risk",
+  description:
+    "Compute a composite risk score (0-100) based on portfolio concentration, price volatility, error/skip streaks, and spending pace. Higher score = more risk. Use this to adjust allocation size — reduce when risk is high, increase when risk is low.",
+  input_schema: {
+    type: "object" as const,
+    properties: {},
+    required: [] as string[],
+  },
+};
+
+export function computeRiskScore(
+  history: HistoryEntry[],
+  walletBalance: string,
+  alreadySpentToday: string,
+  maxDaily: string,
+): Record<string, unknown> {
+  const factors: Array<{ name: string; score: number; weight: number; detail: string }> = [];
+
+  const successful = history.filter((e) => e.status === "success" || e.status === "dry_run");
+  const prices = successful
+    .filter((e) => e.clampedAmountUsdc && e.amountOut)
+    .map((e) => parseFloat(e.clampedAmountUsdc!) / parseFloat(e.amountOut!));
+  if (prices.length >= 3) {
+    const recent = prices.slice(-7);
+    const mean = recent.reduce((a, b) => a + b, 0) / recent.length;
+    const variance = recent.reduce((a, p) => a + (p - mean) ** 2, 0) / recent.length;
+    const cv = mean > 0 ? Math.sqrt(variance) / mean : 0;
+    const volScore = Math.min(100, Math.round(cv * 500));
+    factors.push({ name: "volatility", score: volScore, weight: 0.3, detail: `CV=${(cv * 100).toFixed(1)}%` });
+  }
+
+  const last10 = history.slice(-10);
+  let errorStreak = 0;
+  for (let i = last10.length - 1; i >= 0; i--) {
+    if (last10[i]!.status.startsWith("error_") || last10[i]!.status.startsWith("skipped_")) errorStreak++;
+    else break;
+  }
+  const streakScore = Math.min(100, errorStreak * 25);
+  factors.push({ name: "error_streak", score: streakScore, weight: 0.2, detail: `${errorStreak} consecutive` });
+
+  const balance = parseFloat(walletBalance);
+  const spent = parseFloat(alreadySpentToday);
+  const max = parseFloat(maxDaily);
+  const utilizationRatio = max > 0 ? spent / max : 0;
+  const utilScore = Math.min(100, Math.round(utilizationRatio * 100));
+  factors.push({ name: "daily_utilization", score: utilScore, weight: 0.15, detail: `${(utilizationRatio * 100).toFixed(0)}% of daily cap` });
+
+  const totalSpent = successful.reduce((s, e) => s + parseFloat(e.clampedAmountUsdc ?? "0"), 0);
+  const concentrationRatio = balance > 0 ? totalSpent / (totalSpent + balance) : 0;
+  const concScore = Math.min(100, Math.round(concentrationRatio * 120));
+  factors.push({ name: "concentration", score: concScore, weight: 0.2, detail: `${(concentrationRatio * 100).toFixed(0)}% deployed` });
+
+  const recentSuccess = last10.filter((e) => e.status === "success" || e.status === "dry_run").length;
+  const successRate = last10.length > 0 ? recentSuccess / last10.length : 1;
+  const reliabilityScore = Math.min(100, Math.round((1 - successRate) * 100));
+  factors.push({ name: "reliability", score: reliabilityScore, weight: 0.15, detail: `${(successRate * 100).toFixed(0)}% success rate` });
+
+  const composite = Math.round(factors.reduce((s, f) => s + f.score * f.weight, 0));
+  let level: string;
+  let recommendation: string;
+  if (composite <= 30) {
+    level = "low";
+    recommendation = "Risk is low. You can increase allocation up to 20% above standard.";
+  } else if (composite <= 60) {
+    level = "medium";
+    recommendation = "Risk is moderate. Use standard allocation with no adjustment.";
+  } else {
+    level = "high";
+    recommendation = "Risk is elevated. Consider reducing allocation by 15-30% unless a strong dip signal overrides.";
+  }
+
+  return {
+    compositeScore: composite,
+    level,
+    factors: factors.map((f) => ({ name: f.name, score: f.score, weight: f.weight, detail: f.detail })),
+    recommendation,
+  };
+}
+
 export const DECISION_TOOL = {
   name: "record_dca_decision",
   description:

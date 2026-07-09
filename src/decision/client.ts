@@ -9,11 +9,15 @@ import {
   DECISION_TOOL,
   RECALL_REFLECTIONS_TOOL,
   CHECK_PRICE_ACTION_TOOL,
+  ASSESS_MARKET_REGIME_TOOL,
+  EVALUATE_RISK_TOOL,
   computePacingMetrics,
   buildDetailedHistory,
   previewAllocation,
   retrieveReflections,
   computePriceAction,
+  computeMarketRegime,
+  computeRiskScore,
 } from "./tools.js";
 
 export class DecisionError extends Error {
@@ -33,7 +37,7 @@ const decisionSchema = z.object({
 });
 
 const MODEL = "claude-sonnet-5";
-const MAX_TURNS = 6;
+const MAX_TURNS = 8;
 
 export interface DecisionDeps {
   history: HistoryEntry[];
@@ -102,6 +106,25 @@ function handleToolCall(
         2,
       );
 
+    case "assess_market_regime":
+      return JSON.stringify(
+        computeMarketRegime(deps.history),
+        null,
+        2,
+      );
+
+    case "evaluate_risk":
+      return JSON.stringify(
+        computeRiskScore(
+          deps.history,
+          deps.walletUsdcBalance,
+          deps.alreadySpentTodayUsdc,
+          context.guardrails.maxDailyUsdc,
+        ),
+        null,
+        2,
+      );
+
     default:
       return JSON.stringify({ error: `Unknown tool: ${toolName}` });
   }
@@ -113,7 +136,7 @@ export async function getClaudeDecision(
   deps: DecisionDeps,
 ): Promise<ClaudeDecision> {
   const client = new Anthropic({ apiKey });
-  const allTools = [RECALL_REFLECTIONS_TOOL, CHECK_PRICE_ACTION_TOOL, ...ANALYSIS_TOOLS, DECISION_TOOL];
+  const allTools = [RECALL_REFLECTIONS_TOOL, CHECK_PRICE_ACTION_TOOL, ASSESS_MARKET_REGIME_TOOL, ...ANALYSIS_TOOLS, EVALUATE_RISK_TOOL, DECISION_TOOL];
 
   const messages: Anthropic.MessageParam[] = [
     { role: "user", content: buildUserPrompt(context) },

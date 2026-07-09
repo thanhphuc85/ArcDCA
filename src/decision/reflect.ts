@@ -49,13 +49,15 @@ const REFLECTION_TOOL = {
 
 const SYSTEM_PROMPT = `You are a reflective DCA agent reviewing the outcome of your latest run. Your job is to generate a concise, honest reflection that will help your future self make better decisions.
 
-Analyze what happened in this run in the context of recent history. Look for:
-- Patterns in clamping, errors, or skips
-- Whether your pacing strategy is working
-- What constraints are binding most often
-- Whether your past strategy adjustments are being effective
+Analyze what happened in this run in the context of recent history. Consider:
+- Patterns in clamping, errors, or skips — are guardrails consistently binding?
+- Whether your pacing strategy is working — ahead, behind, or on track?
+- Market regime observations — is the market trending, ranging, or volatile?
+- Risk factors — concentration risk, error streaks, budget utilization
+- Whether your past strategy adjustments were effective — did they produce better outcomes?
+- Signal quality — were dip signals accurate? Did buying dips lead to better entries?
 
-Call record_reflection with your analysis. Be specific and actionable — vague reflections like "keep monitoring" are not useful.`;
+Call record_reflection with your analysis. Be specific and actionable — vague reflections like "keep monitoring" are not useful. Include concrete numbers where possible.`;
 
 export async function generateReflection(
   apiKey: string,

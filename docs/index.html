@@ -470,9 +470,17 @@
   .theme-toggle:hover { background: rgba(255,255,255,.1); transform: scale(1.08); }
   .hd-right { display: flex; align-items: center; gap: 10px; }
   .hd-wallet-wrap { position: relative; }
-  .hd-wallet-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; padding: 8px 16px; border-radius: 14px; border: 1px solid var(--glass-brd); background: var(--glass); transition: background .18s; }
+  .hd-wallet-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; padding: 8px 16px; border-radius: 14px; border: 1px solid var(--glass-brd); background: var(--glass); transition: background .18s; user-select: none; }
   .hd-wallet-badge:hover { background: rgba(255,255,255,.1); }
   .hd-wallet-badge .badge-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .hd-wallet-wrap.pop-open { z-index: 30; }
+  .wp-popover { display: none; position: absolute; top: calc(100% + 10px); right: 0; width: 380px; max-height: calc(100vh - 90px); overflow-y: auto; background: var(--bg); border: 1px solid var(--glass-brd); border-radius: 20px; box-shadow: 0 24px 80px -16px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.04); backdrop-filter: blur(20px); z-index: 30; scrollbar-width: thin; }
+  .wp-popover.open { display: block; animation: popIn .18s ease; }
+  @keyframes popIn { from { opacity: 0; transform: translateY(-8px) scale(.97); } to { opacity: 1; transform: none; } }
+  .wp-popover-backdrop { display: none; position: fixed; inset: 0; z-index: 25; }
+  .wp-popover-backdrop.open { display: block; }
+  [data-theme="light"] .wp-popover { background: #fff; box-shadow: 0 24px 80px -16px rgba(0,0,0,.18), 0 0 0 1px rgba(0,0,0,.06); }
+  @media (max-width: 600px) { .wp-popover { width: calc(100vw - 24px); right: -12px; } }
 
   /* ---------- wallet connect modal ---------- */
   .wm-overlay { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); justify-content: center; align-items: center; padding: 20px; }
@@ -639,10 +647,15 @@
       <div class="hd-wallet-wrap" id="hdWalletWrap">
         <button class="btn" id="connectBtn" data-t="connectWallet">Connect Wallet</button>
         <div class="hd-wallet-badge" id="hdWalletBadge" style="display:none;"></div>
+        <div class="wp-popover" id="wpPopover">
+          <div id="walletProfile"></div>
+          <div class="status-note" id="walletStatus" style="padding:0 20px 12px;"></div>
+        </div>
       </div>
     </div>
   </div>
 </header>
+<div class="wp-popover-backdrop" id="wpBackdrop"></div>
 
 <div class="wrap">
 
@@ -756,16 +769,7 @@
     </div>
   </div>
 
-  <div id="walletCard" style="display:none;">
-    <section class="reveal">
-      <div class="eyebrow">Your wallet</div>
-      <div class="card">
-        <div class="wp-connect" id="walletConnect" style="display:none;"></div>
-        <div id="walletProfile"></div>
-      </div>
-      <div class="status-note" id="walletStatus"></div>
-    </section>
-  </div>
+  <div id="walletCard" style="display:none;"></div>
 
   <!-- Hidden connect form (used by header dropdown) -->
   <div style="display:none;">
@@ -1443,7 +1447,6 @@
       : '<span class="wp-login-badge wallet">🦊 MetaMask</span>';
 
     $("walletCard").style.display = "";
-    $("walletConnect").style.display = "none";
     var prof = $("walletProfile");
     prof.style.display = "";
     prof.innerHTML =
@@ -1520,7 +1523,9 @@
       saveWalletAddr(null);
       try { localStorage.removeItem("aura-gmail-wallet"); } catch(e){}
       prof.style.display = "none";
+      prof.innerHTML = "";
       $("walletCard").style.display = "none";
+      closeWalletPopover();
       status.textContent = "";
       if (typeof updateHeaderWallet === "function") updateHeaderWallet(null, null);
     });
@@ -1529,6 +1534,7 @@
     refreshTreasury();
     refreshWatchlistBalances();
     if (typeof updateHeaderWallet === "function") updateHeaderWallet(account, loginType);
+    openWalletPopover();
     readUsdcBalance(ARC.agent).then(function (raw) {
       var el = $("wpTreasuryBal");
       if (el) el.textContent = fmt(Number(raw) / 1e6, 2) + " USDC";
@@ -1745,6 +1751,23 @@
   if (heroBtn) heroBtn.addEventListener("click", openWalletModal);
 
   // Update header when wallet connects/disconnects
+  function openWalletPopover() {
+    $("wpPopover").classList.add("open");
+    $("wpBackdrop").classList.add("open");
+    $("hdWalletWrap").classList.add("pop-open");
+  }
+  function closeWalletPopover() {
+    $("wpPopover").classList.remove("open");
+    $("wpBackdrop").classList.remove("open");
+    $("hdWalletWrap").classList.remove("pop-open");
+  }
+  function toggleWalletPopover() {
+    var pop = $("wpPopover");
+    if (pop.classList.contains("open")) closeWalletPopover();
+    else openWalletPopover();
+  }
+  $("wpBackdrop").addEventListener("click", closeWalletPopover);
+
   function updateHeaderWallet(account, loginType) {
     var btn = $("connectBtn");
     var badge = $("hdWalletBadge");
@@ -1754,13 +1777,12 @@
       if (heroBtn) heroBtn.style.display = "none";
       badge.style.display = "flex";
       badge.innerHTML = '<span class="badge-dot"></span> ' + account.slice(0, 6) + '…' + account.slice(-4);
-      badge.onclick = function () {
-        document.getElementById("walletCard").scrollIntoView({ behavior: "smooth", block: "center" });
-      };
+      badge.onclick = toggleWalletPopover;
     } else {
       btn.style.display = "";
       if (heroBtn) heroBtn.style.display = "";
       badge.style.display = "none";
+      closeWalletPopover();
     }
   }
 

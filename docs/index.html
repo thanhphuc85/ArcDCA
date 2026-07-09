@@ -180,10 +180,24 @@
   .tile::after { content: ""; position: absolute; inset: 0; background: radial-gradient(300px 120px at 100% 0, rgba(138,92,246,.16), transparent 70%); }
 
   /* chart */
-  .chart { width: 100%; height: 190px; display: block; }
+  .chart { width: 100%; height: 220px; display: block; cursor: crosshair; }
   .chart-empty { color: var(--muted); font-size: 14px; padding: 44px 0; text-align: center; }
   .chart path.line { stroke-dasharray: var(--len); stroke-dashoffset: var(--len); animation: draw 1.4s ease forwards; }
   @keyframes draw { to { stroke-dashoffset: 0; } }
+  .chart-tooltip { position: fixed; pointer-events: none; z-index: 100; background: rgba(10,12,22,.92); border: 1px solid rgba(255,255,255,.14); border-radius: 10px; padding: 8px 12px; font-size: 12px; line-height: 1.5; backdrop-filter: blur(10px); box-shadow: 0 8px 24px rgba(0,0,0,.5); white-space: nowrap; opacity: 0; transition: opacity .12s; color: var(--text); }
+  [data-theme="light"] .chart-tooltip { background: rgba(255,255,255,.94); border-color: rgba(0,0,0,.1); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+  .chart-tooltip.show { opacity: 1; }
+  .chart-tooltip .tt-label { color: var(--muted); font-size: 11px; }
+  .chart-tooltip .tt-val { font-family: Sora; font-weight: 700; font-size: 15px; }
+  .chart-tooltip .tt-sub { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .chart-grid line { stroke: var(--glass-brd); stroke-dasharray: 4 4; }
+  .chart-label { fill: var(--muted); font-size: 10px; font-family: Inter, sans-serif; }
+  .donut-chart { width: 100%; max-width: 280px; margin: 0 auto; }
+  .donut-legend { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 14px; }
+  .donut-legend span { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .donut-legend .dl-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .donut-legend .dl-count { font-weight: 700; color: var(--text); }
+  .daily-chart { width: 100%; height: 180px; display: block; cursor: crosshair; }
 
   /* table */
   .tbl-wrap { overflow-x: auto; }
@@ -282,6 +296,9 @@
   @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
   /* ---------- mobile responsive ---------- */
+  @media (max-width: 760px) {
+    .grid[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+  }
   @media (max-width: 480px) {
     .hd { padding: 10px 0; gap: 10px; }
     .brand img { width: 32px; height: 32px; }
@@ -380,6 +397,7 @@
 </head>
 <body>
 
+<div class="chart-tooltip" id="chartTip"></div>
 <div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
 <div class="grain"></div>
 
@@ -479,6 +497,19 @@
       <h3>Cumulative USDC deployed</h3>
       <p class="cs" id="chartSub"><span class="skel skel-line w60" style="display:inline-block;height:12px;"></span></p>
       <div id="chartHost"><div class="chart-loading"><div class="spinner"></div><span style="font-size:13px;color:var(--muted);">Loading chart data…</span></div></div>
+    </div>
+
+    <div class="grid" style="margin-top:16px;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="card">
+        <h3>Daily DCA amounts</h3>
+        <p class="cs" id="dailySub"><span class="skel skel-line w60" style="display:inline-block;height:12px;"></span></p>
+        <div id="dailyChartHost"><div class="chart-loading"><div class="spinner"></div><span style="font-size:13px;color:var(--muted);">Loading…</span></div></div>
+      </div>
+      <div class="card">
+        <h3>Run status distribution</h3>
+        <p class="cs" id="donutSub"><span class="skel skel-line w60" style="display:inline-block;height:12px;"></span></p>
+        <div id="donutHost"><div class="chart-loading"><div class="spinner"></div><span style="font-size:13px;color:var(--muted);">Loading…</span></div></div>
+      </div>
     </div>
 
     <div class="card tbl-wrap" style="margin-top:16px;">
@@ -930,13 +961,36 @@
   }
   function statusLabel(s) { return String(s).replace(/_/g, " "); }
 
+  // ---------- shared chart tooltip ----------
+  var tip = $("chartTip");
+  function showTip(ev, html) {
+    tip.innerHTML = html;
+    tip.classList.add("show");
+    var tx = ev.clientX + 14, ty = ev.clientY - 14;
+    if (tx + 180 > window.innerWidth) tx = ev.clientX - 180;
+    if (ty < 8) ty = ev.clientY + 18;
+    tip.style.left = tx + "px"; tip.style.top = ty + "px";
+  }
+  function hideTip() { tip.classList.remove("show"); }
+
+  function gridLines(W, H, padL, padR, padT, padB, max, steps, suffix, decimals) {
+    var g = "";
+    for (var i = 0; i <= steps; i++) {
+      var v = (max / steps) * i, yy = padT + (H - padT - padB) * (1 - v / max);
+      g += '<line x1="' + padL + '" y1="' + yy.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + yy.toFixed(1) + '" class="chart-grid"/>';
+      g += '<text x="' + (padL - 4) + '" y="' + (yy + 3).toFixed(1) + '" text-anchor="end" class="chart-label">' + fmt(v, decimals == null ? 2 : decimals) + (suffix || '') + '</text>';
+    }
+    return '<g stroke="var(--glass-brd)" stroke-dasharray="4 4">' + g + '</g>';
+  }
+
   function renderChart(points) {
     var host = $("chartHost");
     if (!points.length) { host.innerHTML = '<div class="empty-state fade-in"><div class="empty-icon">📊</div><p class="empty-title">No completed runs yet</p><p class="empty-desc">The agent runs daily via GitHub Actions. Check back after the next cron trigger to see deployment data here.</p></div>'; return; }
-    var W = 920, H = 190, padL = 6, padR = 6, padT = 14, padB = 14;
-    var max = points[points.length - 1].cum || 1, n = points.length;
+    var W = 920, H = 220, padL = 54, padR = 12, padT = 16, padB = 28;
+    var max = Math.ceil(points[points.length - 1].cum * 1.15) || 1, n = points.length;
     function x(i) { return padL + (n === 1 ? (W - padL - padR) / 2 : (i * (W - padL - padR) / (n - 1))); }
     function y(v) { return padT + (H - padT - padB) * (1 - v / max); }
+    var grid = gridLines(W, H, padL, padR, padT, padB, max, 4, '', 2);
     var line = "", area = "M" + x(0) + " " + (H - padB), len = 0, px0 = x(0), py0 = y(points[0].cum);
     for (var i = 0; i < n; i++) {
       var px = x(i), py = y(points[i].cum);
@@ -946,26 +1000,40 @@
       area += " L" + px.toFixed(1) + " " + py.toFixed(1);
     }
     area += " L" + x(n - 1) + " " + (H - padB) + " Z";
-    var dots = "";
-    for (var j = 0; j < n; j++) dots += '<circle cx="' + x(j).toFixed(1) + '" cy="' + y(points[j].cum).toFixed(1) + '" r="3.2" fill="#a78bfa"/>';
+    var dots = "", zones = "", labels = "";
+    for (var j = 0; j < n; j++) {
+      var cx = x(j), cy = y(points[j].cum);
+      dots += '<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="4" fill="#a78bfa" stroke="#060912" stroke-width="1.5"/>';
+      zones += '<rect x="' + (cx - (W/n/2)).toFixed(1) + '" y="' + padT + '" width="' + (W/n).toFixed(1) + '" height="' + (H - padT - padB) + '" fill="transparent" data-tip="cum" data-i="' + j + '"/>';
+      if (n <= 14 || j % Math.ceil(n / 10) === 0) labels += '<text x="' + cx.toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle" class="chart-label">' + (points[j].date || '').slice(5) + '</text>';
+    }
     host.innerHTML =
-      '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+      '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '">' +
       '<defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a5cf6" stop-opacity="0.4"/><stop offset="1" stop-color="#8a5cf6" stop-opacity="0"/></linearGradient>' +
       '<linearGradient id="lg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2f86e6"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs>' +
-      '<path d="' + area + '" fill="url(#ag)"/>' +
+      grid + '<path d="' + area + '" fill="url(#ag)"/>' +
       '<path class="line" style="--len:' + (len + 4).toFixed(0) + '" d="' + line + '" fill="none" stroke="url(#lg)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>' +
-      dots + '</svg>';
+      dots + labels + zones + '</svg>';
+    host.querySelector("svg").addEventListener("mousemove", function (ev) {
+      var r = this.getBoundingClientRect(), sx = (ev.clientX - r.left) / r.width * W;
+      var closest = 0, minD = Infinity;
+      for (var k = 0; k < n; k++) { var d = Math.abs(x(k) - sx); if (d < minD) { minD = d; closest = k; } }
+      var p = points[closest];
+      showTip(ev, '<div class="tt-label">' + (p.date || 'Run ' + (closest + 1)) + '</div><div class="tt-val">' + fmt(p.cum, 4) + ' USDC</div><div class="tt-sub">Cumulative total</div>');
+    });
+    host.querySelector("svg").addEventListener("mouseleave", hideTip);
   }
 
   function renderBtcChart(swaps) {
     var host = $("btcChartHost");
     if (!swaps.length) { host.innerHTML = '<div class="empty-state fade-in"><div class="empty-icon">₿</div><p class="empty-title">No cirBTC swaps yet</p><p class="empty-desc">Once the agent executes a USDC → cirBTC swap, accumulation data will appear here.</p></div>'; return; }
-    var W = 920, H = 160, padL = 6, padR = 6, padT = 14, padB = 14;
+    var W = 920, H = 180, padL = 64, padR = 12, padT = 16, padB = 28;
     var cum = 0, pts = [];
     swaps.forEach(function (s) { cum += s.btcOut; pts.push({ cum: cum, date: s.date }); });
-    var max = pts[pts.length - 1].cum || 1, n = pts.length;
+    var max = Math.ceil(pts[pts.length - 1].cum * 1.15 * 1e8) / 1e8 || 1, n = pts.length;
     function x(i) { return padL + (n === 1 ? (W - padL - padR) / 2 : (i * (W - padL - padR) / (n - 1))); }
     function y(v) { return padT + (H - padT - padB) * (1 - v / max); }
+    var grid = gridLines(W, H, padL, padR, padT, padB, max, 4, '', 6);
     var line = "", area = "M" + x(0) + " " + (H - padB), len = 0, px0 = x(0), py0 = y(pts[0].cum);
     for (var i = 0; i < n; i++) {
       var px = x(i), py = y(pts[i].cum);
@@ -975,24 +1043,34 @@
       area += " L" + px.toFixed(1) + " " + py.toFixed(1);
     }
     area += " L" + x(n - 1) + " " + (H - padB) + " Z";
-    var dots = "";
-    for (var j = 0; j < n; j++) dots += '<circle cx="' + x(j).toFixed(1) + '" cy="' + y(pts[j].cum).toFixed(1) + '" r="3.2" fill="#f59e0b"/>';
+    var dots = "", labels = "";
+    for (var j = 0; j < n; j++) {
+      dots += '<circle cx="' + x(j).toFixed(1) + '" cy="' + y(pts[j].cum).toFixed(1) + '" r="4" fill="#f59e0b" stroke="#060912" stroke-width="1.5"/>';
+      if (n <= 14 || j % Math.ceil(n / 10) === 0) labels += '<text x="' + x(j).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle" class="chart-label">' + pts[j].date.slice(5) + '</text>';
+    }
     host.innerHTML =
-      '<svg class="chart2" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
-      '<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f59e0b" stop-opacity="0.35"/><stop offset="1" stop-color="#f59e0b" stop-opacity="0"/></linearGradient>' +
-      '<linearGradient id="bl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f59e0b"/><stop offset="1" stop-color="#fb923c"/></linearGradient></defs>' +
-      '<path d="' + area + '" fill="url(#bg)"/>' +
-      '<path class="line" style="--len:' + (len + 4).toFixed(0) + '" d="' + line + '" fill="none" stroke="url(#bl)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>' +
-      dots + '</svg>';
+      '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '">' +
+      '<defs><linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f59e0b" stop-opacity="0.35"/><stop offset="1" stop-color="#f59e0b" stop-opacity="0"/></linearGradient>' +
+      '<linearGradient id="bl2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f59e0b"/><stop offset="1" stop-color="#fb923c"/></linearGradient></defs>' +
+      grid + '<path d="' + area + '" fill="url(#bg2)"/>' +
+      '<path class="line" style="--len:' + (len + 4).toFixed(0) + '" d="' + line + '" fill="none" stroke="url(#bl2)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>' +
+      dots + labels + '</svg>';
+    host.querySelector("svg").addEventListener("mousemove", function (ev) {
+      var r = this.getBoundingClientRect(), sx = (ev.clientX - r.left) / r.width * W;
+      var closest = 0, minD = Infinity;
+      for (var k = 0; k < n; k++) { var d = Math.abs(x(k) - sx); if (d < minD) { minD = d; closest = k; } }
+      showTip(ev, '<div class="tt-label">' + pts[closest].date + '</div><div class="tt-val">' + fmt(pts[closest].cum, 8) + ' cirBTC</div><div class="tt-sub">Cumulative acquired</div>');
+    });
+    host.querySelector("svg").addEventListener("mouseleave", hideTip);
   }
 
   function renderCostChart(swaps) {
     var host = $("costChartHost");
     if (!swaps.length) { host.innerHTML = '<div class="empty-state fade-in"><div class="empty-icon">💰</div><p class="empty-title">No price data yet</p><p class="empty-desc">Cost basis per swap will be plotted once the first successful swap completes.</p></div>'; return; }
-    var W = 920, H = 160, padL = 6, padR = 6, padT = 14, padB = 14;
+    var W = 920, H = 180, padL = 54, padR = 12, padT = 16, padB = 28;
     var prices = swaps.map(function (s) { return s.price; });
-    var max = Math.max.apply(null, prices) * 1.1 || 1;
-    var min = Math.min.apply(null, prices) * 0.9 || 0;
+    var max = Math.max.apply(null, prices) * 1.15 || 1;
+    var min = Math.min.apply(null, prices) * 0.85 || 0;
     var range = max - min || 1;
     var n = prices.length;
     function x(i) { return padL + (n === 1 ? (W - padL - padR) / 2 : (i * (W - padL - padR) / (n - 1))); }
@@ -1003,13 +1081,110 @@
       var bx = x(i) - bw / 2;
       var by = y(prices[i]);
       var bh = (H - padB) - by;
-      bars += '<rect x="' + bx.toFixed(1) + '" y="' + by.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="3" fill="url(#cb)" opacity="0.7"/>';
-      bars += '<text x="' + x(i).toFixed(1) + '" y="' + (by - 6).toFixed(1) + '" fill="#a78bfa" font-size="10" font-family="Sora" text-anchor="middle">' + fmt(prices[i], 2) + '</text>';
+      bars += '<rect x="' + bx.toFixed(1) + '" y="' + by.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="4" fill="url(#cb)" opacity="0.8" data-ci="' + i + '"/>';
+    }
+    var grid = gridLines(W, H, padL, padR, padT, padB, max, 3, '', 2);
+    var labels = "";
+    for (var j = 0; j < n; j++) { if (n <= 14 || j % Math.ceil(n / 7) === 0) labels += '<text x="' + x(j).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle" class="chart-label">' + swaps[j].date.slice(5) + '</text>'; }
+    host.innerHTML =
+      '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '">' +
+      '<defs><linearGradient id="cb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a5cf6"/><stop offset="1" stop-color="#2f86e6" stop-opacity="0.4"/></linearGradient></defs>' +
+      grid + bars + labels + '</svg>';
+    host.querySelector("svg").addEventListener("mousemove", function (ev) {
+      var r = this.getBoundingClientRect(), sx = (ev.clientX - r.left) / r.width * W;
+      var closest = 0, minD = Infinity;
+      for (var k = 0; k < n; k++) { var d = Math.abs(x(k) - sx); if (d < minD) { minD = d; closest = k; } }
+      var s = swaps[closest];
+      showTip(ev, '<div class="tt-label">' + s.date + '</div><div class="tt-val">' + fmt(s.price, 4) + ' USDC/cirBTC</div><div class="tt-sub">' + fmt(s.usdcIn, 4) + ' USDC → ' + fmt(s.btcOut, 8) + ' cirBTC</div>');
+    });
+    host.querySelector("svg").addEventListener("mouseleave", hideTip);
+  }
+
+  // ---------- daily DCA bar chart ----------
+  function renderDailyChart(history) {
+    var host = $("dailyChartHost");
+    var daily = [];
+    history.forEach(function (e) {
+      if (!SUCCESS[e.status]) return;
+      var amt = parseFloat(e.clampedAmountUsdc || "0") || 0;
+      if (amt > 0) daily.push({ date: e.date, amt: amt, status: e.status });
+    });
+    if (!daily.length) {
+      host.innerHTML = '<div class="empty-state fade-in"><div class="empty-icon">📅</div><p class="empty-title">No daily data yet</p><p class="empty-desc">DCA amounts will appear as bars after successful runs.</p></div>';
+      $("dailySub").textContent = "No data";
+      return;
+    }
+    $("dailySub").textContent = daily.length + " execution(s) · avg " + fmt(daily.reduce(function (s, d) { return s + d.amt; }, 0) / daily.length, 4) + " USDC";
+    var W = 440, H = 170, padL = 40, padR = 8, padT = 12, padB = 26;
+    var max = Math.ceil(Math.max.apply(null, daily.map(function (d) { return d.amt; })) * 1.2) || 1;
+    var n = daily.length, bw = Math.max(6, Math.min(32, (W - padL - padR) / n * 0.7)), gap = (W - padL - padR) / n;
+    var grid = gridLines(W, H, padL, padR, padT, padB, max, 3, '', 2);
+    var bars = "", labels = "";
+    for (var i = 0; i < n; i++) {
+      var cx = padL + gap * i + gap / 2;
+      var bh = (H - padT - padB) * (daily[i].amt / max);
+      var by = H - padB - bh;
+      var color = daily[i].status === "success" ? "url(#db1)" : "url(#db2)";
+      bars += '<rect x="' + (cx - bw / 2).toFixed(1) + '" y="' + by.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="3" fill="' + color + '" opacity="0.85"/>';
+      if (n <= 10 || i % Math.ceil(n / 8) === 0) labels += '<text x="' + cx.toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle" class="chart-label">' + daily[i].date.slice(5) + '</text>';
     }
     host.innerHTML =
-      '<svg class="chart2" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
-      '<defs><linearGradient id="cb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a5cf6"/><stop offset="1" stop-color="#2f86e6" stop-opacity="0.4"/></linearGradient></defs>' +
-      bars + '</svg>';
+      '<svg class="daily-chart" viewBox="0 0 ' + W + ' ' + H + '">' +
+      '<defs><linearGradient id="db1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#34d399" stop-opacity="0.3"/></linearGradient>' +
+      '<linearGradient id="db2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f86e6"/><stop offset="1" stop-color="#2f86e6" stop-opacity="0.3"/></linearGradient></defs>' +
+      grid + bars + labels + '</svg>';
+    host.querySelector("svg").addEventListener("mousemove", function (ev) {
+      var r = this.getBoundingClientRect(), sx = (ev.clientX - r.left) / r.width * W;
+      var closest = 0, minD = Infinity;
+      for (var k = 0; k < n; k++) { var cx2 = padL + gap * k + gap / 2; var d = Math.abs(cx2 - sx); if (d < minD) { minD = d; closest = k; } }
+      var dd = daily[closest];
+      showTip(ev, '<div class="tt-label">' + dd.date + '</div><div class="tt-val">' + fmt(dd.amt, 4) + ' USDC</div><div class="tt-sub">' + statusLabel(dd.status) + '</div>');
+    });
+    host.querySelector("svg").addEventListener("mouseleave", hideTip);
+  }
+
+  // ---------- status donut chart ----------
+  function renderDonut(history) {
+    var host = $("donutHost");
+    if (!history.length) {
+      host.innerHTML = '<div class="empty-state fade-in"><div class="empty-icon">🎯</div><p class="empty-title">No runs yet</p><p class="empty-desc">Run distribution will appear after the first agent execution.</p></div>';
+      $("donutSub").textContent = "No data";
+      return;
+    }
+    var counts = { success: 0, dry_run: 0, skipped: 0, error: 0 };
+    history.forEach(function (e) {
+      if (e.status === "success") counts.success++;
+      else if (e.status === "dry_run") counts.dry_run++;
+      else if (e.status && e.status.indexOf("skip") === 0) counts.skipped++;
+      else counts.error++;
+    });
+    var total = history.length;
+    $("donutSub").textContent = total + " total run(s)";
+    var slices = [
+      { label: "Success", count: counts.success, color: "#34d399" },
+      { label: "Dry run", count: counts.dry_run, color: "#60a5fa" },
+      { label: "Skipped", count: counts.skipped, color: "#fbbf24" },
+      { label: "Error", count: counts.error, color: "#fb7185" },
+    ].filter(function (s) { return s.count > 0; });
+    var R = 80, r = 50, cx = 120, cy = 100, paths = "", angle = -90;
+    slices.forEach(function (s) {
+      var sweep = (s.count / total) * 360;
+      var a1 = angle * Math.PI / 180, a2 = (angle + sweep) * Math.PI / 180;
+      var large = sweep > 180 ? 1 : 0;
+      var x1 = cx + R * Math.cos(a1), y1 = cy + R * Math.sin(a1);
+      var x2 = cx + R * Math.cos(a2), y2 = cy + R * Math.sin(a2);
+      var ix1 = cx + r * Math.cos(a1), iy1 = cy + r * Math.sin(a1);
+      var ix2 = cx + r * Math.cos(a2), iy2 = cy + r * Math.sin(a2);
+      paths += '<path d="M' + x1.toFixed(1) + ' ' + y1.toFixed(1) + ' A' + R + ' ' + R + ' 0 ' + large + ' 1 ' + x2.toFixed(1) + ' ' + y2.toFixed(1) + ' L' + ix2.toFixed(1) + ' ' + iy2.toFixed(1) + ' A' + r + ' ' + r + ' 0 ' + large + ' 0 ' + ix1.toFixed(1) + ' ' + iy1.toFixed(1) + ' Z" fill="' + s.color + '" opacity="0.85" style="transition:opacity .15s;cursor:pointer;" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.85"/>';
+      angle += sweep;
+    });
+    var centerText = '<text x="' + cx + '" y="' + (cy - 4) + '" text-anchor="middle" fill="var(--text)" font-family="Sora" font-size="22" font-weight="800">' + total + '</text>' +
+      '<text x="' + cx + '" y="' + (cy + 14) + '" text-anchor="middle" fill="var(--muted)" font-size="11">runs</text>';
+    host.innerHTML =
+      '<svg class="donut-chart" viewBox="0 0 240 200">' + paths + centerText + '</svg>' +
+      '<div class="donut-legend">' + slices.map(function (s) {
+        return '<span><span class="dl-dot" style="background:' + s.color + ';"></span><span class="dl-count">' + s.count + '</span> ' + s.label + ' (' + Math.round(s.count / total * 100) + '%)</span>';
+      }).join("") + '</div>';
   }
 
   function renderPerformance(history) {
@@ -1122,7 +1297,7 @@
     if (!Array.isArray(history)) history = [];
     var completed = history.filter(function (e) { return SUCCESS[e.status]; });
     var total = 0, points = [];
-    completed.forEach(function (e) { total += parseFloat(e.clampedAmountUsdc || "0") || 0; points.push({ cum: total }); });
+    completed.forEach(function (e) { total += parseFloat(e.clampedAmountUsdc || "0") || 0; points.push({ cum: total, date: e.date }); });
 
     var last = history[history.length - 1];
     var lastTxt = last ? statusLabel(last.status) : "—";
@@ -1154,6 +1329,8 @@
     }).join("");
     $("runsBody").innerHTML = rows || '<tr><td colspan="7"><div class="empty-state fade-in"><div class="empty-icon">🤖</div><p class="empty-title">No runs recorded yet</p><p class="empty-desc">The agent will record its first decision after the next daily cron run.</p></div></td></tr>';
 
+    renderDailyChart(history);
+    renderDonut(history);
     renderPerformance(history);
   }
 

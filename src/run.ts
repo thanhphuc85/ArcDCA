@@ -179,7 +179,8 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
         : `Swapped ${clamped.amountUsdc} USDC -> ${config.tokenOut}`,
     }, false, config.discordWebhookUrl, refCtx);
   } catch (err) {
-    logger.error("Swap execution failed", err);
+    const category = err instanceof SwapExecutionError ? err.category : "unknown";
+    logger.error(`Swap execution failed [${category}]`, err);
     return writeAndReturn({
       date,
       timestamp,
@@ -190,7 +191,7 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
       tokenOut: config.tokenOut,
       reasoning: decision.reasoning,
       walletUsdcBalance: usdcBalance,
-      message: `Swap failed: ${(err as Error).message}${err instanceof SwapExecutionError && err.cause ? ` (${String((err.cause as Error)?.message ?? err.cause)})` : ""}`,
+      message: `Swap failed [${category}]: ${(err as Error).message}`,
     }, false, config.discordWebhookUrl, refCtx);
   }
 }

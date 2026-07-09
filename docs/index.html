@@ -1446,14 +1446,27 @@
     }
   })();
 
-  // auto-refresh timer
+  // auto-refresh timer with visibility API
   var _refreshTimer = null;
+  var AUTO_REFRESH_DEFAULT = 30;
+  function getRefreshInterval() {
+    return (userSettings.autoRefresh > 0 ? userSettings.autoRefresh : AUTO_REFRESH_DEFAULT);
+  }
   function setupAutoRefresh() {
     if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
-    if (userSettings.autoRefresh > 0) {
-      _refreshTimer = setInterval(function () { refreshDashboardData(); }, userSettings.autoRefresh * 1000);
+    var secs = getRefreshInterval();
+    if (secs > 0 && document.visibilityState === "visible") {
+      _refreshTimer = setInterval(function () { refreshDashboardData(); }, secs * 1000);
     }
   }
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") {
+      refreshDashboardData();
+      setupAutoRefresh();
+    } else {
+      if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
+    }
+  });
   setupAutoRefresh();
 
   function sendTelegram(token, chatId, text) {
@@ -3144,6 +3157,7 @@
         checkAndNotify(results[0]);
       })
       .catch(function () {});
+    if (typeof refreshTreasury === "function") refreshTreasury();
   }
 
   // initial load: show cached data instantly, then fetch fresh

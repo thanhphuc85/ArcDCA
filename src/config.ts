@@ -58,11 +58,30 @@ export class ConfigError extends Error {
   }
 }
 
+const ENV_HELP: Record<string, string> = {
+  CIRCLE_API_KEY: "Get from Circle Developer Console → API Keys",
+  CIRCLE_ENTITY_SECRET: "Get from Circle Developer Console → Entity Secret",
+  WALLET_ID: "Get from Circle Developer Console → Wallets",
+  ANTHROPIC_API_KEY: "Get from console.anthropic.com → API Keys",
+  KIT_KEY: "Get from Circle Developer Console → Swap Kit",
+  MAX_DAILY_USDC: "Set a decimal like '1.00' (defaults to 1.00)",
+  MIN_USDC_RESERVE: "Set a decimal like '0.50' (defaults to 0.50)",
+  MIN_SWAP_USDC: "Set a decimal like '0.10' (defaults to 0.10)",
+};
+
 export function loadConfig(): AppConfig {
   const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
-    const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
-    throw new ConfigError(`Invalid configuration: ${issues}`);
+    const issues = parsed.error.issues.map((i) => {
+      const key = i.path.join(".");
+      const help = ENV_HELP[key];
+      return `  - ${key}: ${i.message}${help ? ` → ${help}` : ""}`;
+    }).join("\n");
+    const required = parsed.error.issues.filter((i) => i.code === "too_small" || i.message.includes("required")).map((i) => i.path.join("."));
+    const hint = required.length
+      ? `\n\nMissing secrets? Add them in GitHub → Settings → Secrets → Actions, or in your .env file.`
+      : "";
+    throw new ConfigError(`Invalid configuration:\n${issues}${hint}`);
   }
   const env = parsed.data;
 

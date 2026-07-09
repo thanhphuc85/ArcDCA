@@ -48,5 +48,32 @@
       "budget",
       "diagnostics"
     ]
+  },
+  {
+    "id": "ref-1783638011785",
+    "date": "2026-07-09",
+    "timestamp": "2026-07-09T23:00:11.785Z",
+    "runStatus": "skipped_llm_declined",
+    "insight": "cirBTC swap route has now failed 3 consecutive attempts (2x 1.00 USDC, 1x 0.25 USDC) with identical \"No route available\" errors across two days, confirming this is a persistent liquidity/routing outage, not a sizing or guardrail issue — correctly escalating and pausing was the right call today, but wallet cash is now piling up unused (39.84 USDC, only 1.00 spent in 6 days).",
+    "patterns": [
+      "3 consecutive swap failures with identical 'No route available' error for cirBTC, spanning both 1.00 and 0.25 USDC sizes — confirms failure is route/liquidity-based, not size-based",
+      "Pacing is severely behind: only 1 of 5 execution attempts succeeded over 6 days, cumulative spend 1.00 USDC vs an implied ~6.00 USDC if on daily-cap pace",
+      "Price/regime data has been unavailable (dipSignal: none, regime: insufficient_data) for multiple consecutive runs, removing any dip-buying edge and forcing default-to-cap sizing logic every time",
+      "Guardrails/compute_allocation are not the binding constraint at all in recent runs — every skip/failure stems from external swap execution (route/liquidity), not risk scoring or budget caps",
+      "Agent correctly applied prior stored strategy adjustment (stop blind-retrying broken route) rather than repeating the same failing swap a 4th time"
+    ],
+    "strategyAdjustment": "Stop attempting cirBTC swaps at any size until route status is externally verified as restored — testing smaller sizes already proved it's not size-dependent, so further retries just waste cycles. Instead: (1) explicitly flag this as an escalation/alert item needing human or system-level route/liquidity fix for cirBTC, (2) on next run, first check if route is restored before recommending any swap, (3) once restored, plan a catch-up allocation larger than 1.00 USDC (e.g. 3-5 USDC) to compensate for the 5 missed days and bring pacing back toward the implied daily-cap schedule, capped by guardrails/reserve, (4) continue monitoring dipSignal/regime data — if it remains 'insufficient_data' for many more days, consider that data feed itself may also need escalation.",
+    "confidenceLevel": "high",
+    "cumulativeSpentUsdc": "1.000000",
+    "dayNumber": 6,
+    "walletBalance": "39.8434085891759712",
+    "tags": [
+      "error-recovery",
+      "routing-failure",
+      "pacing",
+      "escalation",
+      "liquidity",
+      "budget-utilization"
+    ]
   }
 ]

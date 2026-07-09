@@ -2,11 +2,16 @@ import type { AppConfig } from "./config.js";
 import { createWallet } from "./wallet.js";
 import { readHistory, appendEntry, recentHistory, dayCount, alreadySpentToday, remainingCampaignBudget } from "./history/store.js";
 import { readReflections, appendReflection } from "./history/reflectionStore.js";
+import { readLedger, writeLedger } from "./ledger/store.js";
+import { scanDeposits } from "./ledger/scanner.js";
+import { distributeSwap } from "./ledger/distribute.js";
+import { requestWithdrawal, processPendingWithdrawals } from "./ledger/withdraw.js";
+import { ARC_TESTNET_RPC, ARC_USDC_CONTRACT } from "./ledger/constants.js";
 import { getClaudeDecision, DecisionError } from "./decision/client.js";
 import { generateReflection } from "./decision/reflect.js";
 import { clampDecision } from "./decision/guardrails.js";
 import { executeSwap, SwapExecutionError } from "./swap/swapKit.js";
-import type { DecisionContext, HistoryEntry, RunStatus } from "./types.js";
+import type { DecisionContext, HistoryEntry, Ledger, RunStatus } from "./types.js";
 import { logger } from "./logger.js";
 import { notifyAll } from "./notify.js";
 
@@ -47,15 +52,22 @@ async function writeAndReturn(
   return { entry, isFatal };
 }
 
+async function saveLedger(ledger: Ledger): Promise<void> {
+  try {
+    await writeLedger(ledger);
+  } catch (err) {
+    logger.error("Failed to write ledger", err);
+  }
+}
+
 export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
   const date = today();
   const timestamp = nowIso();
 
   let usdcBalance: string;
-  let walletAddress: `0x${string}`;
+  let wallet;
   try {
-    const wallet = await createWallet(config.circleApiKey, config.circleEntitySecret, config.walletId);
-    walletAddress = wallet.address;
+    wallet = await createWallet(config.circleApiKey, config.circleEntitySecret, config.walletId);
     usdcBalance = await wallet.getUsdcTokenBalance();
   } catch (err) {
     logger.error("Failed to read wallet USDC balance", err);
@@ -68,6 +80,32 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
     }, false, config.discordWebhookUrl);
   }
 
+  // --- Per-user ledger: scan deposits + process withdrawals ---
+  const ledger = await readLedger();
+
+  try {
+    await scanDeposits(ledger, wallet.address, ARC_TESTNET_RPC, ARC_USDC_CONTRACT);
+  } catch (err) {
+    logger.error("Deposit scan failed (non-fatal)", err);
+  }
+
+  if (config.withdrawalInput) {
+    try {
+      requestWithdrawal(ledger, config.withdrawalInput.address, config.withdrawalInput.token, config.withdrawalInput.amount);
+    } catch (err) {
+      logger.error("Withdrawal request failed", err);
+    }
+  }
+
+  try {
+    await processPendingWithdrawals(ledger, wallet);
+  } catch (err) {
+    logger.error("Withdrawal processing failed (non-fatal)", err);
+  }
+
+  await saveLedger(ledger);
+
+  // --- Existing DCA flow ---
   const history = await readHistory();
   const reflections = await readReflections();
   const refCtx = { apiKey: config.anthropicApiKey, allHistory: history };
@@ -152,7 +190,7 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
     const swapResult = await executeSwap({
       circleApiKey: config.circleApiKey,
       circleEntitySecret: config.circleEntitySecret,
-      walletAddress,
+      walletAddress: wallet.address,
       kitKey: config.kitKey,
       tokenOut: config.tokenOut,
       amountUsdc: clamped.amountUsdc,
@@ -160,6 +198,12 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
     });
 
     logger.info(swapResult.dryRun ? "Dry run: swap skipped" : `Swap executed: ${swapResult.txHash}`);
+
+    // Pro-rata distribution after successful swap
+    if (!swapResult.dryRun && swapResult.amountOut) {
+      distributeSwap(ledger, clamped.amountUsdc, swapResult.amountOut, timestamp);
+      await saveLedger(ledger);
+    }
 
     return writeAndReturn({
       date,

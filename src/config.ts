@@ -36,7 +36,16 @@ const envSchema = z.object({
   DCA_DIP_MILD_MULTIPLIER: z.preprocess(emptyToUndefined, z.coerce.number().min(1).max(10).default(1.2)),
   DCA_DIP_MODERATE_MULTIPLIER: z.preprocess(emptyToUndefined, z.coerce.number().min(1).max(10).default(1.5)),
   DCA_DIP_STRONG_MULTIPLIER: z.preprocess(emptyToUndefined, z.coerce.number().min(1).max(10).default(2.0)),
+  WITHDRAWAL_ADDRESS: z.preprocess(emptyToUndefined, z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional()),
+  WITHDRAWAL_TOKEN: z.preprocess(emptyToUndefined, z.enum(["USDC", "cirBTC"]).optional()),
+  WITHDRAWAL_AMOUNT: z.preprocess(emptyToUndefined, decimalString.optional()),
 });
+
+export interface WithdrawalInput {
+  address: string;
+  token: "USDC" | "cirBTC";
+  amount: string;
+}
 
 export interface AppConfig {
   circleApiKey: string;
@@ -49,6 +58,7 @@ export interface AppConfig {
   discordWebhookUrl?: string;
   guardrails: GuardrailConfig;
   dcaStrategy: DcaStrategy;
+  withdrawalInput?: WithdrawalInput;
 }
 
 export class ConfigError extends Error {
@@ -114,5 +124,8 @@ export function loadConfig(): AppConfig {
       dipModerateMultiplier: env.DCA_DIP_MODERATE_MULTIPLIER,
       dipStrongMultiplier: env.DCA_DIP_STRONG_MULTIPLIER,
     },
+    withdrawalInput: env.WITHDRAWAL_ADDRESS && env.WITHDRAWAL_TOKEN && env.WITHDRAWAL_AMOUNT
+      ? { address: env.WITHDRAWAL_ADDRESS, token: env.WITHDRAWAL_TOKEN, amount: env.WITHDRAWAL_AMOUNT }
+      : undefined,
   };
 }

@@ -3,8 +3,8 @@ import { withRetry } from "./retry.js";
 
 export interface Wallet {
   address: `0x${string}`;
-  /** USDC balance for this wallet as reported by Circle Wallets (already a human-readable decimal string). */
   getUsdcTokenBalance(): Promise<string>;
+  sendTokens(params: { tokenAddress: string; destinationAddress: string; amount: string }): Promise<{ txHash?: string }>;
 }
 
 export async function createWallet(apiKey: string, entitySecret: string, walletId: string): Promise<Wallet> {
@@ -28,6 +28,20 @@ export async function createWallet(apiKey: string, entitySecret: string, walletI
       );
       const usdc = balanceResponse.data?.tokenBalances?.find((b) => b.token.symbol === "USDC");
       return usdc?.amount ?? "0";
+    },
+    async sendTokens(params) {
+      const txResponse = await withRetry(
+        () => client.createTransaction({
+          walletAddress: address,
+          blockchain: "ARC-TESTNET",
+          tokenAddress: params.tokenAddress,
+          destinationAddress: params.destinationAddress,
+          amount: [params.amount],
+          fee: { type: "level", config: { feeLevel: "HIGH" } },
+        }),
+        { maxRetries: 2, label: "Circle sendTokens" },
+      );
+      return { txHash: txResponse.data?.id };
     },
   };
 }

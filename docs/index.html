@@ -315,6 +315,27 @@
   .pa-detail { color: var(--muted); font-size: 12px; }
   @media (max-width: 480px) { .intel-grid { grid-template-columns: 1fr 1fr; } .intel-val { font-size: 22px; } }
 
+  /* per-user portfolio */
+  .portfolio-grid { display: grid; gap: 14px; grid-template-columns: repeat(2,1fr); margin-bottom: 16px; }
+  @media (min-width: 760px) { .portfolio-grid { grid-template-columns: repeat(4,1fr); } }
+  .port-card { background: var(--glass); border: 1px solid var(--glass-brd); border-radius: var(--radius); padding: 16px; text-align: center; }
+  .port-val { font-size: 26px; font-weight: 700; color: var(--text); }
+  .port-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .port-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .withdraw-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .withdraw-row input { flex: 1; min-width: 100px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--glass-brd); background: var(--bg); color: var(--text); font-size: 14px; }
+  .withdraw-row select { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--glass-brd); background: var(--bg); color: var(--text); font-size: 14px; }
+  .wd-history { margin-top: 16px; }
+  .wd-item { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--glass-brd); font-size: 13px; }
+  .wd-badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+  .wd-badge.pending { background: rgba(255,193,7,.15); color: #ffc107; }
+  .wd-badge.completed { background: rgba(76,175,80,.15); color: #4caf50; }
+  .wd-badge.failed { background: rgba(244,67,54,.15); color: #f44336; }
+  .wd-badge.processing { background: rgba(33,150,243,.15); color: #2196f3; }
+  .dist-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+  .dist-table th, .dist-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--glass-brd); }
+  .dist-table th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; }
+
   /* settings panel */
   .settings-toggle { background: none; border: none; cursor: pointer; font-size: 20px; padding: 4px 8px; border-radius: 10px; transition: background .15s; color: var(--text); }
   .settings-toggle:hover { background: rgba(255,255,255,.1); }
@@ -1230,7 +1251,35 @@
           <div class="status-note" id="depositStatus"></div>
         </div>
       </div>
-      <p class="note" style="margin-top:16px;">⚠️ <b>Testnet demo.</b> Deposit only valueless testnet USDC. No per-user accounting or withdrawal. You confirm every transfer in your wallet.</p>
+      <p class="note" id="fundNoteEl" style="margin-top:16px;" data-t="fundNote">⚠️ <b>Testnet demo.</b> Your deposit is tracked per-wallet. Withdrawals are processed during the next agent run.</p>
+    </div>
+  </section>
+
+  <section class="reveal" id="portfolioSection" style="display:none;">
+    <div class="eyebrow" data-t="portEye">My Portfolio</div>
+    <div class="h2" data-t="portTitle">Your DCA account</div>
+    <p class="sub" data-t="portSub">Your per-wallet virtual balances — deposits, DCA allocations, and withdrawals tracked automatically.</p>
+    <div class="portfolio-grid">
+      <div class="port-card"><div class="port-val" id="portUsdc">—</div><div class="port-label" data-t="portUsdcLabel">USDC in pool</div><div class="port-sub" data-t="portUsdcSub">Available for DCA</div></div>
+      <div class="port-card"><div class="port-val" id="portCirBtc">—</div><div class="port-label" data-t="portCirBtcLabel">cirBTC earned</div><div class="port-sub" data-t="portCirBtcSub">From DCA allocations</div></div>
+      <div class="port-card"><div class="port-val" id="portDeposited">—</div><div class="port-label" data-t="portDepositedLabel">Total deposited</div><div class="port-sub" data-t="portDepositedSub">USDC all-time</div></div>
+      <div class="port-card"><div class="port-val" id="portSwapped">—</div><div class="port-label" data-t="portSwappedLabel">Total swapped</div><div class="port-sub" data-t="portSwappedSub">USDC → cirBTC</div></div>
+    </div>
+    <div class="card">
+      <h3 data-t="portWithdrawTitle">Withdraw your tokens</h3>
+      <p class="cs" data-t="portWithdrawSub">Request a withdrawal — processed during the next agent run via GitHub Actions.</p>
+      <div class="withdraw-row">
+        <select id="wdToken"><option value="USDC">USDC</option><option value="cirBTC">cirBTC</option></select>
+        <input id="wdAmount" type="number" min="0" step="0.000001" placeholder="Amount" />
+        <button class="btn" id="wdBtn" data-t="portWithdrawBtn">Request withdrawal</button>
+      </div>
+      <div class="status-note" id="wdStatus"></div>
+      <div class="wd-history" id="wdHistory"></div>
+    </div>
+    <div class="card" id="distCard" style="display:none;">
+      <h3 data-t="portDistTitle">DCA allocation history</h3>
+      <p class="cs" data-t="portDistSub">How the agent's swaps were distributed to your account.</p>
+      <div id="distList"></div>
     </div>
   </section>
 
@@ -1770,8 +1819,14 @@
       });
     }, Promise.reject(new Error("init")));
   }
+  var LEDGER_SOURCES = [
+    "https://cdn.jsdelivr.net/gh/thanhphuc85/ArcDCA@main/data/ledger.json",
+    "https://raw.githubusercontent.com/thanhphuc85/ArcDCA/main/data/ledger.json",
+  ];
   function fetchHistory() { return fetchFromSources(HISTORY_SOURCES); }
   function fetchReflections() { return fetchFromSources(REFLECTION_SOURCES).catch(function () { return []; }); }
+  function fetchLedger() { return fetchFromSources(LEDGER_SOURCES).catch(function () { return null; }); }
+  var _ledgerData = null;
 
   function $(id) { return document.getElementById(id); }
   function short(a) { return a.slice(0, 6) + "…" + a.slice(-4); }
@@ -2082,6 +2137,7 @@
       }
       var txs = await fetchRecentTxs(account);
       showWalletProfile(account, nativeBal, usdc, cirbtc, "metamask", txs);
+      if (typeof renderPortfolio === "function") renderPortfolio(_ledgerData);
     } catch (err) {
       status.textContent = "Connection cancelled or failed: " + (err && err.message ? err.message : err);
     }
@@ -2100,6 +2156,8 @@
         $("walletCard").style.display = "none";
         closeWalletPopover();
         if (typeof updateHeaderWallet === "function") updateHeaderWallet(null, null);
+        var portSec = $("portfolioSection");
+        if (portSec) portSec.style.display = "none";
       } else if (accounts[0] !== state.account) {
         connectMetamask();
       }
@@ -2146,6 +2204,7 @@
     } catch (e3) {}
     var txs = await fetchRecentTxs(account);
     showWalletProfile(account, nativeBal, usdc, cirbtc, "gmail", txs);
+    if (typeof renderPortfolio === "function") renderPortfolio(_ledgerData);
     } catch (err) { status.textContent = "Connection failed: " + (err.message || err); }
   }
 
@@ -3144,13 +3203,15 @@
 
   // ---------- data cache & refresh ----------
   function refreshDashboardData() {
-    Promise.all([fetchHistory(), fetchReflections()])
+    Promise.all([fetchHistory(), fetchReflections(), fetchLedger()])
       .then(function (results) {
         _historyData = results[0];
         _reflectionData = results[1];
+        _ledgerData = results[2];
         render(results[0]);
         renderReflections(results[1]);
         renderNewFeatures(results[0], results[1]);
+        renderPortfolio(results[2]);
         if (Array.isArray(results[0]) && results[0].length) $("historyExportBar").style.display = "";
         if (Array.isArray(results[1]) && results[1].length) $("reflExportBar").style.display = "";
         saveCache(results[0], results[1]);
@@ -3170,6 +3231,92 @@
       if (Array.isArray(dataCache.history) && dataCache.history.length) $("historyExportBar").style.display = "";
       if (Array.isArray(dataCache.reflections) && dataCache.reflections.length) $("reflExportBar").style.display = "";
     }
+  })();
+
+  // ---------- per-user portfolio ----------
+  function renderPortfolio(ledger) {
+    var sec = $("portfolioSection");
+    if (!sec) return;
+    if (!ledger || !ledger.users || !state.account) {
+      sec.style.display = "none";
+      return;
+    }
+    var key = state.account.toLowerCase();
+    var user = ledger.users[key];
+    if (!user) {
+      sec.style.display = "none";
+      return;
+    }
+    sec.style.display = "";
+    $("portUsdc").textContent = fmt(parseFloat(user.usdcBalance || "0"), 6);
+    $("portCirBtc").textContent = fmt(parseFloat(user.cirBtcBalance || "0"), 8);
+    $("portDeposited").textContent = fmt(parseFloat(user.totalDeposited || "0"), 2);
+    $("portSwapped").textContent = fmt(parseFloat(user.totalSwapped || "0"), 2);
+
+    // Withdrawal history for this user
+    var wds = (ledger.withdrawals || []).filter(function (w) { return w.address === key; });
+    var t = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
+    var wdHtml = "";
+    if (wds.length > 0) {
+      wdHtml = "<h4>" + (t.portWdPending || "Withdrawals") + "</h4>";
+      wds.forEach(function (w) {
+        var badgeClass = w.status;
+        var label = t["portWd" + w.status.charAt(0).toUpperCase() + w.status.slice(1)] || w.status;
+        wdHtml += '<div class="wd-item">' +
+          '<span class="wd-badge ' + badgeClass + '">' + label + '</span>' +
+          '<span>' + w.amount + ' ' + w.token + '</span>' +
+          '<span style="color:var(--muted);font-size:11px;">' + (w.requestedAt || "").slice(0, 10) + '</span>' +
+          (w.txHash ? '<a href="' + ARC.explorer + '/tx/' + w.txHash + '" target="_blank" rel="noopener" style="font-size:11px;">tx ↗</a>' : '') +
+        '</div>';
+      });
+    }
+    $("wdHistory").innerHTML = wdHtml;
+
+    // Distribution history for this user
+    var dists = (ledger.distributions || []).filter(function (d) {
+      return d.allocations && d.allocations.some(function (a) { return a.address === key; });
+    });
+    var distCard = $("distCard");
+    if (dists.length > 0) {
+      distCard.style.display = "";
+      var rows = dists.slice(-10).reverse().map(function (d) {
+        var alloc = d.allocations.find(function (a) { return a.address === key; });
+        if (!alloc) return "";
+        return '<tr><td>' + (d.runTimestamp || "").slice(0, 10) + '</td>' +
+          '<td>' + fmt(parseFloat(alloc.usdcShare || "0"), 6) + '</td>' +
+          '<td>' + fmt(parseFloat(alloc.cirBtcShare || "0"), 8) + '</td>' +
+          '<td>' + (parseFloat(alloc.poolFraction || "0") * 100).toFixed(2) + '%</td></tr>';
+      }).join("");
+      $("distList").innerHTML = '<table class="dist-table"><thead><tr><th>Date</th><th>USDC</th><th>cirBTC</th><th>Share</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    } else {
+      distCard.style.display = "none";
+    }
+  }
+
+  // Withdrawal request button
+  (function setupWithdraw() {
+    var btn = $("wdBtn");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var st = $("wdStatus");
+      if (!state.account) { st.textContent = "Connect your wallet first."; return; }
+      var token = $("wdToken").value;
+      var amount = parseFloat($("wdAmount").value);
+      if (!(amount > 0)) { st.textContent = "Enter a valid amount."; return; }
+      if (!_ledgerData || !_ledgerData.users) { st.textContent = "Ledger not loaded."; return; }
+      var key = state.account.toLowerCase();
+      var user = _ledgerData.users[key];
+      if (!user) { st.textContent = "No account found. Deposit first."; return; }
+      var bal = parseFloat(token === "USDC" ? user.usdcBalance : user.cirBtcBalance);
+      if (amount > bal) { st.textContent = "Insufficient balance: " + bal + " " + token + " available."; return; }
+
+      // Build GitHub Actions workflow_dispatch URL
+      var ghUrl = "https://github.com/thanhphuc85/ArcDCA/actions/workflows/dca.yml";
+      st.innerHTML = 'To process this withdrawal, trigger a <a href="' + ghUrl + '" target="_blank" rel="noopener">manual workflow run</a> with:<br>' +
+        '<code>withdrawal_address: ' + state.account + '</code><br>' +
+        '<code>withdrawal_token: ' + token + '</code><br>' +
+        '<code>withdrawal_amount: ' + amount + '</code>';
+    });
   })();
 
   // ---------- price chart (cirBTC/USDC) ----------
@@ -3372,7 +3519,7 @@
       fundEye: "Fund the agent", fundTitle: "Deposit to DCA treasury",
       fundSub: "Send testnet USDC to the agent's wallet — it dollar-cost-averages the pooled balance into cirBTC autonomously.",
       qrTitle: "Scan to deposit", qrSub: "Send testnet USDC to this address on Arc Testnet",
-      fundNote: '⚠️ <b>Testnet demo.</b> Deposit only valueless testnet USDC. No per-user accounting or withdrawal. You confirm every transfer in your wallet.',
+      fundNote: '⚠️ <b>Testnet demo.</b> Your deposit is tracked per-wallet. Withdrawals are processed during the next agent run.',
       lbEye: "Public Treasury", lbTitle: "Community deposits",
       lbSub: "Everyone who has deposited USDC into the agent's DCA treasury — fully transparent, sourced from on-chain data.",
       lbLeaderboard: "Depositor leaderboard",
@@ -3417,6 +3564,17 @@
       wpRecentActivity: "Recent activity", wpReceived: "Received", wpSent: "Sent",
       rbWelcome: "Welcome back!", rbReconnectPrompt: "Reconnect", rbLastSeen: "last seen",
       rbReconnectBtn: "Reconnect", rbMinAgo: "m ago", rbHourAgo: "h ago",
+      portEye: "My Portfolio", portTitle: "Your DCA account",
+      portSub: "Your per-wallet virtual balances — deposits, DCA allocations, and withdrawals tracked automatically.",
+      portUsdcLabel: "USDC in pool", portUsdcSub: "Available for DCA",
+      portCirBtcLabel: "cirBTC earned", portCirBtcSub: "From DCA allocations",
+      portDepositedLabel: "Total deposited", portDepositedSub: "USDC all-time",
+      portSwappedLabel: "Total swapped", portSwappedSub: "USDC → cirBTC",
+      portWithdrawTitle: "Withdraw your tokens", portWithdrawSub: "Request a withdrawal — processed during the next agent run via GitHub Actions.",
+      portWithdrawBtn: "Request withdrawal",
+      portDistTitle: "DCA allocation history", portDistSub: "How the agent's swaps were distributed to your account.",
+      portNoAccount: "No account found. Deposit USDC to the agent to start DCA.",
+      portWdPending: "Pending", portWdCompleted: "Completed", portWdFailed: "Failed", portWdProcessing: "Processing",
     },
     vi: {
       heroChip: "Encode × Circle · Hackathon Tiền Lập Trình",
@@ -3442,7 +3600,7 @@
       fundEye: "Nạp tiền", fundTitle: "Gửi USDC vào quỹ DCA",
       fundSub: "Gửi USDC testnet vào ví agent — nó sẽ tự động DCA số dư chung thành cirBTC.",
       qrTitle: "Quét để nạp tiền", qrSub: "Gửi USDC testnet đến địa chỉ này trên Arc Testnet",
-      fundNote: '⚠️ <b>Demo testnet.</b> Chỉ nạp USDC testnet không có giá trị. Không có hạch toán hay rút tiền. Bạn xác nhận mọi giao dịch trong ví.',
+      fundNote: '⚠️ <b>Demo testnet.</b> Tiền gửi được theo dõi theo ví. Rút tiền được xử lý trong lần chạy agent tiếp theo.',
       lbEye: "Quỹ công khai", lbTitle: "Đóng góp cộng đồng",
       lbSub: "Tất cả những ai đã gửi USDC vào quỹ DCA của agent — hoàn toàn minh bạch, nguồn từ dữ liệu on-chain.",
       lbLeaderboard: "Bảng xếp hạng người nạp",
@@ -3487,6 +3645,17 @@
       wpRecentActivity: "Hoạt động gần đây", wpReceived: "Nhận", wpSent: "Gửi",
       rbWelcome: "Chào mừng trở lại!", rbReconnectPrompt: "Kết nối lại", rbLastSeen: "lần cuối",
       rbReconnectBtn: "Kết nối lại", rbMinAgo: " phút trước", rbHourAgo: " giờ trước",
+      portEye: "Danh mục của tôi", portTitle: "Tài khoản DCA",
+      portSub: "Số dư ảo theo ví — tiền gửi, phân bổ DCA, và rút tiền được theo dõi tự động.",
+      portUsdcLabel: "USDC trong pool", portUsdcSub: "Sẵn sàng cho DCA",
+      portCirBtcLabel: "cirBTC đã nhận", portCirBtcSub: "Từ phân bổ DCA",
+      portDepositedLabel: "Tổng đã gửi", portDepositedSub: "USDC tất cả",
+      portSwappedLabel: "Tổng đã swap", portSwappedSub: "USDC → cirBTC",
+      portWithdrawTitle: "Rút token", portWithdrawSub: "Yêu cầu rút tiền — xử lý trong lần chạy agent tiếp theo qua GitHub Actions.",
+      portWithdrawBtn: "Yêu cầu rút tiền",
+      portDistTitle: "Lịch sử phân bổ DCA", portDistSub: "Cách swap của agent được phân bổ cho tài khoản bạn.",
+      portNoAccount: "Chưa có tài khoản. Gửi USDC vào agent để bắt đầu DCA.",
+      portWdPending: "Chờ xử lý", portWdCompleted: "Hoàn thành", portWdFailed: "Thất bại", portWdProcessing: "Đang xử lý",
     }
   };
   var currentLang = localStorage.getItem("aura-lang") || "en";

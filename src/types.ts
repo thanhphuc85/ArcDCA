@@ -74,6 +74,66 @@ export interface ClampedDecision {
   skipReason?: "llm_declined" | "invalid_llm_amount" | "below_dust_threshold" | "daily_cap_exhausted";
 }
 
+// ---- Per-User Ledger Types ----
+
+export interface UserAccount {
+  address: string;
+  usdcBalance: string;
+  cirBtcBalance: string;
+  totalDeposited: string;
+  totalSwapped: string;
+  totalWithdrawnCirBtc: string;
+  totalWithdrawnUsdc: string;
+  firstSeen: string;
+  lastActivity: string;
+}
+
+export interface DepositRecord {
+  id: string;
+  txHash: string;
+  from: string;
+  amount: string;
+  blockNumber: number;
+  recordedAt: string;
+}
+
+export interface DistributionRecord {
+  runTimestamp: string;
+  totalUsdcSwapped: string;
+  totalCirBtcReceived: string;
+  allocations: Array<{
+    address: string;
+    usdcShare: string;
+    cirBtcShare: string;
+    poolFraction: string;
+  }>;
+  timestamp: string;
+}
+
+export type WithdrawalStatus = "pending" | "processing" | "completed" | "failed";
+export type WithdrawalToken = "USDC" | "cirBTC";
+
+export interface WithdrawalRequest {
+  id: string;
+  address: string;
+  token: WithdrawalToken;
+  amount: string;
+  status: WithdrawalStatus;
+  requestedAt: string;
+  processedAt?: string;
+  txHash?: string;
+  error?: string;
+}
+
+export interface Ledger {
+  version: 1;
+  lastScannedBlock: number;
+  users: Record<string, UserAccount>;
+  deposits: DepositRecord[];
+  distributions: DistributionRecord[];
+  withdrawals: WithdrawalRequest[];
+}
+
 export interface Reflection {
   id: string;
   date: string;

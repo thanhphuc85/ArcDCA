@@ -14,6 +14,19 @@ on:
         description: "Force a dry run (no real swap)"
         type: boolean
         default: true
+      withdrawal_address:
+        description: "Address requesting withdrawal (0x...)"
+        type: string
+      withdrawal_token:
+        description: "Token to withdraw"
+        type: choice
+        options:
+          - ""
+          - USDC
+          - cirBTC
+      withdrawal_amount:
+        description: "Amount to withdraw"
+        type: string
 
 permissions:
   contents: write
@@ -66,6 +79,9 @@ jobs:
           DCA_DIP_MILD_MULTIPLIER: ${{ vars.DCA_DIP_MILD_MULTIPLIER }}
           DCA_DIP_MODERATE_MULTIPLIER: ${{ vars.DCA_DIP_MODERATE_MULTIPLIER }}
           DCA_DIP_STRONG_MULTIPLIER: ${{ vars.DCA_DIP_STRONG_MULTIPLIER }}
+          WITHDRAWAL_ADDRESS: ${{ inputs.withdrawal_address }}
+          WITHDRAWAL_TOKEN: ${{ inputs.withdrawal_token }}
+          WITHDRAWAL_AMOUNT: ${{ inputs.withdrawal_amount }}
         run: npx tsx src/index.ts
 
       - name: Commit history
@@ -73,6 +89,6 @@ jobs:
         run: |
           git config user.name "arcdca-bot"
           git config user.email "arcdca-bot@users.noreply.github.com"
-          git add data/history.json data/reflections.json
+          git add data/history.json data/reflections.json data/ledger.json
           git diff --cached --quiet || git commit -m "chore: record DCA run $(date -u +%Y-%m-%d)"
           git push

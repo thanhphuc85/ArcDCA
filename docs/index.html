@@ -134,6 +134,42 @@
   .wp-connect { text-align: center; padding: 40px 20px; }
   .wp-connect .wp-icon { font-size: 48px; margin-bottom: 16px; }
   .wp-connect p { color: var(--muted); font-size: 14px; margin: 10px 0 20px; max-width: 400px; display: inline-block; }
+  .connect-options { display: grid; gap: 12px; max-width: 380px; margin: 0 auto; }
+  .connect-opt { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-radius: 16px; border: 1px solid var(--glass-brd); background: var(--glass); cursor: pointer; transition: border-color .2s, background .2s, transform .15s; width: 100%; font-family: inherit; color: var(--text); text-align: left; font-size: 14px; font-weight: 600; }
+  .connect-opt:hover { border-color: rgba(138,92,246,.5); background: rgba(138,92,246,.06); transform: translateY(-2px); }
+  .connect-opt .co-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 20px; flex-shrink: 0; }
+  .connect-opt .co-icon.gmail { background: linear-gradient(135deg, #ea4335, #fbbc05, #34a853, #4285f4); background-size: 200% 200%; animation: gmailShift 3s ease infinite; }
+  @keyframes gmailShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+  .connect-opt .co-icon.metamask { background: linear-gradient(135deg, #e2761b, #f5841f); }
+  .connect-opt .co-info { flex: 1; }
+  .connect-opt .co-info .co-title { display: block; }
+  .connect-opt .co-info .co-desc { display: block; font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 2px; }
+  .connect-opt .co-arrow { color: var(--muted); font-size: 18px; }
+  .connect-divider { display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  .connect-divider::before, .connect-divider::after { content: ""; flex: 1; height: 1px; background: var(--glass-brd); }
+  .gmail-form { max-width: 380px; margin: 0 auto; }
+  .gmail-form input { width: 100%; background: rgba(0,0,0,.28); border: 1px solid var(--glass-brd); border-radius: 12px; color: var(--text); padding: 12px 16px; font-size: 14px; font-family: inherit; margin-bottom: 10px; }
+  [data-theme="light"] .gmail-form input { background: rgba(0,0,0,.04); }
+  .gmail-form input::placeholder { color: var(--muted); }
+  .gmail-form input:focus { outline: none; border-color: var(--violet); }
+  .gmail-back { background: none; border: none; color: var(--muted); font-size: 13px; cursor: pointer; padding: 8px 0; margin-top: 4px; font-family: inherit; }
+  .gmail-back:hover { color: var(--text); }
+  .gmail-back { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; margin-top: 8px; padding: 4px; }
+  .gmail-back:hover { color: var(--text); }
+  .wp-txlist { margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.06); }
+  .wp-txlist h4 { font-size: 13px; font-weight: 700; margin: 0 0 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .wp-tx { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.04); font-size: 13px; }
+  .wp-tx:last-child { border-bottom: none; }
+  .wp-tx-icon { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; flex-shrink: 0; }
+  .wp-tx-icon.tx-out { background: rgba(251,113,133,.12); color: var(--red); }
+  .wp-tx-icon.tx-in { background: rgba(52,211,153,.12); color: var(--green); }
+  .wp-tx-info { flex: 1; min-width: 0; }
+  .wp-tx-info .tx-type { font-weight: 600; }
+  .wp-tx-info .tx-hash { font-size: 11px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .wp-tx-amt { text-align: right; font-family: Sora; font-weight: 700; font-size: 13px; }
+  .wp-login-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px; margin-top: 4px; }
+  .wp-login-badge.gmail { background: rgba(66,133,244,.1); color: #93bbfc; border: 1px solid rgba(66,133,244,.25); }
+  .wp-login-badge.wallet { background: rgba(226,118,27,.1); color: #f5a623; border: 1px solid rgba(226,118,27,.25); }
   .wp-header { display: flex; align-items: center; gap: 16px; padding-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,.06); margin-bottom: 18px; }
   .wp-avatar { width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0; border: 2px solid rgba(138,92,246,.4); }
   .wp-info { flex: 1; min-width: 0; }
@@ -601,8 +637,26 @@
       <div class="wp-connect" id="walletConnect">
         <div class="wp-icon">🔗</div>
         <h3>Connect your wallet</h3>
-        <p>Link MetaMask or any EIP-1193 wallet to view your Arc Testnet balances, portfolio allocation, and activity.</p>
-        <button class="btn" id="connectBtn2">Connect Wallet</button>
+        <p>Sign in with Gmail to create a wallet, or connect MetaMask to view your Arc Testnet balances and activity.</p>
+        <div class="connect-options" id="connectOptions">
+          <button class="connect-opt" id="connectGmail">
+            <div class="co-icon gmail">G</div>
+            <div class="co-info"><span class="co-title">Continue with Gmail</span><span class="co-desc">Create wallet with your Google account</span></div>
+            <span class="co-arrow">→</span>
+          </button>
+          <div class="connect-divider">or</div>
+          <button class="connect-opt" id="connectMetamask">
+            <div class="co-icon metamask">🦊</div>
+            <div class="co-info"><span class="co-title">Connect MetaMask</span><span class="co-desc">Use your existing wallet</span></div>
+            <span class="co-arrow">→</span>
+          </button>
+        </div>
+        <div class="gmail-form" id="gmailForm" style="display:none;">
+          <input type="text" id="gmailName" placeholder="Your name" />
+          <input type="email" id="gmailEmail" placeholder="your.email@gmail.com" />
+          <button class="btn" id="gmailSubmit" style="width:100%;">Create wallet & sign in</button>
+          <button class="gmail-back" id="gmailBack">← Back to options</button>
+        </div>
       </div>
       <div id="walletProfile" style="display:none;"></div>
     </div>
@@ -1078,7 +1132,156 @@
     );
   }
 
-  async function connect() {
+  // ---------- RPC helpers ----------
+  async function rpcCall(method, params) {
+    var r = await fetch(ARC.rpc, { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params }) });
+    var j = await r.json();
+    return j.result;
+  }
+  async function safeRpcCall(method, params) {
+    try {
+      if (window.ethereum) return await window.ethereum.request({ method: method, params: params });
+      return await rpcCall(method, params);
+    } catch (e) { return "0x0"; }
+  }
+  async function tokenBalanceOf(token, holder) {
+    var data = "0x70a08231" + holder.slice(2).toLowerCase().padStart(64, "0");
+    var raw = await safeRpcCall("eth_call", [{ to: token, data: data }, "latest"]);
+    return BigInt(raw || "0x0");
+  }
+
+  // ---------- fetch recent transactions ----------
+  async function fetchRecentTxs(account) {
+    try {
+      var latest = await rpcCall("eth_blockNumber", []);
+      var latestNum = parseInt(latest, 16);
+      var fromBlock = "0x" + Math.max(0, latestNum - 5000).toString(16);
+      var outLogs = await rpcCall("eth_getLogs", [{ fromBlock: fromBlock, toBlock: "latest", topics: ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", "0x000000000000000000000000" + account.slice(2).toLowerCase()] }]) || [];
+      var inLogs = await rpcCall("eth_getLogs", [{ fromBlock: fromBlock, toBlock: "latest", topics: ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", null, "0x000000000000000000000000" + account.slice(2).toLowerCase()] }]) || [];
+      var txs = [];
+      outLogs.forEach(function (l) {
+        var to = "0x" + (l.topics[2] || "").slice(26);
+        var val = BigInt(l.data || "0x0");
+        var isUsdc = l.address.toLowerCase() === ARC.usdc.toLowerCase();
+        txs.push({ dir: "out", hash: l.transactionHash, to: to, amount: isUsdc ? Number(val) / 1e6 : Number(val) / 1e18, symbol: isUsdc ? "USDC" : "Token", block: parseInt(l.blockNumber, 16) });
+      });
+      inLogs.forEach(function (l) {
+        var from = "0x" + (l.topics[1] || "").slice(26);
+        var val = BigInt(l.data || "0x0");
+        var isUsdc = l.address.toLowerCase() === ARC.usdc.toLowerCase();
+        txs.push({ dir: "in", hash: l.transactionHash, from: from, amount: isUsdc ? Number(val) / 1e6 : Number(val) / 1e18, symbol: isUsdc ? "USDC" : "Token", block: parseInt(l.blockNumber, 16) });
+      });
+      txs.sort(function (a, b) { return b.block - a.block; });
+      return txs.slice(0, 8);
+    } catch (e) { return []; }
+  }
+  function renderTxList(txs) {
+    if (!txs.length) return "";
+    var html = '<div class="wp-txlist"><h4>Recent activity</h4>';
+    txs.forEach(function (tx) {
+      var icon = tx.dir === "in" ? "tx-in" : "tx-out";
+      var arrow = tx.dir === "in" ? "↓" : "↑";
+      var type = tx.dir === "in" ? "Received" : "Sent";
+      var hash = tx.hash ? tx.hash.slice(0, 10) + "…" : "";
+      var amtStr = (tx.dir === "out" ? "−" : "+") + fmt(tx.amount, tx.symbol === "USDC" ? 2 : 6) + " " + tx.symbol;
+      html += '<div class="wp-tx">' +
+        '<div class="wp-tx-icon ' + icon + '">' + arrow + '</div>' +
+        '<div class="wp-tx-info"><span class="tx-type">' + type + '</span><br/>' +
+        '<a class="tx-hash" href="' + ARC.explorer + '/tx/' + tx.hash + '" target="_blank" rel="noopener">' + hash + '</a></div>' +
+        '<div class="wp-tx-amt">' + amtStr + '</div></div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  // ---------- show wallet profile ----------
+  function showWalletProfile(account, nativeBal, usdc, cirbtc, loginType, txs) {
+    var status = $("walletStatus");
+    var totalUsd = usdc;
+    var usdcPct = totalUsd > 0 ? (usdc / totalUsd) * 100 : 100;
+    var btcPct = 0;
+
+    var badge = loginType === "gmail"
+      ? '<span class="wp-login-badge gmail">G Signed in with Gmail</span>'
+      : '<span class="wp-login-badge wallet">🦊 MetaMask</span>';
+
+    $("walletConnect").style.display = "none";
+    var prof = $("walletProfile");
+    prof.style.display = "";
+    prof.innerHTML =
+      '<div class="wp-header">' +
+        '<img class="wp-avatar" src="' + generateAvatar(account) + '" alt="wallet avatar"/>' +
+        '<div class="wp-info">' +
+          '<div class="wp-addr-row">' +
+            '<span class="wp-addr">' + account.slice(0, 6) + '…' + account.slice(-4) + '</span>' +
+            '<button class="wp-copy" id="wpCopy" title="Copy full address">📋</button>' +
+          '</div>' +
+          '<div class="wp-net"><span class="wp-dot"></span> Arc Testnet</div>' +
+          badge +
+        '</div>' +
+        '<div class="wp-actions">' +
+          '<a class="btn ghost" href="' + ARC.explorer + '/address/' + account + '" target="_blank" rel="noopener">ArcScan ↗</a>' +
+          '<a class="btn ghost" href="' + ARC.faucet + '" target="_blank" rel="noopener">Faucet ↗</a>' +
+        '</div>' +
+      '</div>' +
+      '<div class="wp-balances">' +
+        '<div class="wp-bal" style="--bal-glow:rgba(39,117,202,.12);">' +
+          '<div class="wp-bal-head"><div class="wp-bal-icon usdc">$</div><span class="wp-bal-name">USDC</span></div>' +
+          '<div class="wp-bal-amt">' + fmt(usdc, 4) + '</div>' +
+          '<div class="wp-bal-usd">≈ $' + fmt(usdc, 2) + ' USD</div>' +
+        '</div>' +
+        '<div class="wp-bal" style="--bal-glow:rgba(245,158,11,.12);">' +
+          '<div class="wp-bal-head"><div class="wp-bal-icon cirbtc">₿</div><span class="wp-bal-name">cirBTC</span></div>' +
+          '<div class="wp-bal-amt">' + fmt(cirbtc, 8) + '</div>' +
+          '<div class="wp-bal-usd">Testnet token</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="wp-portfolio">' +
+        '<div class="wp-portfolio-head">' +
+          '<div><span class="wp-label">Portfolio value</span><br/><span class="wp-total">$' + fmt(usdc, 2) + '</span></div>' +
+          '<div style="text-align:right;"><span class="wp-label">Native balance</span><br/><span style="font-family:Sora;font-weight:700;font-size:14px;">' + fmt(nativeBal, 6) + ' USDC</span></div>' +
+        '</div>' +
+        '<div class="wp-alloc-bar">' +
+          '<div class="seg-usdc" style="width:' + Math.max(2, usdcPct).toFixed(1) + '%;"></div>' +
+          (btcPct > 0 ? '<div class="seg-btc" style="width:' + btcPct.toFixed(1) + '%;"></div>' : '') +
+        '</div>' +
+        '<div class="wp-alloc-legend">' +
+          '<span><span class="ldot" style="background:linear-gradient(135deg,#2775ca,#4f9dff);"></span> USDC ' + fmt(usdcPct, 1) + '%</span>' +
+          (cirbtc > 0 ? '<span><span class="ldot" style="background:linear-gradient(135deg,#f59e0b,#fb923c);"></span> cirBTC</span>' : '') +
+        '</div>' +
+      '</div>' +
+      renderTxList(txs || []) +
+      '<div class="wp-disconnect">' +
+        '<span class="wp-since">Connected just now</span>' +
+        '<button class="btn-disconnect" id="wpDisconnect">Disconnect</button>' +
+      '</div>';
+
+    $("wpCopy").addEventListener("click", function () {
+      var btn = $("wpCopy");
+      (navigator.clipboard ? navigator.clipboard.writeText(account) : Promise.reject())
+        .then(function () { btn.textContent = "✓"; setTimeout(function () { btn.textContent = "📋"; }, 1500); })
+        .catch(function () { status.textContent = account; });
+    });
+    $("wpDisconnect").addEventListener("click", function () {
+      state.account = null;
+      state.loginType = null;
+      saveWalletAddr(null);
+      try { localStorage.removeItem("aura-gmail-wallet"); } catch(e){}
+      prof.style.display = "none";
+      $("walletConnect").style.display = "";
+      $("connectOptions").style.display = "";
+      $("gmailForm").style.display = "none";
+      status.textContent = "";
+    });
+
+    status.textContent = "";
+    refreshTreasury();
+    refreshWatchlistBalances();
+  }
+
+  // ---------- MetaMask connect ----------
+  async function connectMetamask() {
     var status = $("walletStatus");
     if (!window.ethereum) {
       status.innerHTML = 'No EIP-1193 wallet found. Install <a href="https://metamask.io" target="_blank" rel="noopener">MetaMask</a> to connect.';
@@ -1089,6 +1292,7 @@
       var accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
       var account = accounts[0];
       state.account = account;
+      state.loginType = "metamask";
       saveWalletAddr(account);
       $("reconnectBar").innerHTML = "";
       status.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Switching to Arc Testnet…</span>';
@@ -1107,102 +1311,78 @@
         }
       }
 
-      status.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Reading balances…</span>';
-      async function safeCall(method, params) {
-        try { return await window.ethereum.request({ method: method, params: params }); }
-        catch (e) { return "0x0"; }
-      }
-      async function tokenBalance(token) {
-        var data = "0x70a08231" + account.slice(2).toLowerCase().padStart(64, "0");
-        var raw = await safeCall("eth_call", [{ to: token, data: data }, "latest"]);
-        return BigInt(raw || "0x0");
-      }
+      status.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Reading wallet data…</span>';
       var nativeBal = 0, usdc = 0, cirbtc = 0;
       try {
-        var nativeRaw = await safeCall("eth_getBalance", [account, "latest"]);
+        var nativeRaw = await safeRpcCall("eth_getBalance", [account, "latest"]);
         nativeBal = Number(BigInt(nativeRaw || "0x0")) / 1e18;
-        usdc = Number(await tokenBalance(ARC.usdc)) / 1e6;
-        cirbtc = Number(await tokenBalance(ARC.cirbtc)) / 1e8;
+        usdc = Number(await tokenBalanceOf(ARC.usdc, account)) / 1e6;
+        cirbtc = Number(await tokenBalanceOf(ARC.cirbtc, account)) / 1e8;
       } catch (balErr) {
         status.textContent = "Connected but balance read failed — you may need to switch to Arc Testnet in your wallet.";
       }
-
-      var totalUsd = usdc;
-      var usdcPct = totalUsd > 0 ? (usdc / totalUsd) * 100 : 100;
-      var btcPct = 0;
-
-      $("walletConnect").style.display = "none";
-      var prof = $("walletProfile");
-      prof.style.display = "";
-      prof.innerHTML =
-        '<div class="wp-header">' +
-          '<img class="wp-avatar" src="' + generateAvatar(account) + '" alt="wallet avatar"/>' +
-          '<div class="wp-info">' +
-            '<div class="wp-addr-row">' +
-              '<span class="wp-addr">' + account.slice(0, 6) + '…' + account.slice(-4) + '</span>' +
-              '<button class="wp-copy" id="wpCopy" title="Copy full address">📋</button>' +
-            '</div>' +
-            '<div class="wp-net"><span class="wp-dot"></span> Arc Testnet</div>' +
-          '</div>' +
-          '<div class="wp-actions">' +
-            '<a class="btn ghost" href="' + ARC.explorer + '/address/' + account + '" target="_blank" rel="noopener">ArcScan ↗</a>' +
-            '<a class="btn ghost" href="' + ARC.faucet + '" target="_blank" rel="noopener">Faucet ↗</a>' +
-          '</div>' +
-        '</div>' +
-        '<div class="wp-balances">' +
-          '<div class="wp-bal" style="--bal-glow:rgba(39,117,202,.12);">' +
-            '<div class="wp-bal-head"><div class="wp-bal-icon usdc">$</div><span class="wp-bal-name">USDC</span></div>' +
-            '<div class="wp-bal-amt">' + fmt(usdc, 4) + '</div>' +
-            '<div class="wp-bal-usd">≈ $' + fmt(usdc, 2) + ' USD</div>' +
-          '</div>' +
-          '<div class="wp-bal" style="--bal-glow:rgba(245,158,11,.12);">' +
-            '<div class="wp-bal-head"><div class="wp-bal-icon cirbtc">₿</div><span class="wp-bal-name">cirBTC</span></div>' +
-            '<div class="wp-bal-amt">' + fmt(cirbtc, 8) + '</div>' +
-            '<div class="wp-bal-usd">Testnet token</div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="wp-portfolio">' +
-          '<div class="wp-portfolio-head">' +
-            '<div><span class="wp-label">Portfolio value</span><br/><span class="wp-total">$' + fmt(usdc, 2) + '</span></div>' +
-            '<div style="text-align:right;"><span class="wp-label">Native balance</span><br/><span style="font-family:Sora;font-weight:700;font-size:14px;">' + fmt(nativeBal, 6) + ' USDC</span></div>' +
-          '</div>' +
-          '<div class="wp-alloc-bar">' +
-            '<div class="seg-usdc" style="width:' + Math.max(2, usdcPct).toFixed(1) + '%;"></div>' +
-            (btcPct > 0 ? '<div class="seg-btc" style="width:' + btcPct.toFixed(1) + '%;"></div>' : '') +
-          '</div>' +
-          '<div class="wp-alloc-legend">' +
-            '<span><span class="ldot" style="background:linear-gradient(135deg,#2775ca,#4f9dff);"></span> USDC ' + fmt(usdcPct, 1) + '%</span>' +
-            (cirbtc > 0 ? '<span><span class="ldot" style="background:linear-gradient(135deg,#f59e0b,#fb923c);"></span> cirBTC</span>' : '') +
-          '</div>' +
-        '</div>' +
-        '<div class="wp-disconnect">' +
-          '<span class="wp-since">Connected just now</span>' +
-          '<button class="btn-disconnect" id="wpDisconnect">Disconnect</button>' +
-        '</div>';
-
-      $("wpCopy").addEventListener("click", function () {
-        var btn = $("wpCopy");
-        (navigator.clipboard ? navigator.clipboard.writeText(account) : Promise.reject())
-          .then(function () { btn.textContent = "✓"; setTimeout(function () { btn.textContent = "📋"; }, 1500); })
-          .catch(function () { status.textContent = account; });
-      });
-      $("wpDisconnect").addEventListener("click", function () {
-        state.account = null;
-        saveWalletAddr(null);
-        prof.style.display = "none";
-        $("walletConnect").style.display = "";
-        status.textContent = "";
-      });
-
-      status.textContent = "";
-      refreshTreasury();
-      refreshWatchlistBalances();
+      var txs = await fetchRecentTxs(account);
+      showWalletProfile(account, nativeBal, usdc, cirbtc, "metamask", txs);
     } catch (err) {
       status.textContent = "Connection cancelled or failed: " + (err && err.message ? err.message : err);
     }
   }
-  ["connectBtn", "connectBtn2", "connectHero"].forEach(function (id) {
-    var el = $(id); if (el) el.addEventListener("click", connect);
+
+  // ---------- Gmail login ----------
+  function generateWalletFromEmail(email) {
+    var hash = 0;
+    for (var i = 0; i < email.length; i++) {
+      hash = ((hash << 5) - hash) + email.charCodeAt(i);
+      hash = hash & hash;
+    }
+    var hex = Math.abs(hash).toString(16).padStart(40, "0").slice(0, 40);
+    return "0x" + hex;
+  }
+  async function connectGmail() {
+    var status = $("walletStatus");
+    var nameVal = $("gmailName").value.trim();
+    var emailVal = $("gmailEmail").value.trim();
+    if (!emailVal || !emailVal.includes("@")) {
+      status.textContent = "Please enter a valid email address.";
+      return;
+    }
+    status.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Creating wallet…</span>';
+
+    var account = generateWalletFromEmail(emailVal);
+    state.account = account;
+    state.loginType = "gmail";
+    saveWalletAddr(account);
+    try { localStorage.setItem("aura-gmail-wallet", JSON.stringify({ name: nameVal, email: emailVal, address: account })); } catch(e){}
+    $("reconnectBar").innerHTML = "";
+
+    var nativeBal = 0, usdc = 0, cirbtc = 0;
+    try {
+      var nativeRaw = await rpcCall("eth_getBalance", [account, "latest"]);
+      nativeBal = Number(BigInt(nativeRaw || "0x0")) / 1e18;
+      usdc = Number(await tokenBalanceOf(ARC.usdc, account)) / 1e6;
+      cirbtc = Number(await tokenBalanceOf(ARC.cirbtc, account)) / 1e8;
+    } catch (e) {}
+    var txs = await fetchRecentTxs(account);
+    showWalletProfile(account, nativeBal, usdc, cirbtc, "gmail", txs);
+  }
+
+  // ---------- wallet connect event listeners ----------
+  $("connectMetamask").addEventListener("click", connectMetamask);
+  $("connectGmail").addEventListener("click", function () {
+    $("connectOptions").style.display = "none";
+    $("gmailForm").style.display = "";
+  });
+  $("gmailBack").addEventListener("click", function () {
+    $("gmailForm").style.display = "none";
+    $("connectOptions").style.display = "";
+    $("walletStatus").textContent = "";
+  });
+  $("gmailSubmit").addEventListener("click", connectGmail);
+  $("gmailEmail").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") connectGmail();
+  });
+  ["connectBtn", "connectHero"].forEach(function (id) {
+    var el = $(id); if (el) el.addEventListener("click", connectMetamask);
   });
 
   // ---------- fund the agent (deposit USDC) ----------
@@ -1919,13 +2099,26 @@
     if (!bar) return;
     var ago = Math.round((Date.now() - (savedWallet.ts || 0)) / 60000);
     var agoText = ago < 60 ? ago + "m ago" : Math.round(ago / 60) + "h ago";
+    var gmailData = null;
+    try { var g = localStorage.getItem("aura-gmail-wallet"); if (g) gmailData = JSON.parse(g); } catch(e){}
+    var isGmail = gmailData && gmailData.address === savedWallet.address;
+    var label = isGmail ? (gmailData.email || savedWallet.address.slice(0, 6) + '…' + savedWallet.address.slice(-4)) : savedWallet.address.slice(0, 6) + '…' + savedWallet.address.slice(-4);
     bar.innerHTML =
       '<div class="reconnect-bar">' +
-      '<span class="rb-text">Welcome back! Reconnect <span class="rb-addr">' + savedWallet.address.slice(0, 6) + '…' + savedWallet.address.slice(-4) + '</span>? (last seen ' + agoText + ')</span>' +
+      '<span class="rb-text">Welcome back! Reconnect <span class="rb-addr">' + label + '</span>? (last seen ' + agoText + ')</span>' +
       '<button class="btn" id="rbReconnect" style="padding:8px 16px;font-size:12px;">Reconnect</button>' +
       '<button class="rb-dismiss" id="rbDismiss" title="Dismiss">✕</button>' +
       '</div>';
-    $("rbReconnect").addEventListener("click", function () { bar.innerHTML = ""; connect(); });
+    $("rbReconnect").addEventListener("click", function () {
+      bar.innerHTML = "";
+      if (isGmail) {
+        $("gmailName").value = gmailData.name || "";
+        $("gmailEmail").value = gmailData.email || "";
+        connectGmail();
+      } else {
+        connectMetamask();
+      }
+    });
     $("rbDismiss").addEventListener("click", function () { bar.innerHTML = ""; saveWalletAddr(null); });
   }
   if (savedWallet && savedWallet.address && !state.account) showReconnectBar();

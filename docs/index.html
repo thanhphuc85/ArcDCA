@@ -545,7 +545,8 @@
   .hd-wallet-wrap { position: relative; }
   .hd-wallet-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; padding: 8px 16px; border-radius: 14px; border: 1px solid var(--glass-brd); background: var(--glass); transition: background .18s; user-select: none; }
   .hd-wallet-badge:hover { background: rgba(255,255,255,.1); }
-  .hd-wallet-badge .badge-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .hd-wallet-badge .badge-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; box-shadow: 0 0 6px rgba(52,211,153,.5); }
+  .hd-wallet-badge .badge-bal { font-size: 11px; color: var(--muted); font-weight: 500; margin-left: 2px; }
   .hd-wallet-wrap.pop-open { z-index: 30; }
   .wp-popover { display: none; position: absolute; top: calc(100% + 10px); right: 0; width: 380px; max-height: calc(100vh - 90px); overflow-y: auto; background: var(--bg); border: 1px solid var(--glass-brd); border-radius: 20px; box-shadow: 0 24px 80px -16px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.04); backdrop-filter: blur(20px); z-index: 30; scrollbar-width: thin; }
   .wp-popover.open { display: block; animation: popIn .18s ease; }
@@ -584,6 +585,12 @@
   .btn-run-dca { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 14px; border: none; font-weight: 700; font-size: 14px; cursor: pointer; transition: all .18s; background: linear-gradient(135deg, var(--purple), #6366f1); color: #fff; box-shadow: 0 4px 20px rgba(138,92,246,.3); margin-top: 16px; }
   .btn-run-dca:hover { filter: brightness(1.12); transform: translateY(-1px); box-shadow: 0 6px 28px rgba(138,92,246,.45); }
   .btn-run-dca:disabled { opacity: .5; cursor: not-allowed; transform: none; filter: none; }
+  .btn:disabled, .btn.ghost:disabled { opacity: .5; cursor: not-allowed; transform: none; filter: none; pointer-events: none; }
+  .btn-approve:disabled, .btn-reject:disabled { opacity: .5; cursor: not-allowed; transform: none; filter: none; }
+  .btn-loading { display: inline-flex; align-items: center; gap: 6px; }
+  .btn-loading .spinner { width: 14px; height: 14px; border-width: 2px; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-4px)} 40%{transform:translateX(4px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(2px)} }
+  .shake { animation: shake .4s ease; }
   .run-dca-modal { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); justify-content: center; align-items: center; padding: 20px; }
   .run-dca-modal.open { display: flex; animation: wmFadeIn .2s ease; }
   .rdm-card { background: var(--bg); border: 1px solid var(--glass-brd); border-radius: 24px; width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 60px rgba(0,0,0,.5); animation: wmSlideUp .25s ease; padding: 24px; }
@@ -1507,11 +1514,15 @@
     var tgTestBtn = document.getElementById("tgTestBtn");
     if (tgTestBtn) tgTestBtn.addEventListener("click", function () {
       var st = document.getElementById("tgStatus");
-      if (!tgSettings.token || !tgSettings.chatId) { st.textContent = "Enter bot token and chat ID first."; return; }
-      st.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><span class="spinner" style="width:14px;height:14px;border-width:2px;"></span> Sending…</span>';
+      if (!tgSettings.token || !tgSettings.chatId) { st.innerHTML = '<span style="color:var(--amber);">Enter bot token and chat ID first.</span>'; return; }
+      tgTestBtn.disabled = true;
+      var origText = tgTestBtn.textContent;
+      tgTestBtn.innerHTML = '<span class="btn-loading"><span class="spinner"></span> Sending…</span>';
+      st.innerHTML = '';
       sendTelegram(tgSettings.token, tgSettings.chatId, "✅ Aura DCA Agent — test notification works!")
-        .then(function () { st.textContent = "Test message sent successfully!"; })
-        .catch(function (e) { st.textContent = "Failed: " + (e.message || e); });
+        .then(function () { st.innerHTML = '<span style="color:var(--green);">✓ Test message sent!</span>'; })
+        .catch(function (e) { st.innerHTML = '<span style="color:var(--red);">✗ Failed: ' + (e.message || e) + '</span>'; })
+        .finally(function () { tgTestBtn.disabled = false; tgTestBtn.textContent = origText; });
     });
 
     var wdApiInput = document.getElementById("setWdApi");
@@ -1791,12 +1802,45 @@
   $("rdmCard").addEventListener("click", function (e) { e.stopPropagation(); });
 
   $("rdmApprove").addEventListener("click", function () {
-    if (_rdmPendingId) { approveDecision(_rdmPendingId); closeRunDcaModal(); renderApprovalSection(); renderSettingsApprovalHistory(); }
+    if (!_rdmPendingId) return;
+    var btn = $("rdmApprove");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-loading"><span class="spinner"></span> Approving…</span>';
+    $("rdmReject").disabled = true;
+    setTimeout(function () {
+      approveDecision(_rdmPendingId);
+      closeRunDcaModal();
+      renderApprovalSection();
+      renderSettingsApprovalHistory();
+      btn.disabled = false; btn.textContent = "Approve swap";
+      $("rdmReject").disabled = false;
+    }, 300);
   });
   $("rdmReject").addEventListener("click", function () {
-    if (_rdmPendingId) { rejectDecision(_rdmPendingId); closeRunDcaModal(); renderApprovalSection(); renderSettingsApprovalHistory(); }
+    if (!_rdmPendingId) return;
+    var btn = $("rdmReject");
+    btn.disabled = true;
+    btn.textContent = "Rejecting…";
+    $("rdmApprove").disabled = true;
+    setTimeout(function () {
+      rejectDecision(_rdmPendingId);
+      closeRunDcaModal();
+      renderApprovalSection();
+      renderSettingsApprovalHistory();
+      btn.disabled = false; btn.textContent = "Reject";
+      $("rdmApprove").disabled = false;
+    }, 300);
   });
-  $("runDcaBtn").addEventListener("click", openRunDcaModal);
+  $("runDcaBtn").addEventListener("click", function () {
+    var btn = $("runDcaBtn");
+    var t = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
+    if (!_historyData || !_historyData.length) {
+      btn.classList.add("shake");
+      setTimeout(function () { btn.classList.remove("shake"); }, 500);
+      return;
+    }
+    openRunDcaModal();
+  });
 
   // ---------- Settings approval history table ----------
   function renderSettingsApprovalHistory() {
@@ -2016,6 +2060,8 @@
       }
       var yourBal = document.querySelector("#wpYourBalVal");
       if (yourBal) yourBal.textContent = fmt(usdc, 2) + " USDC";
+      var hdBal = $("hdBadgeBal");
+      if (hdBal) hdBal.textContent = "· " + fmt(usdc, 2) + " USDC";
     } catch (e) {}
   }
 
@@ -2174,7 +2220,12 @@
       showWalletProfile(account, nativeBal, usdc, cirbtc, "metamask", txs);
       if (typeof renderPortfolio === "function") renderPortfolio(_ledgerData);
     } catch (err) {
-      status.textContent = "Connection cancelled or failed: " + (err && err.message ? err.message : err);
+      var t = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
+      if (err && err.code === 4001) {
+        status.innerHTML = '<span style="color:var(--muted);">' + (t.walletCancelled || "Connection cancelled.") + '</span>';
+      } else {
+        status.innerHTML = '<span style="color:var(--red);">✗ ' + (t.walletFailed || "Connection failed") + ': ' + (err && err.message ? err.message : err) + '</span>';
+      }
     }
   }
 
@@ -2396,15 +2447,22 @@
       btn.style.display = "none";
       if (heroBtn) heroBtn.style.display = "none";
       badge.style.display = "flex";
-      badge.innerHTML = '<span class="badge-dot"></span> ' + account.slice(0, 6) + '…' + account.slice(-4);
+      badge.innerHTML = '<span class="badge-dot"></span> ' + account.slice(0, 6) + '…' + account.slice(-4) + '<span class="badge-bal" id="hdBadgeBal"></span>';
       badge.removeEventListener("click", toggleWalletPopover);
       badge.addEventListener("click", toggleWalletPopover);
+      refreshHeaderBadgeBal(account);
     } else {
       btn.style.display = "";
       if (heroBtn) heroBtn.style.display = "";
       badge.style.display = "none";
       closeWalletPopover();
     }
+  }
+  function refreshHeaderBadgeBal(account) {
+    readUsdcBalance(account).then(function (raw) {
+      var el = $("hdBadgeBal");
+      if (el) el.textContent = "· " + fmt(Number(raw) / 1e6, 2) + " USDC";
+    }).catch(function () {});
   }
 
   // ---------- fund the agent (deposit USDC) ----------
@@ -2439,22 +2497,28 @@
   }
   async function deposit() {
     var status = $("depositStatus");
-    if (!window.ethereum || !state.account) { status.textContent = "Connect your wallet first (button above)."; return; }
+    var btn = $("depositBtn");
+    var t = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
+    if (!window.ethereum || !state.account) { status.innerHTML = '<span style="color:var(--amber);">' + (t.depErrConnect || "Connect your wallet first.") + '</span>'; return; }
     var amt = parseFloat($("depositAmt").value);
-    if (!(amt > 0)) { status.textContent = "Enter an amount greater than 0."; return; }
+    if (!(amt > 0)) { status.innerHTML = '<span style="color:var(--amber);">' + (t.depErrAmount || "Enter an amount greater than 0.") + '</span>'; return; }
     var base = toBaseUnits($("depositAmt").value, 6);
     var data = "0xa9059cbb" + ARC.agent.slice(2).toLowerCase().padStart(64, "0") + base.toString(16).padStart(64, "0");
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="btn-loading"><span class="spinner"></span> ' + (t.depConfirm || "Confirm in wallet…") + '</span>'; }
+    status.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;color:var(--amber);"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> ' + (t.depConfirm || "Confirm the transfer in your wallet…") + '</span>';
     try {
-      status.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Confirm the transfer in your wallet…</span>';
       var txHash = await window.ethereum.request({
         method: "eth_sendTransaction",
         params: [{ from: state.account, to: ARC.usdc, data: data }],
       });
-      status.innerHTML = 'Deposited ' + fmt(amt, 4) + ' USDC to the agent · <a href="' + ARC.explorer + '/tx/' + txHash + '" target="_blank" rel="noopener">view tx ↗</a>. The daily agent run will DCA it.';
+      status.innerHTML = '<span style="color:var(--green);">✓ ' + (t.depSuccess || "Deposited") + ' ' + fmt(amt, 4) + ' USDC</span> · <a href="' + ARC.explorer + '/tx/' + txHash + '" target="_blank" rel="noopener">view tx ↗</a>';
       $("depositAmt").value = "";
       setTimeout(refreshTreasury, 3500);
     } catch (err) {
-      status.textContent = "Transfer cancelled or failed: " + (err && err.message ? err.message : err);
+      var msg = err && err.code === 4001 ? (t.depCancelled || "Transaction cancelled.") : (t.depFailed || "Transfer failed: ") + (err && err.message ? err.message : err);
+      status.innerHTML = '<span style="color:' + (err && err.code === 4001 ? 'var(--muted)' : 'var(--red)') + ';">' + msg + '</span>';
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = t.depBtn || "Deposit to agent"; }
     }
   }
   // ---------- QR code generator (version 1-4, ECC-L, byte mode) ----------
@@ -3749,6 +3813,10 @@
       wdErrBalance: "Insufficient balance: ", wdErrApiUrl: "Set your Withdrawal API URL in Settings first.",
       setWithdrawApiTitle: "Withdrawal API", setWdApiLabel: "API base URL",
       setWdApiHelp: "Deploy the api/withdraw.ts serverless function to Vercel and paste the base URL here. Withdrawals are processed in real-time (10–30s).",
+      depErrConnect: "Connect your wallet first.", depErrAmount: "Enter an amount greater than 0.",
+      depConfirm: "Confirm in wallet…", depSuccess: "Deposited", depCancelled: "Transaction cancelled.",
+      depFailed: "Transfer failed: ", depBtn: "Deposit to agent",
+      walletCancelled: "Connection cancelled.", walletFailed: "Connection failed",
       portDistTitle: "DCA allocation history", portDistSub: "How the agent's swaps were distributed to your account.",
       portNoAccount: "No account found. Deposit USDC to the agent to start DCA.",
       portPendingScan: "Your deposit was detected on-chain. It will be credited to your account in the next agent run.",
@@ -3838,6 +3906,10 @@
       wdErrBalance: "Số dư không đủ: ", wdErrApiUrl: "Cấu hình URL API rút tiền trong Cài đặt trước.",
       setWithdrawApiTitle: "API rút tiền", setWdApiLabel: "URL cơ sở API",
       setWdApiHelp: "Deploy hàm serverless api/withdraw.ts lên Vercel và dán URL tại đây. Rút tiền xử lý theo thời gian thực (10–30 giây).",
+      depErrConnect: "Kết nối ví trước.", depErrAmount: "Nhập số tiền lớn hơn 0.",
+      depConfirm: "Xác nhận trong ví…", depSuccess: "Đã nạp", depCancelled: "Đã hủy giao dịch.",
+      depFailed: "Chuyển tiền thất bại: ", depBtn: "Nạp vào agent",
+      walletCancelled: "Đã hủy kết nối.", walletFailed: "Kết nối thất bại",
       portDistTitle: "Lịch sử phân bổ DCA", portDistSub: "Cách swap của agent được phân bổ cho tài khoản bạn.",
       portNoAccount: "Chưa có tài khoản. Gửi USDC vào agent để bắt đầu DCA.",
       portPendingScan: "Tiền gửi đã phát hiện trên chain. Sẽ được ghi nhận vào tài khoản trong lần chạy agent tiếp theo.",

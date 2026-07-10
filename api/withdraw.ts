@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { ethers } from "ethers";
-import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets";
+// NOTE: the Circle SDK is loaded via dynamic import() inside the handler.
+// A static top-level import of its named export fails to resolve under Vercel's
+// serverless bundler (ESM/CommonJS interop), crashing the whole function on load.
 
 const USDC_CONTRACT = "0x3600000000000000000000000000000000000000";
 const CIRBTC_CONTRACT = "0xf0c4a4ce82a5746abaad9425360ab04fbba432bf";
@@ -188,7 +190,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
 
   try {
-    const client = initiateDeveloperControlledWalletsClient({ apiKey: circleApiKey, entitySecret: circleEntitySecret });
+    const circleSdk = await import("@circle-fin/developer-controlled-wallets");
+    const initiateClient =
+      circleSdk.initiateDeveloperControlledWalletsClient ??
+      (circleSdk as { default?: { initiateDeveloperControlledWalletsClient?: typeof circleSdk.initiateDeveloperControlledWalletsClient } }).default?.initiateDeveloperControlledWalletsClient;
+    if (typeof initiateClient !== "function") {
+      throw new Error("Circle SDK failed to load initiateDeveloperControlledWalletsClient");
+    }
+    const client = initiateClient({ apiKey: circleApiKey, entitySecret: circleEntitySecret });
     const walletRes = await client.getWallet({ id: circleWalletId });
     const walletAddress = walletRes.data?.wallet?.address;
     if (!walletAddress) throw new Error("Could not get agent wallet address");

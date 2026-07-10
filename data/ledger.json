@@ -22,7 +22,7 @@
       "totalWithdrawnCirBtc": "0",
       "totalWithdrawnUsdc": "0",
       "firstSeen": "2026-07-10T16:07:29.490Z",
-      "lastActivity": "2026-07-10T16:07:29.490Z"
+      "lastActivity": "2026-07-10T20:12:26.611Z"
     }
   },
   "deposits": [
@@ -44,5 +44,16 @@
     }
   ],
   "distributions": [],
-  "withdrawals": []
+  "withdrawals": [
+    {
+      "id": "wd-1783714346611-99e84b",
+      "address": "0xdd6045a634ef2c61d6070552b556aae40099e84b",
+      "token": "USDC",
+      "amount": "1.000000",
+      "status": "failed",
+      "requestedAt": "2026-07-10T20:12:26.611Z",
+      "processedAt": "2026-07-10T20:12:26.622Z",
+      "error": "Cannot use import statement outside a module"
+    }
+  ]
 }

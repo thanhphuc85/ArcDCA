@@ -134,6 +134,51 @@ export interface Ledger {
   withdrawals: WithdrawalRequest[];
 }
 
+// ---- External Market Data Types ----
+
+export interface MarketData {
+  btcPriceUsd: number;
+  btcChange24h: number;
+  btcVolume24h: number;
+  btcMarketCap: number;
+  priceHistory7d: Array<{ timestamp: number; price: number }>;
+  fetchedAt: string;
+}
+
+export interface FearGreedData {
+  value: number;
+  classification: string;
+  timestamp: string;
+}
+
+export interface OnChainVolume {
+  usdcTransferCount: number;
+  usdcVolumeTotal: string;
+  cirBtcTransferCount: number;
+  cirBtcVolumeTotal: string;
+  blockRange: { from: number; to: number };
+  periodHours: number;
+}
+
+export interface MarketBrief {
+  sentiment: "very_bearish" | "bearish" | "neutral" | "bullish" | "very_bullish";
+  confidence: number;
+  btcPrice: string;
+  btcChange24h: string;
+  fearGreedIndex: number | null;
+  fearGreedLabel: string;
+  onChainActivity: "low" | "moderate" | "high";
+  keyInsights: string[];
+  allocationBias: string;
+  rawData: {
+    market?: MarketData;
+    fearGreed?: FearGreedData;
+    onChainVolume?: OnChainVolume;
+  };
+  generatedAt: string;
+  model: string;
+}
+
 export interface Reflection {
   id: string;
   date: string;

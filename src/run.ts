@@ -9,6 +9,8 @@ import { requestWithdrawal, processPendingWithdrawals } from "./ledger/withdraw.
 import { ARC_TESTNET_RPC, ARC_USDC_CONTRACT } from "./ledger/constants.js";
 import { getClaudeDecision, DecisionError } from "./decision/client.js";
 import { generateReflection } from "./decision/reflect.js";
+import { runMarketAnalyst } from "./decision/analyst.js";
+import { fetchAllMarketData } from "./market/external.js";
 import { clampDecision } from "./decision/guardrails.js";
 import { executeSwap, SwapExecutionError } from "./swap/swapKit.js";
 import type { DecisionContext, HistoryEntry, Ledger, RunStatus } from "./types.js";
@@ -109,6 +111,17 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
   const history = await readHistory();
   const reflections = await readReflections();
   const refCtx = { apiKey: config.anthropicApiKey, allHistory: history };
+
+  // --- Multi-agent: fetch external data + run Market Analyst ---
+  logger.info("Fetching external market data…");
+  const rawMarketData = await fetchAllMarketData();
+  const marketBrief = await runMarketAnalyst(
+    config.anthropicApiKey,
+    rawMarketData.market,
+    rawMarketData.fearGreed,
+    rawMarketData.onChainVolume,
+  );
+
   const minReserve = Number.parseFloat(config.guardrails.minUsdcReserve);
   if (Number.parseFloat(usdcBalance) <= minReserve) {
     logger.info(`Balance ${usdcBalance} USDC is at or below reserve ${minReserve} USDC, skipping`);
@@ -147,6 +160,7 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
       alreadySpentTodayUsdc: context.alreadySpentTodayUsdc,
       remainingCampaignBudgetUsdc: context.remainingCampaignBudgetUsdc,
       dcaStrategy: config.dcaStrategy,
+      marketBrief,
     });
   } catch (err) {
     const status: RunStatus =

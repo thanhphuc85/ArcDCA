@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import type { DecisionContext, ClaudeDecision, HistoryEntry, Reflection, DcaStrategy } from "../types.js";
+import type { DecisionContext, ClaudeDecision, HistoryEntry, Reflection, DcaStrategy, MarketBrief } from "../types.js";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt.js";
 import { withRetry } from "../retry.js";
 import { logger } from "../logger.js";
@@ -11,6 +11,7 @@ import {
   CHECK_PRICE_ACTION_TOOL,
   ASSESS_MARKET_REGIME_TOOL,
   EVALUATE_RISK_TOOL,
+  GET_MARKET_BRIEF_TOOL,
   computePacingMetrics,
   buildDetailedHistory,
   previewAllocation,
@@ -46,6 +47,7 @@ export interface DecisionDeps {
   alreadySpentTodayUsdc: string;
   remainingCampaignBudgetUsdc?: string;
   dcaStrategy: DcaStrategy;
+  marketBrief?: MarketBrief | null;
 }
 
 function handleToolCall(
@@ -125,6 +127,13 @@ function handleToolCall(
         2,
       );
 
+    case "get_market_brief":
+      if (deps.marketBrief) {
+        const { rawData: _raw, ...briefSummary } = deps.marketBrief;
+        return JSON.stringify(briefSummary, null, 2);
+      }
+      return JSON.stringify({ error: "Market brief not available — external data fetch failed or was skipped." });
+
     default:
       return JSON.stringify({ error: `Unknown tool: ${toolName}` });
   }
@@ -136,7 +145,7 @@ export async function getClaudeDecision(
   deps: DecisionDeps,
 ): Promise<ClaudeDecision> {
   const client = new Anthropic({ apiKey });
-  const allTools = [RECALL_REFLECTIONS_TOOL, CHECK_PRICE_ACTION_TOOL, ASSESS_MARKET_REGIME_TOOL, ...ANALYSIS_TOOLS, EVALUATE_RISK_TOOL, DECISION_TOOL];
+  const allTools = [GET_MARKET_BRIEF_TOOL, RECALL_REFLECTIONS_TOOL, CHECK_PRICE_ACTION_TOOL, ASSESS_MARKET_REGIME_TOOL, ...ANALYSIS_TOOLS, EVALUATE_RISK_TOOL, DECISION_TOOL];
 
   const messages: Anthropic.MessageParam[] = [
     { role: "user", content: buildUserPrompt(context) },

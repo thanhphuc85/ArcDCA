@@ -297,6 +297,17 @@ export function computeRiskScore(
   };
 }
 
+export const GET_MARKET_BRIEF_TOOL = {
+  name: "get_market_brief",
+  description:
+    "Retrieve the market brief prepared by the Market Analyst agent. Contains: BTC price, 24h change, Fear & Greed index, on-chain trading volume on Arc Testnet, overall sentiment assessment, and an allocation bias recommendation. Call this early in your analysis to incorporate external market context.",
+  input_schema: {
+    type: "object" as const,
+    properties: {},
+    required: [] as string[],
+  },
+};
+
 export const DECISION_TOOL = {
   name: "record_dca_decision",
   description:

@@ -1,8 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { ethers } from "ethers";
-// NOTE: the Circle SDK is loaded via dynamic import() inside the handler.
-// A static top-level import of its named export fails to resolve under Vercel's
-// serverless bundler (ESM/CommonJS interop), crashing the whole function on load.
+import { createRequire } from "node:module";
+
+// The Circle SDK (and its ESM-only Solana deps) breaks when Vercel's esbuild
+// bundles it into the function ("Cannot use import statement outside a module").
+// Loading it through createRequire keeps it external: @vercel/nft still traces
+// and ships it in node_modules, but esbuild does not bundle it, so it loads with
+// native Node resolution — the same path that works locally.
+const nodeRequire = createRequire(import.meta.url);
 
 const USDC_CONTRACT = "0x3600000000000000000000000000000000000000";
 const CIRBTC_CONTRACT = "0xf0c4a4ce82a5746abaad9425360ab04fbba432bf";
@@ -190,10 +195,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
 
   try {
-    const circleSdk = await import("@circle-fin/developer-controlled-wallets");
-    const initiateClient =
-      circleSdk.initiateDeveloperControlledWalletsClient ??
-      (circleSdk as { default?: { initiateDeveloperControlledWalletsClient?: typeof circleSdk.initiateDeveloperControlledWalletsClient } }).default?.initiateDeveloperControlledWalletsClient;
+    const circleSdk = nodeRequire("@circle-fin/developer-controlled-wallets") as typeof import("@circle-fin/developer-controlled-wallets");
+    const initiateClient = circleSdk.initiateDeveloperControlledWalletsClient;
     if (typeof initiateClient !== "function") {
       throw new Error("Circle SDK failed to load initiateDeveloperControlledWalletsClient");
     }

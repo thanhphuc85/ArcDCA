@@ -1422,7 +1422,7 @@
     saveStore(STORE_KEYS.cache, { history: hist, reflections: refl, ts: Date.now() });
   }
   function clearCache() { localStorage.removeItem(STORE_KEYS.cache); dataCache = { history: null, reflections: null, ts: 0 }; }
-  function saveWalletAddr(addr) { saveStore(STORE_KEYS.wallet, addr ? { address: addr, ts: Date.now() } : null); savedWallet = addr ? { address: addr, ts: Date.now() } : null; }
+  function saveWalletAddr(addr) { var obj = addr ? { address: addr, ts: Date.now(), walletId: state.loginType || "metamask" } : null; saveStore(STORE_KEYS.wallet, obj); savedWallet = obj; }
 
   function flashSaved() {
     var el = document.getElementById("settingsSaved");
@@ -1877,7 +1877,7 @@
     cirbtc: "0xf0c4a4ce82a5746abaad9425360ab04fbba432bf", // cirBTC, 8 decimals
     agent: "0x00Ebbd3aFCCaD08970ED8FdaE591244c8475a0aC",  // the agent's Circle wallet (DCA treasury)
   };
-  var state = { account: null, loginType: null, showAllRuns: false };
+  var state = { account: null, loginType: null, provider: null, showAllRuns: false };
   // jsDelivr CDN first (robust CORS, no rate-limit 429s; cached up to ~12h),
   // raw.githubusercontent as a fresher fallback.
   var HISTORY_SOURCES = [
@@ -1960,6 +1960,7 @@
   }
   async function safeRpcCall(method, params) {
     try {
+      if (state.provider) return await state.provider.request({ method: method, params: params });
       if (window.ethereum) return await window.ethereum.request({ method: method, params: params });
       return await rpcCall(method, params);
     } catch (e) { return "0x0"; }
@@ -2175,27 +2176,52 @@
     }).catch(function () { var el = $("wpTreasuryBal"); if (el) el.textContent = "—"; });
   }
 
-  // ---------- MetaMask connect ----------
-  async function connectMetamask() {
+  // ---------- Provider resolver ----------
+  function getProvider(walletId) {
+    var providers = window.ethereum && window.ethereum.providers;
+    if (walletId === "phantom" && window.phantom && window.phantom.ethereum) return window.phantom.ethereum;
+    if (providers && Array.isArray(providers)) {
+      for (var i = 0; i < providers.length; i++) {
+        var p = providers[i];
+        if (walletId === "metamask" && p.isMetaMask && !p.isRabby && !p.isCoinbaseWallet) return p;
+        if (walletId === "coinbase" && p.isCoinbaseWallet) return p;
+        if (walletId === "rabby" && p.isRabby) return p;
+      }
+    }
+    if (window.ethereum) {
+      if (walletId === "metamask" && window.ethereum.isMetaMask) return window.ethereum;
+      if (walletId === "coinbase" && window.ethereum.isCoinbaseWallet) return window.ethereum;
+      if (walletId === "rabby" && window.ethereum.isRabby) return window.ethereum;
+    }
+    return window.ethereum || null;
+  }
+
+  // ---------- Wallet connect ----------
+  async function connectWallet(walletId) {
+    walletId = walletId || "metamask";
     var status = $("walletStatus");
-    if (!window.ethereum) {
-      status.innerHTML = 'No EIP-1193 wallet found. Install <a href="https://metamask.io" target="_blank" rel="noopener">MetaMask</a> to connect.';
+    var provider = getProvider(walletId);
+    if (!provider) {
+      var walletName = (WALLETS.find(function (w) { return w.id === walletId; }) || {}).name || walletId;
+      status.innerHTML = walletName + ' not found. Install the extension to connect.';
       return;
     }
+    state.provider = provider;
+    attachProviderListeners(provider);
     try {
       status.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Requesting accounts…</span>';
-      var accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      var accounts = await provider.request({ method: "eth_requestAccounts" });
       var account = accounts[0];
       state.account = account;
-      state.loginType = "metamask";
+      state.loginType = walletId;
       saveWalletAddr(account);
       $("reconnectBar").innerHTML = "";
       status.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Switching to Arc Testnet…</span>';
       try {
-        await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: ARC.chainIdHex }] });
+        await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: ARC.chainIdHex }] });
       } catch (switchErr) {
         if (switchErr && switchErr.code === 4902) {
-          await window.ethereum.request({
+          await provider.request({
             method: "wallet_addEthereumChain",
             params: [{
               chainId: ARC.chainIdHex, chainName: ARC.chainName,
@@ -2217,7 +2243,7 @@
         status.textContent = "Connected but balance read failed — you may need to switch to Arc Testnet in your wallet.";
       }
       var txs = await fetchRecentTxs(account);
-      showWalletProfile(account, nativeBal, usdc, cirbtc, "metamask", txs);
+      showWalletProfile(account, nativeBal, usdc, cirbtc, walletId, txs);
       if (typeof renderPortfolio === "function") renderPortfolio(_ledgerData);
     } catch (err) {
       var t = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
@@ -2228,13 +2254,18 @@
       }
     }
   }
+  function connectMetamask() { return connectWallet("metamask"); }
 
-  // ---------- MetaMask event listeners ----------
-  if (window.ethereum) {
-    window.ethereum.on("accountsChanged", function (accounts) {
+  // ---------- Wallet event listeners ----------
+  function attachProviderListeners(provider) {
+    if (!provider || !provider.on) return;
+    try { provider.removeAllListeners("accountsChanged"); } catch (e) {}
+    try { provider.removeAllListeners("chainChanged"); } catch (e) {}
+    provider.on("accountsChanged", function (accounts) {
       if (!accounts || !accounts.length) {
         state.account = null;
         state.loginType = null;
+        state.provider = null;
         saveWalletAddr(null);
         stopWalletAutoRefresh();
         var prof = $("walletProfile");
@@ -2245,13 +2276,14 @@
         var portSec = $("portfolioSection");
         if (portSec) portSec.style.display = "none";
       } else if (accounts[0] !== state.account) {
-        connectMetamask();
+        connectWallet(state.loginType || "metamask");
       }
     });
-    window.ethereum.on("chainChanged", function () {
-      if (state.account && state.loginType === "metamask") connectMetamask();
+    provider.on("chainChanged", function () {
+      if (state.account) connectWallet(state.loginType || "metamask");
     });
   }
+  if (window.ethereum) attachProviderListeners(window.ethereum);
 
   // ---------- Gmail login ----------
   function generateWalletFromEmail(email) {
@@ -2296,10 +2328,10 @@
 
   // ---------- wallet connect modal ----------
   var WALLETS = [
-    { id: "metamask", name: "MetaMask", icon: "🦊", detect: function() { return window.ethereum && window.ethereum.isMetaMask; }, action: "connect" },
-    { id: "coinbase", name: "Coinbase Wallet", icon: "🔵", detect: function() { return window.ethereum && window.ethereum.isCoinbaseWallet; }, action: "connect" },
-    { id: "rabby", name: "Rabby Wallet", icon: "🐰", detect: function() { return window.ethereum && window.ethereum.isRabby; }, action: "connect" },
-    { id: "phantom", name: "Phantom", icon: "👻", detect: function() { return window.phantom && window.phantom.ethereum; }, action: "connect" },
+    { id: "metamask", name: "MetaMask", icon: "🦊", detect: function() { var ps = window.ethereum && window.ethereum.providers; if (ps) { for (var i=0;i<ps.length;i++) if (ps[i].isMetaMask && !ps[i].isRabby) return true; return false; } return !!(window.ethereum && window.ethereum.isMetaMask && !window.ethereum.isRabby); }, action: "connect" },
+    { id: "coinbase", name: "Coinbase Wallet", icon: "🔵", detect: function() { var ps = window.ethereum && window.ethereum.providers; if (ps) { for (var i=0;i<ps.length;i++) if (ps[i].isCoinbaseWallet) return true; return false; } return !!(window.ethereum && window.ethereum.isCoinbaseWallet); }, action: "connect" },
+    { id: "rabby", name: "Rabby Wallet", icon: "🐰", detect: function() { var ps = window.ethereum && window.ethereum.providers; if (ps) { for (var i=0;i<ps.length;i++) if (ps[i].isRabby) return true; return false; } return !!(window.ethereum && window.ethereum.isRabby); }, action: "connect" },
+    { id: "phantom", name: "Phantom", icon: "👻", detect: function() { return !!(window.phantom && window.phantom.ethereum); }, action: "connect" },
     { id: "walletconnect", name: "WalletConnect", icon: "🔗", detect: function() { return false; }, action: "soon" },
   ];
 
@@ -2341,7 +2373,7 @@
         var w = wallets.find(function (x) { return x.id === wid; });
         if (w && w.action === "soon" && !w.detected) return;
         closeWalletModal();
-        connectMetamask();
+        connectWallet(wid);
       });
     });
   }
@@ -2476,8 +2508,9 @@
   async function readUsdcBalance(holder) {
     var data = "0x70a08231" + holder.slice(2).toLowerCase().padStart(64, "0");
     // Prefer the connected wallet's provider; fall back to a direct RPC call.
-    if (window.ethereum) {
-      try { return BigInt(await window.ethereum.request({ method: "eth_call", params: [{ to: ARC.usdc, data: data }, "latest"] }) || "0x0"); } catch (e) {}
+    var rpcProvider = state.provider || window.ethereum;
+    if (rpcProvider) {
+      try { return BigInt(await rpcProvider.request({ method: "eth_call", params: [{ to: ARC.usdc, data: data }, "latest"] }) || "0x0"); } catch (e) {}
     }
     var r = await fetch(ARC.rpc, { method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to: ARC.usdc, data: data }, "latest"] }) });
@@ -2499,7 +2532,7 @@
     var status = $("depositStatus");
     var btn = $("depositBtn");
     var t = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
-    if (!window.ethereum || !state.account) { status.innerHTML = '<span style="color:var(--amber);">' + (t.depErrConnect || "Connect your wallet first.") + '</span>'; return; }
+    if (!state.provider || !state.account) { status.innerHTML = '<span style="color:var(--amber);">' + (t.depErrConnect || "Connect your wallet first.") + '</span>'; return; }
     var amt = parseFloat($("depositAmt").value);
     if (!(amt > 0)) { status.innerHTML = '<span style="color:var(--amber);">' + (t.depErrAmount || "Enter an amount greater than 0.") + '</span>'; return; }
     var base = toBaseUnits($("depositAmt").value, 6);
@@ -2507,7 +2540,7 @@
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="btn-loading"><span class="spinner"></span> ' + (t.depConfirm || "Confirm in wallet…") + '</span>'; }
     status.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;color:var(--amber);"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> ' + (t.depConfirm || "Confirm the transfer in your wallet…") + '</span>';
     try {
-      var txHash = await window.ethereum.request({
+      var txHash = await state.provider.request({
         method: "eth_sendTransaction",
         params: [{ from: state.account, to: ARC.usdc, data: data }],
       });
@@ -3238,7 +3271,7 @@
       var el = $("wlBal" + i);
       if (!el) return;
       var data = "0x70a08231" + state.account.slice(2).toLowerCase().padStart(64, "0");
-      (window.ethereum ? window.ethereum.request({ method: "eth_call", params: [{ to: tok.address, data: data }, "latest"] }) : Promise.reject())
+      ((state.provider || window.ethereum) ? (state.provider || window.ethereum).request({ method: "eth_call", params: [{ to: tok.address, data: data }, "latest"] }) : Promise.reject())
         .then(function (raw) {
           var dec = parseInt(tok.decimals, 10) || 18;
           var val = Number(BigInt(raw || "0x0")) / Math.pow(10, dec);
@@ -3293,7 +3326,7 @@
       if (isGmail) {
         connectGmail(gmailData.name || "", gmailData.email || "");
       } else {
-        connectMetamask();
+        connectWallet(savedWallet && savedWallet.walletId || "metamask");
       }
     });
     $("rbDismiss").addEventListener("click", function () { bar.innerHTML = ""; saveWalletAddr(null); });

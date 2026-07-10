@@ -180,7 +180,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   const circleApiKey = process.env.CIRCLE_API_KEY;
   const circleEntitySecret = process.env.CIRCLE_ENTITY_SECRET;
-  const circleWalletId = process.env.CIRCLE_WALLET_ID;
+  // Accept either name: the GitHub Actions workflow uses WALLET_ID, so allow it
+  // as a fallback to avoid an env-var naming mismatch on Vercel.
+  const circleWalletId = process.env.CIRCLE_WALLET_ID || process.env.WALLET_ID;
   if (!circleApiKey || !circleEntitySecret || !circleWalletId) {
     res.status(500).json({ error: "Server misconfigured: missing Circle credentials" }); return;
   }

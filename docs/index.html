@@ -2153,8 +2153,8 @@
     $("wpDisconnect").addEventListener("click", function () {
       state.account = null;
       state.loginType = null;
+      state.provider = null;
       saveWalletAddr(null);
-      try { localStorage.removeItem("aura-gmail-wallet"); } catch(e){}
       prof.style.display = "none";
       prof.innerHTML = "";
       $("walletCard").style.display = "none";
@@ -2162,6 +2162,8 @@
       status.textContent = "";
       stopWalletAutoRefresh();
       if (typeof updateHeaderWallet === "function") updateHeaderWallet(null, null);
+      var portSec = $("portfolioSection");
+      if (portSec) portSec.style.display = "none";
     });
 
     status.textContent = "";

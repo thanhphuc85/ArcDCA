@@ -3607,7 +3607,14 @@
       var token = $("wdToken").value;
       var amount = parseFloat($("wdAmount").value);
       if (!(amount > 0)) { st.textContent = t.wdErrAmount || "Enter a valid amount."; return; }
-      if (!_ledgerData || !_ledgerData.users) { st.textContent = t.wdErrLedger || "Ledger not loaded yet."; return; }
+      // Load the ledger on demand if the initial fetch hasn't landed yet (avoids a
+      // race where the user clicks Withdraw during the first ~1-2s of page load).
+      if (!_ledgerData || !_ledgerData.users) {
+        st.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;color:var(--muted);"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> ' + (t.wdLoadingLedger || "Loading account…") + '</span>';
+        try { _ledgerData = await fetchLedger(); } catch (e) {}
+      }
+      if (!_ledgerData || !_ledgerData.users) { st.textContent = t.wdErrLedger || "Ledger not loaded yet. Please try again."; return; }
+      st.innerHTML = "";
       var key = state.account.toLowerCase();
       var user = _ledgerData.users[key];
       if (!user) { st.textContent = t.portNoAccount || "No account found. Deposit first."; return; }
@@ -3953,7 +3960,7 @@
       wdStep1: "Signing message with wallet…", wdStep2: "Verifying signature & processing transfer…", wdStep3: "Completing withdrawal…",
       wdSuccess: "Withdrawal completed!", wdCancelled: "Signing cancelled.",
       wdErrConnect: "Connect your wallet first.", wdErrProvider: "MetaMask not available.",
-      wdErrAmount: "Enter a valid amount.", wdErrLedger: "Ledger not loaded yet.",
+      wdErrAmount: "Enter a valid amount.", wdErrLedger: "Ledger not loaded yet. Please try again.", wdLoadingLedger: "Loading account…",
       wdErrBalance: "Insufficient balance: ", wdErrApiUrl: "Set your Withdrawal API URL in Settings first.",
       setWithdrawApiTitle: "Withdrawal API", setWdApiLabel: "API base URL (optional)",
       setWdApiHelp: "Leave empty to use this site's own /api/withdraw (works when deployed to Vercel). Only set a URL to route withdrawals through a different backend. Processed in real-time (10–30s).",
@@ -4046,7 +4053,7 @@
       wdStep1: "Đang ký message bằng ví…", wdStep2: "Xác minh chữ ký & xử lý chuyển tiền…", wdStep3: "Hoàn tất rút tiền…",
       wdSuccess: "Rút tiền thành công!", wdCancelled: "Đã hủy ký.",
       wdErrConnect: "Kết nối ví trước.", wdErrProvider: "MetaMask không khả dụng.",
-      wdErrAmount: "Nhập số tiền hợp lệ.", wdErrLedger: "Chưa tải được sổ cái.",
+      wdErrAmount: "Nhập số tiền hợp lệ.", wdErrLedger: "Chưa tải được sổ cái. Vui lòng thử lại.", wdLoadingLedger: "Đang tải tài khoản…",
       wdErrBalance: "Số dư không đủ: ", wdErrApiUrl: "Cấu hình URL API rút tiền trong Cài đặt trước.",
       setWithdrawApiTitle: "API rút tiền", setWdApiLabel: "URL cơ sở API (tùy chọn)",
       setWdApiHelp: "Để trống để dùng /api/withdraw của chính site này (hoạt động khi deploy lên Vercel). Chỉ nhập URL nếu muốn định tuyến rút tiền qua backend khác. Xử lý thời gian thực (10–30 giây).",

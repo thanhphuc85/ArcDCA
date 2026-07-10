@@ -1878,6 +1878,27 @@
     agent: "0x00Ebbd3aFCCaD08970ED8FdaE591244c8475a0aC",  // the agent's Circle wallet (DCA treasury)
   };
   var state = { account: null, loginType: null, provider: null, showAllRuns: false };
+
+  // ---------- EIP-6963 multi-wallet discovery ----------
+  // Each installed wallet announces its own provider + metadata (rdns), so we
+  // never have to guess which one window.ethereum points at.
+  var discoveredProviders = {}; // rdns -> { info, provider }
+  // Map our wallet ids to their canonical EIP-6963 rdns identifiers.
+  var WALLET_RDNS = {
+    metamask: "io.metamask",
+    coinbase: "com.coinbase.wallet",
+    rabby: "io.rabby",
+    phantom: "app.phantom",
+  };
+  window.addEventListener("eip6963:announceProvider", function (event) {
+    var detail = event.detail;
+    if (detail && detail.info && detail.provider) {
+      discoveredProviders[detail.info.rdns] = { info: detail.info, provider: detail.provider };
+    }
+  });
+  // Ask any injected wallets to (re-)announce themselves.
+  function requestWalletAnnounce() { window.dispatchEvent(new Event("eip6963:requestProvider")); }
+  requestWalletAnnounce();
   // jsDelivr CDN first (robust CORS, no rate-limit 429s; cached up to ~12h),
   // raw.githubusercontent as a fresher fallback.
   var HISTORY_SOURCES = [
@@ -2180,8 +2201,16 @@
 
   // ---------- Provider resolver ----------
   function getProvider(walletId) {
-    var providers = window.ethereum && window.ethereum.providers;
+    // 1. Preferred: EIP-6963 announced provider matched by rdns.
+    requestWalletAnnounce();
+    var rdns = WALLET_RDNS[walletId];
+    if (rdns && discoveredProviders[rdns]) return discoveredProviders[rdns].provider;
+
+    // 2. Phantom exposes a dedicated global.
     if (walletId === "phantom" && window.phantom && window.phantom.ethereum) return window.phantom.ethereum;
+
+    // 3. Legacy multi-provider array on window.ethereum.
+    var providers = window.ethereum && window.ethereum.providers;
     if (providers && Array.isArray(providers)) {
       for (var i = 0; i < providers.length; i++) {
         var p = providers[i];
@@ -2190,12 +2219,15 @@
         if (walletId === "rabby" && p.isRabby) return p;
       }
     }
+
+    // 4. Single injected provider — only return it if its flags match the request,
+    //    so we never silently fall back to the wrong wallet (e.g. MetaMask).
     if (window.ethereum) {
-      if (walletId === "metamask" && window.ethereum.isMetaMask) return window.ethereum;
+      if (walletId === "metamask" && window.ethereum.isMetaMask && !window.ethereum.isRabby && !window.ethereum.isCoinbaseWallet) return window.ethereum;
       if (walletId === "coinbase" && window.ethereum.isCoinbaseWallet) return window.ethereum;
       if (walletId === "rabby" && window.ethereum.isRabby) return window.ethereum;
     }
-    return window.ethereum || null;
+    return null;
   }
 
   // ---------- Wallet connect ----------
@@ -2329,11 +2361,13 @@
   }
 
   // ---------- wallet connect modal ----------
+  // Detection now relies on EIP-6963 discovery (getProvider), with legacy
+  // fallbacks handled inside getProvider itself.
   var WALLETS = [
-    { id: "metamask", name: "MetaMask", icon: "🦊", detect: function() { var ps = window.ethereum && window.ethereum.providers; if (ps) { for (var i=0;i<ps.length;i++) if (ps[i].isMetaMask && !ps[i].isRabby) return true; return false; } return !!(window.ethereum && window.ethereum.isMetaMask && !window.ethereum.isRabby); }, action: "connect" },
-    { id: "coinbase", name: "Coinbase Wallet", icon: "🔵", detect: function() { var ps = window.ethereum && window.ethereum.providers; if (ps) { for (var i=0;i<ps.length;i++) if (ps[i].isCoinbaseWallet) return true; return false; } return !!(window.ethereum && window.ethereum.isCoinbaseWallet); }, action: "connect" },
-    { id: "rabby", name: "Rabby Wallet", icon: "🐰", detect: function() { var ps = window.ethereum && window.ethereum.providers; if (ps) { for (var i=0;i<ps.length;i++) if (ps[i].isRabby) return true; return false; } return !!(window.ethereum && window.ethereum.isRabby); }, action: "connect" },
-    { id: "phantom", name: "Phantom", icon: "👻", detect: function() { return !!(window.phantom && window.phantom.ethereum); }, action: "connect" },
+    { id: "metamask", name: "MetaMask", icon: "🦊", detect: function() { return !!getProvider("metamask"); }, action: "connect" },
+    { id: "coinbase", name: "Coinbase Wallet", icon: "🔵", detect: function() { return !!getProvider("coinbase"); }, action: "connect" },
+    { id: "rabby", name: "Rabby Wallet", icon: "🐰", detect: function() { return !!getProvider("rabby"); }, action: "connect" },
+    { id: "phantom", name: "Phantom", icon: "👻", detect: function() { return !!getProvider("phantom"); }, action: "connect" },
     { id: "walletconnect", name: "WalletConnect", icon: "🔗", detect: function() { return false; }, action: "soon" },
   ];
 

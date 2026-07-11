@@ -2,7 +2,6 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { ethers } from "ethers";
 
 const MESSAGE_EXPIRY_MS = 5 * 60 * 1000;
-const MAX_RATE = 100000; // sanity cap on USDC/day
 
 const GITHUB_OWNER = "thanhphuc85";
 const GITHUB_REPO = "ArcDCA";
@@ -95,8 +94,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
 
   const rateNum = parseFloat(rate);
-  if (isNaN(rateNum) || rateNum < 0) { res.status(400).json({ error: "Rate must be a number ≥ 0" }); return; }
-  if (rateNum > MAX_RATE) { res.status(400).json({ error: `Rate too high (max ${MAX_RATE}/day)` }); return; }
+  // No upper cap — users can set any rate (0 = pause). Only guard against
+  // non-finite/negative values to keep the ledger arithmetic safe.
+  if (!Number.isFinite(rateNum) || rateNum < 0) { res.status(400).json({ error: "Rate must be a finite number ≥ 0" }); return; }
 
   const githubToken = process.env.GH_PAT?.trim();
   if (!githubToken) { res.status(500).json({ error: "Server misconfigured: missing GH_PAT" }); return; }

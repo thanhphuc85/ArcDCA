@@ -22,7 +22,7 @@
       "totalWithdrawnCirBtc": "0",
       "totalWithdrawnUsdc": "0",
       "firstSeen": "2026-07-10T16:07:29.490Z",
-      "lastActivity": "2026-07-10T23:52:01.062Z"
+      "lastActivity": "2026-07-11T00:02:20.872Z"
     }
   },
   "deposits": [
@@ -63,6 +63,16 @@
       "status": "failed",
       "requestedAt": "2026-07-10T23:52:01.062Z",
       "processedAt": "2026-07-10T23:52:01.304Z",
+      "error": "malformed API key. API key should contain three substrings, separated by a colon. First substring denotes the environment, e.g. TEST_API_KEY. Second substring denotes the ID of the key, e.g. ebb3ad72232624921abc4b162148bb84. Third substring denotes the secret of the key, e.g. 019ef3358ef9cd6d08fc32csfe89a68d. This format only applies to API keys generated after May 2023"
+    },
+    {
+      "id": "wd-1783728140872-99e84b",
+      "address": "0xdd6045a634ef2c61d6070552b556aae40099e84b",
+      "token": "USDC",
+      "amount": "1.000000",
+      "status": "failed",
+      "requestedAt": "2026-07-11T00:02:20.872Z",
+      "processedAt": "2026-07-11T00:02:21.106Z",
       "error": "malformed API key. API key should contain three substrings, separated by a colon. First substring denotes the environment, e.g. TEST_API_KEY. Second substring denotes the ID of the key, e.g. ebb3ad72232624921abc4b162148bb84. Third substring denotes the secret of the key, e.g. 019ef3358ef9cd6d08fc32csfe89a68d. This format only applies to API keys generated after May 2023"
     }
   ]

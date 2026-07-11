@@ -1322,10 +1322,12 @@
         <button class="btn" id="rateBtn" data-t="rateBtn">Save rate</button>
         <button class="btn btn-ghost" id="ratePauseBtn" data-t="ratePauseBtn">Pause</button>
       </div>
-      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-ghost rate-preset" data-days="30" data-t="ratePreset30">Spread over 30d</button>
-        <button class="btn btn-ghost rate-preset" data-days="60" data-t="ratePreset60">60d</button>
-        <button class="btn btn-ghost rate-preset" data-days="90" data-t="ratePreset90">90d</button>
+      <div style="margin-top:10px;font-size:11px;color:var(--muted);margin-bottom:6px;" data-t="rateModeLabel">Quick DCA modes — deploy your balance over:</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-ghost rate-preset" data-days="7" data-t="rateModeAggr">⚡ Aggressive · 7d</button>
+        <button class="btn btn-ghost rate-preset" data-days="14" data-t="rateModeFast">Fast · 14d</button>
+        <button class="btn btn-ghost rate-preset" data-days="30" data-t="rateModeBal">Balanced · 30d</button>
+        <button class="btn btn-ghost rate-preset" data-days="90" data-t="rateModeSlow">🐢 Slow · 90d</button>
       </div>
       <div class="status-note" id="rateStatus"></div>
     </div>
@@ -3641,11 +3643,20 @@
     // Presets: set rate = balance / days
     document.querySelectorAll(".rate-preset").forEach(function (p) {
       p.addEventListener("click", function () {
+        var t = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
         var days = parseInt(this.getAttribute("data-days"), 10) || 30;
         var key = state.account && state.account.toLowerCase();
         var user = key && _ledgerData && _ledgerData.users ? _ledgerData.users[key] : null;
         var bal = user ? parseFloat(user.usdcBalance || "0") : 0;
-        if (bal > 0) input.value = (bal / days).toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+        if (bal > 0) {
+          var r = bal / days;
+          input.value = r.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+          st.innerHTML = '<span style="color:var(--muted);">≈ <b>' + fmt(r, 6) + '</b> USDC/' + (t.rateDay || "day") +
+            ' · ' + (t.rateRunway || "runway") + ' ' + days + ' ' + (t.rateDays || "days") +
+            ' — ' + (t.rateClickSave || "click Save rate to confirm") + '</span>';
+        } else {
+          st.innerHTML = '<span style="color:var(--amber);">' + (t.rateNoAccount || "Deposit USDC first to start a DCA schedule.") + '</span>';
+        }
       });
     });
 
@@ -4098,7 +4109,10 @@
       portSwappedLabel: "Total swapped", portSwappedSub: "USDC → cirBTC",
       portWithdrawTitle: "Withdraw your tokens", portWithdrawSub: "Sign a message to verify your identity — withdrawal completes in 10–30 seconds.",
       rateTitle: "Your DCA schedule", rateSub: "Set how much of your balance the agent buys per day. Sign to save — no gas, off-chain preference.",
-      rateBtn: "Save rate", ratePreset30: "Spread over 30d", ratePreset60: "60d", ratePreset90: "90d",
+      rateBtn: "Save rate",
+      rateModeLabel: "Quick DCA modes — deploy your balance over:",
+      rateModeAggr: "⚡ Aggressive · 7d", rateModeFast: "Fast · 14d", rateModeBal: "Balanced · 30d", rateModeSlow: "🐢 Slow · 90d",
+      rateClickSave: "click Save rate to confirm",
       rateNoAccount: "Deposit USDC first to start a DCA schedule.", ratePaused: "Paused", rateAuto: "auto",
       rateDay: "day", rateDays: "days", rateRunway: "runway", rateBalance: "Balance",
       rateErrAmount: "Enter a rate ≥ 0 (0 = pause).", rateSigning: "Sign in your wallet…", rateSaving: "Saving…",
@@ -4197,7 +4211,10 @@
       portSwappedLabel: "Tổng đã swap", portSwappedSub: "USDC → cirBTC",
       portWithdrawTitle: "Rút token", portWithdrawSub: "Ký xác nhận danh tính — rút tiền hoàn tất trong 10–30 giây.",
       rateTitle: "Lịch DCA của bạn", rateSub: "Đặt mỗi ngày agent mua bao nhiêu từ số dư của bạn. Ký để lưu — không tốn gas, tùy chọn off-chain.",
-      rateBtn: "Lưu tốc độ", ratePreset30: "Chia đều 30 ngày", ratePreset60: "60 ngày", ratePreset90: "90 ngày",
+      rateBtn: "Lưu tốc độ",
+      rateModeLabel: "Chế độ DCA nhanh — giải ngân số dư trong:",
+      rateModeAggr: "⚡ Mạnh · 7 ngày", rateModeFast: "Nhanh · 14 ngày", rateModeBal: "Cân bằng · 30 ngày", rateModeSlow: "🐢 Chậm · 90 ngày",
+      rateClickSave: "bấm Lưu tốc độ để xác nhận",
       rateNoAccount: "Nạp USDC trước để bắt đầu lịch DCA.", ratePaused: "Đã tạm dừng", rateAuto: "tự động",
       rateDay: "ngày", rateDays: "ngày", rateRunway: "còn", rateBalance: "Số dư",
       rateErrAmount: "Nhập tốc độ ≥ 0 (0 = tạm dừng).", rateSigning: "Ký trong ví…", rateSaving: "Đang lưu…",

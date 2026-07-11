@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import type { DecisionContext, ClaudeDecision, HistoryEntry, Reflection, DcaStrategy, MarketBrief } from "../types.js";
+import type { DecisionContext, ClaudeDecision, HistoryEntry, Reflection, DcaStrategy, MarketBrief, PriceSnapshot } from "../types.js";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt.js";
 import { withRetry } from "../retry.js";
 import { logger } from "../logger.js";
@@ -13,6 +13,7 @@ import {
   EVALUATE_RISK_TOOL,
   GET_MARKET_BRIEF_TOOL,
   COMPUTE_DIP_LADDER_TOOL,
+  GET_CIRBTC_PRICE_TOOL,
   computePacingMetrics,
   buildDetailedHistory,
   previewAllocation,
@@ -21,6 +22,7 @@ import {
   computeMarketRegime,
   computeRiskScore,
   computeDipLadder,
+  computeCirBtcPrice,
 } from "./tools.js";
 
 export class DecisionError extends Error {
@@ -50,6 +52,7 @@ export interface DecisionDeps {
   remainingCampaignBudgetUsdc?: string;
   dcaStrategy: DcaStrategy;
   marketBrief?: MarketBrief | null;
+  cirBtcPriceSnapshots?: PriceSnapshot[];
 }
 
 function handleToolCall(
@@ -117,7 +120,15 @@ function handleToolCall(
           deps.dcaStrategy,
           deps.walletUsdcBalance,
           context.guardrails.minUsdcReserve,
+          deps.cirBtcPriceSnapshots,
         ),
+        null,
+        2,
+      );
+
+    case "get_cirbtc_price":
+      return JSON.stringify(
+        computeCirBtcPrice(deps.cirBtcPriceSnapshots ?? [], deps.dcaStrategy),
         null,
         2,
       );
@@ -159,7 +170,7 @@ export async function getClaudeDecision(
   deps: DecisionDeps,
 ): Promise<ClaudeDecision> {
   const client = new Anthropic({ apiKey });
-  const allTools = [GET_MARKET_BRIEF_TOOL, RECALL_REFLECTIONS_TOOL, CHECK_PRICE_ACTION_TOOL, COMPUTE_DIP_LADDER_TOOL, ASSESS_MARKET_REGIME_TOOL, ...ANALYSIS_TOOLS, EVALUATE_RISK_TOOL, DECISION_TOOL];
+  const allTools = [GET_MARKET_BRIEF_TOOL, GET_CIRBTC_PRICE_TOOL, RECALL_REFLECTIONS_TOOL, CHECK_PRICE_ACTION_TOOL, COMPUTE_DIP_LADDER_TOOL, ASSESS_MARKET_REGIME_TOOL, ...ANALYSIS_TOOLS, EVALUATE_RISK_TOOL, DECISION_TOOL];
 
   const messages: Anthropic.MessageParam[] = [
     { role: "user", content: buildUserPrompt(context) },

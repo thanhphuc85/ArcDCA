@@ -140,6 +140,15 @@ export interface Ledger {
   withdrawals: WithdrawalRequest[];
 }
 
+// ---- Real cirBTC price feed (Phase 2) ----
+
+export interface PriceSnapshot {
+  date: string; // ISO date
+  timestamp: string; // full ISO timestamp
+  priceUsd: number; // real cirBTC price in USD (from Circle Swap Kit getTokenRates)
+  source: string; // e.g. "circle_swapkit"
+}
+
 // ---- External Market Data Types ----
 
 export interface MarketData {

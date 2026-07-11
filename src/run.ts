@@ -11,6 +11,8 @@ import { getClaudeDecision, DecisionError } from "./decision/client.js";
 import { generateReflection } from "./decision/reflect.js";
 import { runMarketAnalyst } from "./decision/analyst.js";
 import { fetchAllMarketData } from "./market/external.js";
+import { fetchCirBtcPriceUsd } from "./price/priceFeed.js";
+import { readPrices, appendPrice } from "./price/priceStore.js";
 import { clampDecision } from "./decision/guardrails.js";
 import { executeSwap, SwapExecutionError } from "./swap/swapKit.js";
 import type { DecisionContext, HistoryEntry, Ledger, RunStatus } from "./types.js";
@@ -122,6 +124,26 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
     rawMarketData.onChainVolume,
   );
 
+  // --- Phase 2: record the REAL cirBTC price and build a persisted series ---
+  let cirBtcPriceSnapshots = await readPrices();
+  if (config.kitKey) {
+    const realPrice = await fetchCirBtcPriceUsd(config.kitKey);
+    if (realPrice) {
+      const snapshot = {
+        date, timestamp,
+        priceUsd: realPrice.priceUsd,
+        source: "circle_swapkit",
+      };
+      try {
+        await appendPrice(snapshot);
+        cirBtcPriceSnapshots = [...cirBtcPriceSnapshots, snapshot];
+        logger.info(`Recorded real cirBTC price: $${realPrice.priceUsd.toFixed(2)}`);
+      } catch (err) {
+        logger.error("Failed to persist cirBTC price (non-fatal)", err);
+      }
+    }
+  }
+
   const minReserve = Number.parseFloat(config.guardrails.minUsdcReserve);
   if (Number.parseFloat(usdcBalance) <= minReserve) {
     logger.info(`Balance ${usdcBalance} USDC is at or below reserve ${minReserve} USDC, skipping`);
@@ -161,6 +183,7 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
       remainingCampaignBudgetUsdc: context.remainingCampaignBudgetUsdc,
       dcaStrategy: config.dcaStrategy,
       marketBrief,
+      cirBtcPriceSnapshots,
     });
   } catch (err) {
     const status: RunStatus =

@@ -1,4 +1,4 @@
-import type { HistoryEntry } from "../types.js";
+import type { HistoryEntry, PriceSnapshot as RealPriceSnapshot } from "../types.js";
 
 export interface PriceSnapshot {
   date: string;
@@ -37,6 +37,77 @@ const DEFAULT_DIP_CONFIG: DipConfig = {
   moderateMultiplier: 1.5,
   strongMultiplier: 2.0,
 };
+
+export interface RealPriceAnalysis {
+  currentPrice: number | null;
+  highestPrice: number | null;
+  lowestPrice: number | null;
+  drawdownFromHigh: number | null;
+  change24h: number | null;
+  change7d: number | null;
+  volatilityCv: number | null;
+  dipSignal: "none" | "mild" | "moderate" | "strong";
+  dipMultiplier: number;
+  pointCount: number;
+}
+
+function priceAgo(snapshots: RealPriceSnapshot[], nowMs: number, windowMs: number): number | null {
+  const cutoff = nowMs - windowMs;
+  let candidate: RealPriceSnapshot | undefined;
+  for (const s of snapshots) {
+    if (new Date(s.timestamp).getTime() <= cutoff) candidate = s;
+    else break;
+  }
+  return candidate ? candidate.priceUsd : null;
+}
+
+/**
+ * Analyze the REAL cirBTC price series (from Circle's token-rates feed) for dip
+ * detection — drawdown from high, recent changes, and volatility. This replaces
+ * the implied-from-own-swaps price with a genuine market signal.
+ */
+export function analyzeRealPrices(
+  snapshots: RealPriceSnapshot[],
+  dipConfig: DipConfig = DEFAULT_DIP_CONFIG,
+): RealPriceAnalysis {
+  if (snapshots.length === 0) {
+    return {
+      currentPrice: null, highestPrice: null, lowestPrice: null, drawdownFromHigh: null,
+      change24h: null, change7d: null, volatilityCv: null,
+      dipSignal: "none", dipMultiplier: 1.0, pointCount: 0,
+    };
+  }
+
+  const sorted = [...snapshots].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  const prices = sorted.map((s) => s.priceUsd);
+  const current = prices[prices.length - 1]!;
+  const highest = Math.max(...prices);
+  const lowest = Math.min(...prices);
+  const drawdown = highest > 0 ? (current - highest) / highest : 0;
+
+  const nowMs = new Date(sorted[sorted.length - 1]!.timestamp).getTime();
+  const price24hAgo = priceAgo(sorted, nowMs, 24 * 3600 * 1000);
+  const price7dAgo = priceAgo(sorted, nowMs, 7 * 24 * 3600 * 1000);
+  const change24h = price24hAgo && price24hAgo > 0 ? (current - price24hAgo) / price24hAgo : null;
+  const change7d = price7dAgo && price7dAgo > 0 ? (current - price7dAgo) / price7dAgo : null;
+
+  const recent = prices.slice(-7);
+  const mean = recent.reduce((a, b) => a + b, 0) / recent.length;
+  const variance = recent.reduce((a, p) => a + (p - mean) ** 2, 0) / recent.length;
+  const volatilityCv = mean > 0 ? Math.sqrt(variance) / mean : null;
+
+  const absDrawdown = Math.abs(drawdown);
+  let dipSignal: RealPriceAnalysis["dipSignal"] = "none";
+  let dipMultiplier = 1.0;
+  if (absDrawdown >= dipConfig.strongThreshold) { dipSignal = "strong"; dipMultiplier = dipConfig.strongMultiplier; }
+  else if (absDrawdown >= dipConfig.moderateThreshold) { dipSignal = "moderate"; dipMultiplier = dipConfig.moderateMultiplier; }
+  else if (absDrawdown >= dipConfig.mildThreshold) { dipSignal = "mild"; dipMultiplier = dipConfig.mildMultiplier; }
+
+  return {
+    currentPrice: current, highestPrice: highest, lowestPrice: lowest, drawdownFromHigh: drawdown,
+    change24h, change7d, volatilityCv, dipSignal, dipMultiplier, pointCount: prices.length,
+  };
+}
 
 export function extractPriceHistory(history: HistoryEntry[]): PriceSnapshot[] {
   const snapshots: PriceSnapshot[] = [];

@@ -1,5 +1,5 @@
-import type { HistoryEntry, Reflection, DcaStrategy } from "../types.js";
-import { analyzePrices, type DipConfig } from "../price/tracker.js";
+import type { HistoryEntry, Reflection, DcaStrategy, PriceSnapshot } from "../types.js";
+import { analyzePrices, analyzeRealPrices, type DipConfig } from "../price/tracker.js";
 
 const SUCCESS_STATUSES = new Set(["success", "dry_run"]);
 
@@ -112,6 +112,7 @@ export function computeDipLadder(
   strategy: DcaStrategy,
   walletUsdcBalance: string,
   minReserve: string,
+  realSnapshots?: PriceSnapshot[],
 ): Record<string, unknown> {
   const dipConfig: DipConfig = {
     mildThreshold: strategy.dipMildThreshold,
@@ -121,25 +122,41 @@ export function computeDipLadder(
     moderateMultiplier: strategy.dipModerateMultiplier,
     strongMultiplier: strategy.dipStrongMultiplier,
   };
-  const analysis = analyzePrices(history, dipConfig);
   const base = parseFloat(strategy.baseAmountUsdc);
   const available = Math.max(0, parseFloat(walletUsdcBalance) - parseFloat(minReserve));
 
-  if (analysis.drawdownFromHigh === null || analysis.priceHistory.length < 2) {
-    return {
-      status: "insufficient_data",
-      currentDrawdown: null,
-      availableBalanceUsdc: available.toFixed(6),
-      recommendedAmountUsdc: Math.min(base, available).toFixed(6),
-      recommendation: "Not enough price history to build a dip ladder. Use the base DCA amount.",
-    };
+  // Prefer the REAL cirBTC price series (Phase 2) when we have enough points;
+  // fall back to the implied-from-own-swaps price otherwise.
+  const real = analyzeRealPrices(realSnapshots ?? [], dipConfig);
+  const useReal = real.pointCount >= 2 && real.drawdownFromHigh !== null;
+
+  let drawdown: number | null;
+  let cv: number;
+  let priceSource: string;
+  if (useReal) {
+    drawdown = real.drawdownFromHigh;
+    cv = real.volatilityCv ?? 0;
+    priceSource = "real_cirbtc_feed";
+  } else {
+    const analysis = analyzePrices(history, dipConfig);
+    drawdown = analysis.drawdownFromHigh;
+    const prices = analysis.priceHistory.map((s) => s.impliedPrice).slice(-7);
+    if (analysis.drawdownFromHigh === null || analysis.priceHistory.length < 2) {
+      return {
+        status: "insufficient_data",
+        priceSource: "none",
+        currentDrawdown: null,
+        availableBalanceUsdc: available.toFixed(6),
+        recommendedAmountUsdc: Math.min(base, available).toFixed(6),
+        recommendation: "Not enough price history (real or implied) to build a dip ladder. Use the base DCA amount.",
+      };
+    }
+    const mean = prices.reduce((a, b) => a + b, 0) / prices.length;
+    const variance = prices.reduce((a, p) => a + (p - mean) ** 2, 0) / prices.length;
+    cv = mean > 0 ? Math.sqrt(variance) / mean : 0;
+    priceSource = "implied_from_swaps";
   }
 
-  // Volatility from recent implied prices (coefficient of variation).
-  const prices = analysis.priceHistory.map((s) => s.impliedPrice).slice(-7);
-  const mean = prices.reduce((a, b) => a + b, 0) / prices.length;
-  const variance = prices.reduce((a, p) => a + (p - mean) ** 2, 0) / prices.length;
-  const cv = mean > 0 ? Math.sqrt(variance) / mean : 0;
   const volatile = cv > 0.15;
   const widen = volatile ? strategy.ladderVolatilityWiden : 1.0;
 
@@ -153,7 +170,7 @@ export function computeDipLadder(
     { name: "deep", threshold: strategy.dipDeepThreshold, multiplier: strategy.dipDeepMultiplier, balanceFraction: deepFraction },
   ];
 
-  const absDrawdown = Math.abs(analysis.drawdownFromHigh);
+  const absDrawdown = Math.abs(drawdown ?? 0);
   let activeTier: LadderTierDef | null = null;
 
   const tiers = tierDefs.map((tier) => {
@@ -193,6 +210,7 @@ export function computeDipLadder(
 
   return {
     status: "ok",
+    priceSource,
     currentDrawdown: (absDrawdown * 100).toFixed(2) + "%",
     volatility: { coeffOfVariation: (cv * 100).toFixed(2) + "%", volatile, thresholdsWidenedBy: widen },
     availableBalanceUsdc: available.toFixed(6),
@@ -201,6 +219,53 @@ export function computeDipLadder(
     tiers,
     recommendedAmountUsdc: recommended.toFixed(6),
     recommendation,
+  };
+}
+
+export const GET_CIRBTC_PRICE_TOOL = {
+  name: "get_cirbtc_price",
+  description:
+    "Get the REAL cirBTC market price (USD) from Circle's on-chain token-rates feed, plus drawdown from recent high, 24h/7d change, and volatility computed over the stored real-price series. Prefer this over check_price_action (which only infers price from the agent's own swaps). If the real series is still short, it says so.",
+  input_schema: {
+    type: "object" as const,
+    properties: {},
+    required: [] as string[],
+  },
+};
+
+export function computeCirBtcPrice(
+  realSnapshots: PriceSnapshot[],
+  strategy: DcaStrategy,
+): Record<string, unknown> {
+  const dipConfig: DipConfig = {
+    mildThreshold: strategy.dipMildThreshold,
+    moderateThreshold: strategy.dipModerateThreshold,
+    strongThreshold: strategy.dipStrongThreshold,
+    mildMultiplier: strategy.dipMildMultiplier,
+    moderateMultiplier: strategy.dipModerateMultiplier,
+    strongMultiplier: strategy.dipStrongMultiplier,
+  };
+  const a = analyzeRealPrices(realSnapshots, dipConfig);
+  if (a.pointCount === 0) {
+    return {
+      status: "no_data",
+      recommendation: "No real cirBTC price recorded yet. The feed will populate over upcoming runs; use implied price for now.",
+    };
+  }
+  const pct = (x: number | null) => (x === null ? null : (x * 100).toFixed(2) + "%");
+  return {
+    status: a.pointCount >= 2 ? "ok" : "bootstrapping",
+    currentPriceUsd: a.currentPrice?.toFixed(2) ?? null,
+    highestPriceUsd: a.highestPrice?.toFixed(2) ?? null,
+    lowestPriceUsd: a.lowestPrice?.toFixed(2) ?? null,
+    drawdownFromHigh: pct(a.drawdownFromHigh),
+    change24h: pct(a.change24h),
+    change7d: pct(a.change7d),
+    volatilityCv: pct(a.volatilityCv),
+    dipSignal: a.dipSignal,
+    dipMultiplier: a.dipMultiplier,
+    dataPoints: a.pointCount,
+    note: a.pointCount < 2 ? "Only one real price point so far — drawdown/changes need more history." : undefined,
   };
 }
 

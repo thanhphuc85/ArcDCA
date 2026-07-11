@@ -342,6 +342,8 @@
   @keyframes wdSpin { to { transform: rotate(360deg); } }
   .wd-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--glass-brd); border-top-color: var(--amber); border-radius: 50%; animation: wdSpin .6s linear infinite; }
   .withdraw-row .btn:disabled { opacity: .5; cursor: not-allowed; filter: grayscale(.3); }
+  .btn-ghost { background: transparent; border: 1px solid var(--glass-brd); color: var(--text); padding: 6px 12px; font-size: 12px; }
+  .btn-ghost:hover { background: var(--glass); }
   .dist-table { width: 100%; font-size: 13px; border-collapse: collapse; }
   .dist-table th, .dist-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--glass-brd); }
   .dist-table th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; }
@@ -1307,6 +1309,21 @@
       </div>
       <div class="status-note" id="wdStatus"></div>
       <div class="wd-history" id="wdHistory"></div>
+    </div>
+    <div class="card">
+      <h3 data-t="rateTitle">Your DCA schedule</h3>
+      <p class="cs" data-t="rateSub">Set how much of your balance the agent buys per day. Sign to save — no gas, off-chain preference.</p>
+      <div class="rate-current" id="rateCurrent" style="margin:10px 0;font-size:13px;color:var(--muted);"></div>
+      <div class="withdraw-row">
+        <input id="rateAmount" type="number" min="0" step="0.000001" placeholder="USDC per day (0 = pause)" />
+        <button class="btn" id="rateBtn" data-t="rateBtn">Save rate</button>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-ghost rate-preset" data-days="30" data-t="ratePreset30">Spread over 30d</button>
+        <button class="btn btn-ghost rate-preset" data-days="60" data-t="ratePreset60">60d</button>
+        <button class="btn btn-ghost rate-preset" data-days="90" data-t="ratePreset90">90d</button>
+      </div>
+      <div class="status-note" id="rateStatus"></div>
     </div>
     <div class="card" id="distCard" style="display:none;">
       <h3 data-t="portDistTitle">DCA allocation history</h3>
@@ -3539,6 +3556,8 @@
       }
     }
 
+    if (typeof renderRateCard === "function") renderRateCard(user);
+
     // Withdrawal history
     var wds = (ledger && ledger.withdrawals || []).filter(function (w) { return w.address === key; });
     var wdHtml = "";
@@ -3577,6 +3596,88 @@
       distCard.style.display = "none";
     }
   }
+
+  // ---------- per-user DCA schedule (Cách B) ----------
+  function renderRateCard(user) {
+    var el = $("rateCurrent");
+    var input = $("rateAmount");
+    if (!el) return;
+    var t = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
+    if (!user) {
+      el.innerHTML = '<span style="color:var(--amber);">' + (t.rateNoAccount || "Deposit USDC first to start a DCA schedule.") + '</span>';
+      return;
+    }
+    var rate = parseFloat(user.dcaRatePerDay || "0");
+    var bal = parseFloat(user.usdcBalance || "0");
+    var custom = !!user.dcaRateIsCustom;
+    var paused = !!user.dcaPaused || rate <= 0;
+    if (input && document.activeElement !== input) input.value = rate ? rate.toFixed(6).replace(/0+$/, "").replace(/\.$/, "") : "";
+    if (paused) {
+      el.innerHTML = '<span style="color:var(--amber);">⏸ ' + (t.ratePaused || "Paused") + '</span> · ' + (t.rateBalance || "Balance") + ' ' + fmt(bal, 2) + ' USDC';
+    } else {
+      var runwayDays = rate > 0 ? Math.floor(bal / rate) : 0;
+      el.innerHTML =
+        '<b>' + fmt(rate, 6) + ' USDC/' + (t.rateDay || "day") + '</b>' +
+        (custom ? '' : ' <span style="opacity:.7;">(' + (t.rateAuto || "auto") + ')</span>') +
+        ' · ' + (t.rateRunway || "runway") + ' ~' + runwayDays + ' ' + (t.rateDays || "days") +
+        ' · ' + (t.rateBalance || "Balance") + ' ' + fmt(bal, 2) + ' USDC';
+    }
+  }
+
+  (function setupRate() {
+    var btn = $("rateBtn");
+    if (!btn) return;
+    var input = $("rateAmount");
+    var st = $("rateStatus");
+
+    // Presets: set rate = balance / days
+    document.querySelectorAll(".rate-preset").forEach(function (p) {
+      p.addEventListener("click", function () {
+        var days = parseInt(this.getAttribute("data-days"), 10) || 30;
+        var key = state.account && state.account.toLowerCase();
+        var user = key && _ledgerData && _ledgerData.users ? _ledgerData.users[key] : null;
+        var bal = user ? parseFloat(user.usdcBalance || "0") : 0;
+        if (bal > 0) input.value = (bal / days).toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+      });
+    });
+
+    btn.addEventListener("click", async function () {
+      var t = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
+      st.innerHTML = "";
+      if (!state.account || !state.provider) { st.innerHTML = '<span style="color:var(--amber);">' + (t.wdErrConnect || "Connect your wallet first.") + '</span>'; return; }
+      var rate = parseFloat(input.value);
+      if (isNaN(rate) || rate < 0) { st.innerHTML = '<span style="color:var(--amber);">' + (t.rateErrAmount || "Enter a rate ≥ 0 (0 = pause).") + '</span>'; return; }
+
+      var apiBase = loadStore("aura-withdraw-api", "");
+      var endpoint = apiBase ? apiBase.replace(/\/+$/, "") + "/api/set-dca-rate" : "/api/set-dca-rate";
+      var rateStr = rate.toFixed(6);
+      var timestamp = Date.now();
+      var message = "Aura DCA Agent — Set DCA Rate\n" +
+        "Rate: " + rateStr + "\n" +
+        "Address: " + state.account + "\n" +
+        "Timestamp: " + timestamp;
+
+      btn.disabled = true;
+      st.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;color:var(--amber);"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> ' + (t.rateSigning || "Sign in your wallet…") + '</span>';
+      try {
+        var signature = await state.provider.request({ method: "personal_sign", params: [message, state.account] });
+        st.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;color:var(--amber);"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> ' + (t.rateSaving || "Saving…") + '</span>';
+        var res = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: message, signature: signature }) });
+        var result = await res.json();
+        if (res.ok && result.success) {
+          st.innerHTML = '<span style="color:var(--green);">✅ ' + (result.paused ? (t.ratePausedOk || "DCA paused.") : (t.rateSavedOk || "Rate saved:") + ' ' + fmt(rate, 6) + ' USDC/' + (t.rateDay || "day")) + '</span>';
+          fetchLedger().then(function (l) { _ledgerData = l; renderPortfolio(_ledgerData); });
+        } else {
+          st.innerHTML = '<span style="color:var(--red);">❌ ' + (result.error || "Failed") + '</span>';
+        }
+      } catch (err) {
+        if (err && err.code === 4001) st.innerHTML = '<span style="color:var(--muted);">' + (t.wdCancelled || "Cancelled.") + '</span>';
+        else st.innerHTML = '<span style="color:var(--red);">❌ ' + (err && err.message ? err.message : err) + '</span>';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  })();
 
   // Real-time withdrawal: sign message → call API → get tokens back in 10-30s
   (function setupWithdraw() {
@@ -3956,6 +4057,12 @@
       portDepositedLabel: "Total deposited", portDepositedSub: "USDC all-time",
       portSwappedLabel: "Total swapped", portSwappedSub: "USDC → cirBTC",
       portWithdrawTitle: "Withdraw your tokens", portWithdrawSub: "Sign a message to verify your identity — withdrawal completes in 10–30 seconds.",
+      rateTitle: "Your DCA schedule", rateSub: "Set how much of your balance the agent buys per day. Sign to save — no gas, off-chain preference.",
+      rateBtn: "Save rate", ratePreset30: "Spread over 30d", ratePreset60: "60d", ratePreset90: "90d",
+      rateNoAccount: "Deposit USDC first to start a DCA schedule.", ratePaused: "Paused", rateAuto: "auto",
+      rateDay: "day", rateDays: "days", rateRunway: "runway", rateBalance: "Balance",
+      rateErrAmount: "Enter a rate ≥ 0 (0 = pause).", rateSigning: "Sign in your wallet…", rateSaving: "Saving…",
+      rateSavedOk: "Rate saved:", ratePausedOk: "DCA paused.",
       portWithdrawBtn: "Withdraw now",
       wdStep1: "Signing message with wallet…", wdStep2: "Verifying signature & processing transfer…", wdStep3: "Completing withdrawal…",
       wdSuccess: "Withdrawal completed!", wdCancelled: "Signing cancelled.",
@@ -4049,6 +4156,12 @@
       portDepositedLabel: "Tổng đã gửi", portDepositedSub: "USDC tất cả",
       portSwappedLabel: "Tổng đã swap", portSwappedSub: "USDC → cirBTC",
       portWithdrawTitle: "Rút token", portWithdrawSub: "Ký xác nhận danh tính — rút tiền hoàn tất trong 10–30 giây.",
+      rateTitle: "Lịch DCA của bạn", rateSub: "Đặt mỗi ngày agent mua bao nhiêu từ số dư của bạn. Ký để lưu — không tốn gas, tùy chọn off-chain.",
+      rateBtn: "Lưu tốc độ", ratePreset30: "Chia đều 30 ngày", ratePreset60: "60 ngày", ratePreset90: "90 ngày",
+      rateNoAccount: "Nạp USDC trước để bắt đầu lịch DCA.", ratePaused: "Đã tạm dừng", rateAuto: "tự động",
+      rateDay: "ngày", rateDays: "ngày", rateRunway: "còn", rateBalance: "Số dư",
+      rateErrAmount: "Nhập tốc độ ≥ 0 (0 = tạm dừng).", rateSigning: "Ký trong ví…", rateSaving: "Đang lưu…",
+      rateSavedOk: "Đã lưu tốc độ:", ratePausedOk: "Đã tạm dừng DCA.",
       portWithdrawBtn: "Rút ngay",
       wdStep1: "Đang ký message bằng ví…", wdStep2: "Xác minh chữ ký & xử lý chuyển tiền…", wdStep3: "Hoàn tất rút tiền…",
       wdSuccess: "Rút tiền thành công!", wdCancelled: "Đã hủy ký.",

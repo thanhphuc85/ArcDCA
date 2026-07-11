@@ -146,7 +146,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   if (amountNum < limits.min) { res.status(400).json({ error: `Minimum withdrawal: ${limits.min} ${token}` }); return; }
   if (amountNum > limits.max) { res.status(400).json({ error: `Maximum withdrawal: ${limits.max} ${token}` }); return; }
 
-  const githubToken = process.env.GH_PAT;
+  const githubToken = process.env.GH_PAT?.trim();
   if (!githubToken) { res.status(500).json({ error: "Server misconfigured: missing GH_PAT" }); return; }
 
   let ledger: Ledger, sha: string;
@@ -185,11 +185,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   user.lastActivity = new Date().toISOString();
   ledger.withdrawals.push(withdrawal);
 
-  const circleApiKey = process.env.CIRCLE_API_KEY;
-  const circleEntitySecret = process.env.CIRCLE_ENTITY_SECRET;
+  // Trim env values: pasting a full line from a .env file into the Vercel UI can
+  // leave a trailing newline/space, which makes Circle reject the API key as
+  // "malformed" (it must be the exact TEST_API_KEY:id:secret triplet).
+  const circleApiKey = process.env.CIRCLE_API_KEY?.trim();
+  const circleEntitySecret = process.env.CIRCLE_ENTITY_SECRET?.trim();
   // Accept either name: the GitHub Actions workflow uses WALLET_ID, so allow it
   // as a fallback to avoid an env-var naming mismatch on Vercel.
-  const circleWalletId = process.env.CIRCLE_WALLET_ID || process.env.WALLET_ID;
+  const circleWalletId = (process.env.CIRCLE_WALLET_ID || process.env.WALLET_ID)?.trim();
   if (!circleApiKey || !circleEntitySecret || !circleWalletId) {
     res.status(500).json({ error: "Server misconfigured: missing Circle credentials" }); return;
   }

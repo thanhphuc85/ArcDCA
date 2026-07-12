@@ -110,13 +110,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
 
   const key = address.toLowerCase();
-  const user = ledger.users[key];
-  if (!user) { res.status(404).json({ error: "No account found. Deposit USDC to the agent first." }); return; }
+  const now = new Date().toISOString();
+  // Non-custodial: users don't deposit, so create the account on first rate-set.
+  let user = ledger.users[key];
+  if (!user) {
+    user = {
+      address: key,
+      usdcBalance: "0",
+      cirBtcBalance: "0",
+      totalDeposited: "0",
+      totalSwapped: "0",
+      totalWithdrawnCirBtc: "0",
+      totalWithdrawnUsdc: "0",
+      firstSeen: now,
+      lastActivity: now,
+    } as LedgerUser;
+    ledger.users[key] = user;
+  }
 
   user.dcaRatePerDay = rateNum.toFixed(6);
   user.dcaRateIsCustom = true;
   user.dcaPaused = rateNum === 0; // rate 0 = paused
-  user.lastActivity = new Date().toISOString();
+  user.lastActivity = now;
 
   try {
     await writeLedgerToGitHub(githubToken, ledger, sha, `chore: set DCA rate ${rateNum}/day for ${key.slice(-6)}`);

@@ -1100,8 +1100,21 @@
 
   <section class="reveal">
     <div class="eyebrow">Fund the agent</div>
-    <div class="h2">Deposit to DCA treasury</div>
-    <p class="sub">Send testnet USDC to the agent's wallet — it dollar-cost-averages the pooled balance into cirBTC autonomously.</p>
+    <div class="h2" data-t="fundTitle">Deposit to DCA treasury</div>
+    <p class="sub" data-t="fundSub">Send testnet USDC to the agent's wallet — it dollar-cost-averages the pooled balance into cirBTC autonomously.</p>
+
+    <div class="card" style="margin-bottom:16px;border:1px solid var(--blue);">
+      <h3 data-t="apvTitle">🔑 Approve allowance — non-custodial (recommended)</h3>
+      <p class="cs" data-t="apvSub">Keep your USDC in your own wallet. Approve how much the agent may spend over time — it pulls only your scheduled amount each run. Revoke anytime.</p>
+      <div id="allowanceCurrent" style="margin:10px 0;font-size:13px;color:var(--muted);"></div>
+      <div class="withdraw-row">
+        <input id="approveAmt" type="number" min="0" step="0.01" placeholder="Amount to approve (USDC)" />
+        <button class="btn" id="approveBtn" data-t="apvBtn">Approve</button>
+        <button class="btn btn-ghost" id="revokeBtn" data-t="apvRevokeBtn">Revoke</button>
+      </div>
+      <div class="status-note" id="approveStatus"></div>
+    </div>
+
     <div class="card">
       <div class="deposit-layout">
         <div class="qr-hero">
@@ -3414,6 +3427,7 @@
     }
 
     if (typeof renderRateCard === "function") renderRateCard(user);
+    if (typeof renderAllowance === "function") renderAllowance();
 
     // Withdrawal history
     var wds = (ledger && ledger.withdrawals || []).filter(function (w) { return w.address === key; });
@@ -3453,6 +3467,58 @@
       distCard.style.display = "none";
     }
   }
+
+  // ---------- allowance (non-custodial approve / revoke) ----------
+  async function renderAllowance() {
+    var el = $("allowanceCurrent");
+    if (!el) return;
+    var t = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
+    if (!state.account) { el.innerHTML = ""; return; }
+    try {
+      var data = "0xdd62ed3e" + state.account.slice(2).toLowerCase().padStart(64, "0") + ARC.agent.slice(2).toLowerCase().padStart(64, "0");
+      var raw = await safeRpcCall("eth_call", [{ to: ARC.usdc, data: data }, "latest"]);
+      var allowance = Number(BigInt(raw || "0x0")) / 1e6;
+      if (allowance > 0) {
+        el.innerHTML = '<span style="color:var(--green);">✓ ' + (t.apvCurrent || "Current allowance") + ': <b>' + fmt(allowance, 2) + ' USDC</b></span>';
+      } else {
+        el.innerHTML = '<span style="color:var(--muted);">' + (t.apvNone || "No allowance yet — approve to let the agent DCA from your wallet.") + '</span>';
+      }
+    } catch (e) { el.innerHTML = ""; }
+  }
+
+  (function setupApprove() {
+    var btn = $("approveBtn");
+    if (!btn) return;
+    var input = $("approveAmt"), st = $("approveStatus"), revoke = $("revokeBtn");
+
+    async function sendApprove(amountStr, isRevoke) {
+      var t = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
+      st.innerHTML = "";
+      if (!state.account || !state.provider) { st.innerHTML = '<span style="color:var(--amber);">' + (t.depErrConnect || "Connect your wallet first.") + '</span>'; return; }
+      var base = toBaseUnits(amountStr, 6);
+      var data = "0x095ea7b3" + ARC.agent.slice(2).toLowerCase().padStart(64, "0") + base.toString(16).padStart(64, "0");
+      btn.disabled = true; revoke.disabled = true;
+      st.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;color:var(--amber);"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> ' + (t.apvConfirm || "Confirm in your wallet…") + '</span>';
+      try {
+        var txHash = await state.provider.request({ method: "eth_sendTransaction", params: [{ from: state.account, to: ARC.usdc, data: data }] });
+        st.innerHTML = '<span style="color:var(--green);">✓ ' + (isRevoke ? (t.apvRevoked || "Allowance revoked.") : (t.apvApproved || "Approved!")) + '</span> · <a href="' + ARC.explorer + '/tx/' + txHash + '" target="_blank" rel="noopener">view tx ↗</a>';
+        setTimeout(renderAllowance, 3500);
+      } catch (err) {
+        if (err && err.code === 4001) st.innerHTML = '<span style="color:var(--muted);">' + (t.depCancelled || "Cancelled.") + '</span>';
+        else st.innerHTML = '<span style="color:var(--red);">✗ ' + (err && err.message ? err.message : err) + '</span>';
+      } finally {
+        btn.disabled = false; revoke.disabled = false;
+      }
+    }
+
+    btn.addEventListener("click", function () {
+      var t = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
+      var amt = parseFloat(input.value);
+      if (!(amt > 0)) { st.innerHTML = '<span style="color:var(--amber);">' + (t.apvErrAmount || "Enter an amount greater than 0.") + '</span>'; return; }
+      sendApprove(input.value, false);
+    });
+    revoke.addEventListener("click", function () { sendApprove("0", true); });
+  })();
 
   // ---------- per-user DCA schedule (Cách B) ----------
   function renderRateCard(user) {
@@ -3966,6 +4032,9 @@
       rateDay: "day", rateDays: "days", rateRunway: "runway", rateBalance: "Balance",
       rateErrAmount: "Enter a rate ≥ 0 (0 = pause).", rateSigning: "Sign in your wallet…", rateSaving: "Saving…",
       rateSavedOk: "Rate saved:", ratePausedOk: "DCA paused.", ratePauseBtn: "Pause", rateResumeBtn: "Resume",
+      apvTitle: "🔑 Approve allowance — non-custodial (recommended)", apvSub: "Keep your USDC in your own wallet. Approve how much the agent may spend over time — it pulls only your scheduled amount each run. Revoke anytime.",
+      apvBtn: "Approve", apvRevokeBtn: "Revoke", apvCurrent: "Current allowance", apvNone: "No allowance yet — approve to let the agent DCA from your wallet.",
+      apvConfirm: "Confirm in your wallet…", apvApproved: "Approved!", apvRevoked: "Allowance revoked.", apvErrAmount: "Enter an amount greater than 0.",
       portWithdrawBtn: "Withdraw now",
       wdStep1: "Signing message with wallet…", wdStep2: "Verifying signature & processing transfer…", wdStep3: "Completing withdrawal…",
       wdSuccess: "Withdrawal completed!", wdCancelled: "Signing cancelled.",
@@ -4068,6 +4137,9 @@
       rateDay: "ngày", rateDays: "ngày", rateRunway: "còn", rateBalance: "Số dư",
       rateErrAmount: "Nhập tốc độ ≥ 0 (0 = tạm dừng).", rateSigning: "Ký trong ví…", rateSaving: "Đang lưu…",
       rateSavedOk: "Đã lưu tốc độ:", ratePausedOk: "Đã tạm dừng DCA.", ratePauseBtn: "Tạm dừng", rateResumeBtn: "Tiếp tục",
+      apvTitle: "🔑 Cấp quyền chi (allowance) — không giữ hộ (khuyến nghị)", apvSub: "Giữ USDC trong ví của bạn. Cấp quyền cho agent được chi tối đa bao nhiêu — mỗi lần nó chỉ kéo đúng số theo lịch của bạn. Thu hồi bất cứ lúc nào.",
+      apvBtn: "Cấp quyền", apvRevokeBtn: "Thu hồi", apvCurrent: "Quyền hiện tại", apvNone: "Chưa cấp quyền — hãy Approve để agent DCA từ ví bạn.",
+      apvConfirm: "Xác nhận trong ví…", apvApproved: "Đã cấp quyền!", apvRevoked: "Đã thu hồi quyền.", apvErrAmount: "Nhập số tiền lớn hơn 0.",
       portWithdrawBtn: "Rút ngay",
       wdStep1: "Đang ký message bằng ví…", wdStep2: "Xác minh chữ ký & xử lý chuyển tiền…", wdStep3: "Hoàn tất rút tiền…",
       wdSuccess: "Rút tiền thành công!", wdCancelled: "Đã hủy ký.",

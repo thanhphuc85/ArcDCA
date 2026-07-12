@@ -75,5 +75,31 @@
       "liquidity",
       "budget-utilization"
     ]
+  },
+  {
+    "id": "ref-1783856167900",
+    "date": "2026-07-12",
+    "timestamp": "2026-07-12T11:36:07.900Z",
+    "runStatus": "error_swap_failed",
+    "insight": "The cirBTC swap route has failed with \"no_route\" on every single attempt for at least 10+ consecutive runs across 4 days (07-09 to 07-12) and varying sizes (0.25 to 3.67 USDC), confirming this is a structural liquidity/routing outage, not a sizing, guardrail, or market-timing issue — yet the agent keeps retrying with fresh capital-sizing rationale each time instead of treating the underlying failure as the dominant decision variable.",
+    "patterns": [
+      "10+ consecutive error_swap_failed with identical 'No route available' message for cirBTC, spanning 4 calendar days and sizes from 0.25 to 3.67 USDC",
+      "Only 1 of 12 scheduled runs actually executed (on day 1); cumulative spend stuck at 1.00 USDC over 13 days despite wallet growing to ~42.8 USDC",
+      "Each run's reasoning re-derives market/risk analysis (Fear&Greed, dip signals, pacing catch-up) as if sizing were the binding constraint, when the actual blocker is route unavailability unrelated to amount",
+      "One run (07-09) correctly identified the pattern and returned proceed=false/skipped_llm_declined, but subsequent runs reverted to attempting swaps again without new evidence the route was fixed",
+      "Risk score consistently flagged as medium (33-36) driven almost entirely by the error streak itself, yet this hasn't changed the action taken"
+    ],
+    "strategyAdjustment": "Stop attempting swaps for cirBTC on every scheduled run. Since 10+ retries across 4 days and multiple sizes have all failed identically with 'no_route', treat this as a confirmed dead route: either (1) skip execution entirely (proceed=false) until an external signal indicates the route is restored (e.g., check for a successful swap in tool data before attempting), or (2) if the tool allows it, try an alternate tokenOut/pool or flag for human escalation instead of consuming another cycle on the same broken path. Reduce the frequency of full-size retry attempts (currently escalating toward 3.67 USDC, the daily cap) since larger amounts on a dead route add no informational value and only inflate 'requested but failed' figures. Revisit sizing/pacing logic only once a successful test swap (even a tiny 0.10 USDC probe) confirms the route works again.",
+    "confidenceLevel": "high",
+    "cumulativeSpentUsdc": "1.000000",
+    "dayNumber": 13,
+    "walletBalance": "42.8385270565623072",
+    "tags": [
+      "error-recovery",
+      "routing-failure",
+      "pacing",
+      "budget",
+      "guardrails-not-binding"
+    ]
   }
 ]

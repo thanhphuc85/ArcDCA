@@ -1149,12 +1149,12 @@
   <section class="reveal" id="portfolioSection" style="display:none;">
     <div class="eyebrow" data-t="portEye">My Portfolio</div>
     <div class="h2" data-t="portTitle">Your DCA account</div>
-    <p class="sub" data-t="portSub">Your per-wallet virtual balances — deposits, DCA allocations, and withdrawals tracked automatically.</p>
+    <p class="sub" data-t="portSub">Your funds stay in your own wallet — the agent only pulls your scheduled DCA amount via the allowance you approve.</p>
     <div class="portfolio-grid">
-      <div class="port-card"><div class="port-val" id="portUsdc">—</div><div class="port-label" data-t="portUsdcLabel">USDC in pool</div><div class="port-sub" data-t="portUsdcSub">Available for DCA</div></div>
-      <div class="port-card"><div class="port-val" id="portCirBtc">—</div><div class="port-label" data-t="portCirBtcLabel">cirBTC earned</div><div class="port-sub" data-t="portCirBtcSub">From DCA allocations</div></div>
-      <div class="port-card"><div class="port-val" id="portDeposited">—</div><div class="port-label" data-t="portDepositedLabel">Total deposited</div><div class="port-sub" data-t="portDepositedSub">USDC all-time</div></div>
-      <div class="port-card"><div class="port-val" id="portSwapped">—</div><div class="port-label" data-t="portSwappedLabel">Total swapped</div><div class="port-sub" data-t="portSwappedSub">USDC → cirBTC</div></div>
+      <div class="port-card"><div class="port-val" id="portUsdc">—</div><div class="port-label" data-t="portUsdcLabel">USDC in wallet</div><div class="port-sub" data-t="portUsdcSub">Your own balance</div></div>
+      <div class="port-card"><div class="port-val" id="portAllowance">—</div><div class="port-label" data-t="portAllowanceLabel">Allowance</div><div class="port-sub" data-t="portAllowanceSub">Approved to agent</div></div>
+      <div class="port-card"><div class="port-val" id="portCirBtc">—</div><div class="port-label" data-t="portCirBtcLabel">cirBTC earned</div><div class="port-sub" data-t="portCirBtcSub">In your wallet</div></div>
+      <div class="port-card"><div class="port-val" id="portSwapped">—</div><div class="port-label" data-t="portSwappedLabel">Total DCA'd</div><div class="port-sub" data-t="portSwappedSub">USDC → cirBTC all-time</div></div>
     </div>
     <div class="card">
       <h3 data-t="portWithdrawTitle">Withdraw your tokens</h3>
@@ -3401,30 +3401,23 @@
     var user = (ledger && ledger.users) ? ledger.users[key] : null;
     var t = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
 
-    if (user) {
-      $("portUsdc").textContent = fmt(parseFloat(user.usdcBalance || "0"), 6);
-      $("portCirBtc").textContent = fmt(parseFloat(user.cirBtcBalance || "0"), 8);
-      $("portDeposited").textContent = fmt(parseFloat(user.totalDeposited || "0"), 2);
-      $("portSwapped").textContent = fmt(parseFloat(user.totalSwapped || "0"), 2);
-    } else {
-      $("portUsdc").textContent = "—";
-      $("portCirBtc").textContent = "—";
-      $("portDeposited").textContent = "—";
-      $("portSwapped").textContent = "—";
-      // Scan on-chain to show deposits even before ledger updates
-      if (!_userOnChainDeposits) {
-        scanUserDepositsOnChain(state.account).then(function (result) {
-          _userOnChainDeposits = result;
-          if (result && result.total > 0) {
-            $("portDeposited").textContent = fmt(result.total, 2);
-            $("portUsdc").textContent = "~" + fmt(result.total, 2);
-            $("wdStatus").innerHTML = '<span style="color:var(--muted);">⏳ ' +
-              (t.portPendingScan || "Your deposit of " + fmt(result.total, 2) + " USDC was detected on-chain. It will be credited to your account in the next agent run.") +
-              '</span>';
-          }
-        });
-      }
-    }
+    // Non-custodial: funds stay in the user's OWN wallet. Read wallet USDC,
+    // the allowance approved to the agent, and cirBTC — all on-chain.
+    // "Total DCA'd" is cumulative, tracked in the ledger.
+    $("portSwapped").textContent = user ? fmt(parseFloat(user.totalSwapped || "0"), 2) : "0";
+    $("portUsdc").textContent = "…";
+    $("portAllowance").textContent = "…";
+    $("portCirBtc").textContent = "…";
+    (async function () {
+      var acct = state.account;
+      try { $("portUsdc").textContent = fmt(Number(await tokenBalanceOf(ARC.usdc, acct)) / 1e6, 2); } catch (e) { $("portUsdc").textContent = "—"; }
+      try {
+        var data = "0xdd62ed3e" + acct.slice(2).toLowerCase().padStart(64, "0") + ARC.agent.slice(2).toLowerCase().padStart(64, "0");
+        var allowRaw = await safeRpcCall("eth_call", [{ to: ARC.usdc, data: data }, "latest"]);
+        $("portAllowance").textContent = fmt(Number(BigInt(allowRaw || "0x0")) / 1e6, 2);
+      } catch (e) { $("portAllowance").textContent = "—"; }
+      try { $("portCirBtc").textContent = fmt(Number(await tokenBalanceOf(ARC.cirbtc, acct)) / 1e8, 8); } catch (e) { $("portCirBtc").textContent = "—"; }
+    })();
 
     if (typeof renderRateCard === "function") renderRateCard(user);
     if (typeof renderAllowance === "function") renderAllowance();
@@ -4017,11 +4010,11 @@
       rbWelcome: "Welcome back!", rbReconnectPrompt: "Reconnect", rbLastSeen: "last seen",
       rbReconnectBtn: "Reconnect", rbMinAgo: "m ago", rbHourAgo: "h ago",
       portEye: "My Portfolio", portTitle: "Your DCA account",
-      portSub: "Your per-wallet virtual balances — deposits, DCA allocations, and withdrawals tracked automatically.",
-      portUsdcLabel: "USDC in pool", portUsdcSub: "Available for DCA",
-      portCirBtcLabel: "cirBTC earned", portCirBtcSub: "From DCA allocations",
-      portDepositedLabel: "Total deposited", portDepositedSub: "USDC all-time",
-      portSwappedLabel: "Total swapped", portSwappedSub: "USDC → cirBTC",
+      portSub: "Your funds stay in your own wallet — the agent only pulls your scheduled DCA amount via the allowance you approve.",
+      portUsdcLabel: "USDC in wallet", portUsdcSub: "Your own balance",
+      portAllowanceLabel: "Allowance", portAllowanceSub: "Approved to agent",
+      portCirBtcLabel: "cirBTC earned", portCirBtcSub: "In your wallet",
+      portSwappedLabel: "Total DCA'd", portSwappedSub: "USDC → cirBTC all-time",
       portWithdrawTitle: "Withdraw your tokens", portWithdrawSub: "Sign a message to verify your identity — withdrawal completes in 10–30 seconds.",
       rateTitle: "Your DCA schedule", rateSub: "Set how much of your balance the agent buys per day. Sign to save — no gas, off-chain preference.",
       rateBtn: "Save rate",
@@ -4122,11 +4115,11 @@
       rbWelcome: "Chào mừng trở lại!", rbReconnectPrompt: "Kết nối lại", rbLastSeen: "lần cuối",
       rbReconnectBtn: "Kết nối lại", rbMinAgo: " phút trước", rbHourAgo: " giờ trước",
       portEye: "Danh mục của tôi", portTitle: "Tài khoản DCA",
-      portSub: "Số dư ảo theo ví — tiền gửi, phân bổ DCA, và rút tiền được theo dõi tự động.",
-      portUsdcLabel: "USDC trong pool", portUsdcSub: "Sẵn sàng cho DCA",
-      portCirBtcLabel: "cirBTC đã nhận", portCirBtcSub: "Từ phân bổ DCA",
-      portDepositedLabel: "Tổng đã gửi", portDepositedSub: "USDC tất cả",
-      portSwappedLabel: "Tổng đã swap", portSwappedSub: "USDC → cirBTC",
+      portSub: "Tiền vẫn ở trong ví của bạn — agent chỉ kéo đúng số DCA theo lịch qua allowance bạn cấp.",
+      portUsdcLabel: "USDC trong ví", portUsdcSub: "Số dư của bạn",
+      portAllowanceLabel: "Allowance", portAllowanceSub: "Đã cấp cho agent",
+      portCirBtcLabel: "cirBTC đã nhận", portCirBtcSub: "Trong ví của bạn",
+      portSwappedLabel: "Tổng đã DCA", portSwappedSub: "USDC → cirBTC tổng cộng",
       portWithdrawTitle: "Rút token", portWithdrawSub: "Ký xác nhận danh tính — rút tiền hoàn tất trong 10–30 giây.",
       rateTitle: "Lịch DCA của bạn", rateSub: "Đặt mỗi ngày agent mua bao nhiêu từ số dư của bạn. Ký để lưu — không tốn gas, tùy chọn off-chain.",
       rateBtn: "Lưu tốc độ",

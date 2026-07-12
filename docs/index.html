@@ -965,17 +965,6 @@
     </div>
   </div>
 
-  <section class="reveal">
-    <div class="eyebrow">How it works</div>
-    <div class="h2">Claude recommends. Code decides.</div>
-    <p class="sub">The LLM is never the final authority on how much money moves.</p>
-    <div class="flow">
-      <div class="step"><div class="num">1</div><b>Claude decides</b><span>Given balance, budget, day count &amp; history, Claude returns a proposed amount + reasoning via a forced, schema-validated tool call.</span></div>
-      <div class="step"><div class="num">2</div><b>Guardrails clamp</b><span>A pure, unit-tested function re-derives the cap from hard limits (max/day, reserve, dust, budget). The sole spending authority.</span></div>
-      <div class="step"><div class="num">3</div><b>Swap &amp; record</b><span>Circle Swap Kit executes USDC → cirBTC on Arc Testnet; the run is appended to a public audit trail committed back to the repo.</span></div>
-    </div>
-  </section>
-
   <section class="reveal" id="insightsSection" style="display:none;">
     <div class="eyebrow" data-t="aiInsightsEye">AI Insights</div>
     <div class="h2" data-t="aiInsightsTitle">Claude's best reasoning</div>
@@ -1042,50 +1031,6 @@
     </div>
   </div>
 
-  <section class="reveal" id="intelligenceSection" style="display:none;">
-    <div class="eyebrow" data-t="intelEye">Agent Intelligence</div>
-    <div class="h2" data-t="intelTitle">Multi-factor analysis</div>
-    <p class="sub" data-t="intelSub">Real-time intelligence derived from swap history, price action, and agent reflections.</p>
-
-    <div class="intel-grid">
-      <div class="intel-card" style="--ig:rgba(52,211,153,.10);">
-        <span class="intel-icon">🛡️</span>
-        <span class="intel-val" id="intelRiskVal">—</span>
-        <span class="intel-label" data-t="intelRiskLabel">Risk Score</span>
-        <div class="intel-gauge"><div class="intel-gauge-fill" id="intelRiskGauge" style="width:0;background:var(--green);"></div></div>
-        <span class="intel-sub risk-low" id="intelRiskSub">—</span>
-      </div>
-      <div class="intel-card" style="--ig:rgba(138,92,246,.10);">
-        <span class="intel-icon">🧠</span>
-        <span class="intel-val" id="intelConfVal">—</span>
-        <span class="intel-label" data-t="intelConfLabel">Confidence</span>
-        <div class="intel-gauge"><div class="intel-gauge-fill" id="intelConfGauge" style="width:0;background:var(--violet);"></div></div>
-        <span class="intel-sub conf-medium" id="intelConfSub">—</span>
-      </div>
-      <div class="intel-card" style="--ig:rgba(34,211,238,.10);">
-        <span class="intel-icon">📊</span>
-        <span class="intel-val regime-nodata" id="intelRegimeVal">—</span>
-        <span class="intel-label" data-t="intelRegimeLabel">Market Regime</span>
-        <span class="intel-sub" id="intelRegimeSub" style="background:rgba(255,255,255,.06);color:var(--muted);">—</span>
-      </div>
-      <div class="intel-card" style="--ig:rgba(245,165,36,.10);">
-        <span class="intel-icon">⚡</span>
-        <span class="intel-val" id="intelMomentumVal">—</span>
-        <span class="intel-label" data-t="intelMomentumLabel">Momentum</span>
-        <div class="intel-gauge"><div class="intel-gauge-fill" id="intelMomentumGauge" style="width:0;background:var(--amber);"></div></div>
-        <span class="intel-sub" id="intelMomentumSub" style="background:rgba(255,255,255,.06);color:var(--muted);">—</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3 data-t="intelPatternsTitle">Pattern alerts</h3>
-      <p class="cs" data-t="intelPatternsSub">Smart detection of recurring patterns across agent runs</p>
-      <div class="pattern-alerts" id="patternAlerts">
-        <div class="pattern-alert"><span class="pa-icon">📡</span><span class="pa-text"><span class="pa-detail" data-t="intelPatternsEmpty">Waiting for enough data to detect patterns...</span></span></div>
-      </div>
-    </div>
-  </section>
-
   <section class="reveal" id="approvalSection" style="display:none;">
     <div class="eyebrow" data-t="approvalEye">Approval Center</div>
     <div class="h2" data-t="approvalTitle">Review agent decisions<span class="approval-mode-badge on" id="approvalModeBadge">Manual</span></div>
@@ -1150,103 +1095,6 @@
         <tr><td><div class="skel skel-line w80"></div></td><td><div class="skel skel-line" style="width:70px;"></div></td><td><div class="skel skel-line w40"></div></td><td><div class="skel skel-line w40"></div></td><td><div class="skel skel-line w60"></div></td><td><div class="skel skel-line w80"></div></td><td><div class="skel skel-line w40"></div></td></tr>
         <tr><td><div class="skel skel-line w80"></div></td><td><div class="skel skel-line" style="width:70px;"></div></td><td><div class="skel skel-line w40"></div></td><td><div class="skel skel-line w40"></div></td><td><div class="skel skel-line w60"></div></td><td><div class="skel skel-line w80"></div></td><td><div class="skel skel-line w40"></div></td></tr>
       </tbody></table>
-    </div>
-  </section>
-
-  <section class="reveal" id="perfSection" style="display:none;">
-    <div class="eyebrow">Performance</div>
-    <div class="h2">Portfolio dashboard</div>
-    <p class="sub">Real-time PNL tracking based on swap execution data — every USDC in and cirBTC out is recorded on-chain.</p>
-
-    <div class="perf-grid">
-      <div class="perf-tile" style="--glow:rgba(47,134,230,.15);">
-        <span class="n" id="pInvested"><div class="skel skel-num"></div></span><span class="l">Total invested</span>
-      </div>
-      <div class="perf-tile" style="--glow:rgba(245,165,36,.15);">
-        <span class="n" id="pAcquired"><div class="skel skel-num"></div></span><span class="l">cirBTC acquired</span>
-      </div>
-      <div class="perf-tile" style="--glow:rgba(138,92,246,.15);">
-        <span class="n" id="pAvgCost"><div class="skel skel-num"></div></span><span class="l">Avg cost basis</span>
-      </div>
-      <div class="perf-tile" id="pnlTile" style="--glow:rgba(52,211,153,.15);">
-        <span class="n" id="pPnl"><div class="skel skel-num"></div></span><span class="l">Unrealized PNL</span>
-        <div class="delta neutral" id="pRoi"></div>
-      </div>
-      <div class="perf-tile" style="--glow:rgba(251,113,133,.12);">
-        <span class="n" id="pDrawdown">—</span><span class="l" data-t="perfDrawdown">Max drawdown</span>
-      </div>
-      <div class="perf-tile" style="--glow:rgba(34,211,238,.12);">
-        <span class="n" id="pVsLump">—</span><span class="l" data-t="perfVsLump">DCA vs Lump sum</span>
-        <div class="delta neutral" id="pVsLumpDelta"></div>
-      </div>
-      <div class="perf-tile" style="--glow:rgba(245,165,36,.12);">
-        <span class="n" id="pAvgPrice">—</span><span class="l" data-t="perfAvgPrice">Avg buy price</span>
-      </div>
-      <div class="perf-tile" style="--glow:rgba(138,92,246,.12);">
-        <span class="n" id="pTotalBtc">—</span><span class="l" data-t="perfTotalBtc">Total cirBTC</span>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:16px;">
-      <h3>cirBTC accumulation</h3>
-      <p class="cs" id="btcChartSub"><span class="skel skel-line w60" style="display:inline-block;height:12px;"></span></p>
-      <div id="btcChartHost"><div class="chart-loading"><div class="spinner"></div><span style="font-size:13px;color:var(--muted);">Loading…</span></div></div>
-    </div>
-
-    <div class="card" style="margin-top:16px;">
-      <h3>Cost basis per swap</h3>
-      <p class="cs" id="costChartSub">Implied price: USDC spent ÷ cirBTC received per swap</p>
-      <div id="costChartHost"><div class="chart-loading"><div class="spinner"></div><span style="font-size:13px;color:var(--muted);">Loading…</span></div></div>
-    </div>
-
-    <div class="card" style="margin-top:16px;">
-      <h3>Investment breakdown</h3>
-      <p class="cs">How your deployed capital is performing</p>
-      <div class="pnl-bar" id="pnlBar"></div>
-      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--muted);">
-        <span id="pBarInvested">Invested: —</span>
-        <span id="pBarValue">Current value: —</span>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:16px;">
-      <h3 data-t="perfDcaVsLump">DCA vs Lump Sum</h3>
-      <p class="cs" id="dcaVsLumpSub">Comparing dollar-cost-averaging to investing everything on day 1</p>
-      <div id="dcaVsLumpHost"><div class="chart-loading"><div class="spinner"></div><span style="font-size:13px;color:var(--muted);">Loading…</span></div></div>
-      <div style="display:flex;gap:16px;margin-top:10px;font-size:12px;flex-wrap:wrap;">
-        <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:3px;background:linear-gradient(90deg,#8a5cf6,#a78bfa);border-radius:2px;"></span> DCA portfolio</span>
-        <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:3px;background:#fb7185;border-radius:2px;"></span> Lump sum</span>
-      </div>
-    </div>
-  </section>
-
-  <section class="reveal" id="memorySection" style="display:none;">
-    <div class="eyebrow">Agent memory</div>
-    <div class="h2">What the agent has learned</div>
-    <p class="sub">After every run, the agent reflects on its decisions and outcomes — building persistent memory that shapes future strategy.</p>
-    <div class="export-bar" id="reflExportBar" style="display:none;">
-      <span class="export-label">Export:</span>
-      <button class="btn-sm" id="exportReflCSV"><span class="ic">📄</span> CSV</button>
-      <button class="btn-sm" id="exportReflJSON"><span class="ic">{ }</span> JSON</button>
-    </div>
-
-    <div class="card memory-latest" id="latestReflection">
-      <h3>Latest insight</h3>
-      <p class="insight" id="memInsight">—</p>
-      <p class="strategy" id="memStrategy">—</p>
-      <p class="meta" id="memMeta">—</p>
-    </div>
-
-    <div class="card" style="margin-bottom:16px;">
-      <h3>Pattern recognition</h3>
-      <p class="cs">Most frequently observed patterns across all reflections</p>
-      <div class="tag-cloud" id="tagCloud"></div>
-    </div>
-
-    <div class="card">
-      <h3>Reflection timeline</h3>
-      <p class="cs" id="refTimelineSub">—</p>
-      <div class="ref-timeline" id="refTimeline"></div>
     </div>
   </section>
 

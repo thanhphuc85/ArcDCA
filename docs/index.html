@@ -31,6 +31,7 @@
     display: flex; flex-direction: column; padding: 18px 12px; overflow-y: auto;
   }
   [data-theme="light"] .sidebar { background: rgba(255,255,255,.9); }
+  .page-hidden { display: none !important; }
   .sb-brand { display: flex; align-items: center; gap: 10px; padding: 6px 10px 18px; }
   .sb-brand img { width: 30px; height: 30px; }
   .sb-brand b { font-family: Sora, Inter, sans-serif; font-size: 16px; letter-spacing: -.02em; }
@@ -1002,7 +1003,7 @@
 
   <div id="reconnectBar"></div>
 
-  <div class="hero">
+  <div class="hero" id="heroSection">
     <span class="chip"><span class="dot"></span> Encode × Circle · Programmable Money Hackathon</span>
     <h1>An agent that <span class="grad">dollar-cost-averages</span> for you.</h1>
     <p>Every day it asks <b>Claude</b> how much USDC to allocate, enforces hard spend guardrails in code, and executes a real <b>USDC → cirBTC</b> swap on Arc Testnet via Circle's Swap Kit — no server, no human in the loop.</p>
@@ -1329,7 +1330,7 @@
     </div>
   </section>
 
-  <section class="reveal">
+  <section class="reveal" id="exportSection">
     <div class="eyebrow">Data</div>
     <div class="h2">Export your data</div>
     <p class="sub">Download run history and reflections for offline analysis.</p>
@@ -1440,6 +1441,18 @@
   });
 
   // ---------- sidebar (nav + mobile drawer) ----------
+  // Page router: each sidebar item shows its page's sections and hides the rest.
+  var _currentPage = "top";
+  var PAGES = {
+    top: ["heroSection", "dashSection", "insightsSection"],
+    portfolioSection: ["portfolioSection"],
+    trackSection: ["trackSection", "approvalSection"],
+    strategySection: ["strategySection"],
+    fundSection: ["fundSection"],
+    leaderboardSection: ["leaderboardSection", "exportSection"]
+  };
+  var MANAGED_SECTIONS = ["heroSection", "dashSection", "insightsSection", "portfolioSection", "trackSection", "approvalSection", "strategySection", "fundSection", "leaderboardSection", "exportSection"];
+
   (function setupSidebar() {
     var sidebar = document.getElementById("sidebar");
     var overlay = document.getElementById("sbOverlay");
@@ -1448,27 +1461,33 @@
     if (burger) burger.addEventListener("click", function () { sidebar.classList.toggle("open"); overlay.classList.toggle("open"); });
     if (overlay) overlay.addEventListener("click", closeDrawer);
     var links = Array.prototype.slice.call(document.querySelectorAll(".sb-link[data-target]"));
-    links.forEach(function (link) {
-      link.addEventListener("click", function () {
-        var id = this.getAttribute("data-target");
-        var el = id === "top" ? document.body : document.getElementById(id);
-        if (el) window.scrollTo({ top: id === "top" ? 0 : el.getBoundingClientRect().top + window.scrollY - 80, behavior: "smooth" });
-        links.forEach(function (l) { l.classList.remove("active"); });
-        this.classList.add("active");
-        if (window.innerWidth <= 980) closeDrawer();
-      });
-    });
-    // Highlight the section in view while scrolling.
-    var targets = links.map(function (l) { return l.getAttribute("data-target"); }).filter(function (t) { return t !== "top"; });
-    window.addEventListener("scroll", function () {
-      var y = window.scrollY + 120;
-      var current = "top";
-      targets.forEach(function (id) {
+
+    window.showPage = function (target) {
+      if (!PAGES[target]) target = "top";
+      _currentPage = target;
+      var showIds = PAGES[target];
+      MANAGED_SECTIONS.forEach(function (id) {
         var el = document.getElementById(id);
-        if (el && el.offsetTop <= y) current = id;
+        if (!el) return;
+        if (showIds.indexOf(id) >= 0) {
+          el.classList.remove("page-hidden");
+          // Portfolio is the only section on its page — force it visible even when
+          // disconnected (renderPortfolio then shows a connect prompt).
+          if (id === "portfolioSection") el.style.display = "";
+        } else {
+          el.classList.add("page-hidden");
+        }
       });
-      links.forEach(function (l) { l.classList.toggle("active", l.getAttribute("data-target") === current); });
-    }, { passive: true });
+      links.forEach(function (l) { l.classList.toggle("active", l.getAttribute("data-target") === target); });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      if (window.innerWidth <= 980) closeDrawer();
+    };
+
+    links.forEach(function (link) {
+      link.addEventListener("click", function () { window.showPage(this.getAttribute("data-target")); });
+    });
+
+    window.showPage("top");
   })();
 
   // ---------- live gas price ----------
@@ -3615,7 +3634,18 @@
   function renderPortfolio(ledger) {
     var sec = $("portfolioSection");
     if (!sec) return;
-    if (!state.account) { sec.style.display = "none"; return; }
+    if (!state.account) {
+      // On the "My DCA Schedule" page, keep the section visible with a connect
+      // prompt instead of blanking the page; elsewhere hide it.
+      if (_currentPage === "portfolioSection") {
+        sec.style.display = "";
+        if (typeof renderRateCard === "function") renderRateCard(null);
+        if (typeof renderAllowance === "function") renderAllowance();
+      } else {
+        sec.style.display = "none";
+      }
+      return;
+    }
 
     sec.style.display = "";
     var key = state.account.toLowerCase();

@@ -851,6 +851,7 @@
     <a class="sb-link" data-target="strategySection"><span class="ic">📉</span> Dip Signals</a>
     <a class="sb-link" data-target="fundSection"><span class="ic">🏦</span> Treasury</a>
     <a class="sb-link" data-target="leaderboardSection"><span class="ic">📊</span> Analytics</a>
+    <a class="sb-link" data-target="settingsDrawer"><span class="ic">⚙️</span> Settings</a>
     <div class="sb-sep"></div>
     <a class="sb-link" href="https://github.com/thanhphuc85/ArcDCA" target="_blank" rel="noopener"><span class="ic">💻</span> GitHub Source</a>
     <a class="sb-link" href="https://testnet.arcscan.app" target="_blank" rel="noopener"><span class="ic">🔎</span> Arc Explorer ↗</a>
@@ -874,7 +875,6 @@
       <span class="net-chip"><span class="net-dot"></span><span class="net-txt">Arc Testnet</span></span>
       <span class="gas-chip" id="gasChip" title="Live gas price">⛽ <span id="gasVal">—</span></span>
       <button class="lang-toggle" id="langToggle" title="Switch language"><span class="lang-flag">🇬🇧</span> EN</button>
-      <button class="settings-toggle" id="settingsToggle" title="Settings">⚙️</button>
       <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">🌙</button>
       <div class="hd-wallet-wrap" id="hdWalletWrap">
         <button class="btn" id="connectBtn" data-t="connectWallet">Connect Wallet</button>
@@ -1434,10 +1434,12 @@
     setTimeout(function () { el.classList.remove("show"); }, 1800);
   }
 
-  // settings panel toggle
-  document.getElementById("settingsToggle").addEventListener("click", function () {
+  // Settings is now a sidebar page (see the router); the old ⚙️ header toggle
+  // was removed. Guard in case a settingsToggle element still exists.
+  var _settingsToggle = document.getElementById("settingsToggle");
+  if (_settingsToggle) _settingsToggle.addEventListener("click", function () {
     var drawer = document.getElementById("settingsDrawer");
-    drawer.classList.toggle("open");
+    if (drawer) drawer.classList.toggle("open");
   });
 
   // ---------- sidebar (nav + mobile drawer) ----------
@@ -1449,9 +1451,10 @@
     trackSection: ["trackSection", "approvalSection"],
     strategySection: ["strategySection"],
     fundSection: ["fundSection"],
-    leaderboardSection: ["leaderboardSection", "exportSection"]
+    leaderboardSection: ["leaderboardSection", "exportSection"],
+    settingsDrawer: ["settingsDrawer"]
   };
-  var MANAGED_SECTIONS = ["heroSection", "dashSection", "insightsSection", "portfolioSection", "trackSection", "approvalSection", "strategySection", "fundSection", "leaderboardSection", "exportSection"];
+  var MANAGED_SECTIONS = ["heroSection", "dashSection", "insightsSection", "portfolioSection", "trackSection", "approvalSection", "strategySection", "fundSection", "leaderboardSection", "exportSection", "settingsDrawer"];
 
   (function setupSidebar() {
     var sidebar = document.getElementById("sidebar");
@@ -1474,8 +1477,11 @@
           // Portfolio is the only section on its page — force it visible even when
           // disconnected (renderPortfolio then shows a connect prompt).
           if (id === "portfolioSection") el.style.display = "";
+          // The settings drawer needs its .open state to render as a page.
+          if (id === "settingsDrawer") el.classList.add("open");
         } else {
           el.classList.add("page-hidden");
+          if (id === "settingsDrawer") el.classList.remove("open");
         }
       });
       links.forEach(function (l) { l.classList.toggle("active", l.getAttribute("data-target") === target); });

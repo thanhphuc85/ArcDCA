@@ -209,5 +209,17 @@
     "reasoning": "Market brief is bearish-leaning (Fear&Greed 28, standard allocation bias) but with no dip/regime edge (real cirBTC feed, price-action, dip-ladder, and regime tools all report no/insufficient data), so sizing isn't the binding factor. Risk score is medium (36), driven almost entirely by a 10+ run consecutive error streak and 0% reliability rather than volatility or concentration (only 2% deployed) — and today already saw two more error_swap_failed attempts (a 0.10 probe and a 3.67 full-size), confirming the structural \"No route available\" routing/liquidity outage documented in my reflections persists across all trade sizes and has now spanned 4+ calendar days. Per my highest-confidence stored reflection, repeatedly resubmitting against a confirmed-dead route adds no value and just inflates failed-request counts, so I'm setting proceed=false to preserve the safe, idle ~42.3 USDC balance until an external signal confirms the route is actually restored, at which point a larger catch-up allocation should resume given severely behind pacing (1 of 17 runs executed successfully).",
     "walletUsdcBalance": "42.8385270565623072",
     "message": "Swap failed [no_route]: Swap failed [no_route]: Stablecoin Service createSwap failed: Route or resource not found. Details: No route available"
+  },
+  {
+    "date": "2026-07-14",
+    "timestamp": "2026-07-14T12:00:52.231Z",
+    "status": "error_swap_failed",
+    "requestedAmountUsdc": "3.666666",
+    "clampedAmountUsdc": "3.666666",
+    "boundBy": "user_schedule",
+    "tokenOut": "cirBTC",
+    "reasoning": "Market brief is bearish-leaning but shows Extreme Fear (22) with an \"increase 10-15%\" bias — a contrarian buy signal — while price signal, dip ladder, and regime tools all still report insufficient/no data (no real cirBTC price history), so there's no market edge to size against beyond the base. Risk score is medium (36), driven almost entirely by a 10+ consecutive error streak and 0% reliability (structural \"No route available\" outage per stored reflections spanning 4+ days across sizes 0.10-3.67 USDC) rather than volatility or concentration (only 2% of the ~42.3 USDC wallet deployed). Per my highest-confidence reflection's strategy adjustment to periodically probe with minimal capital rather than blindly full-sizing or withholding indefinitely, and since the last probe was two days ago (07-13), I'm sending a small 0.10 USDC test swap today to check if the route has been restored — a success would justify resuming larger catch-up allocations given severely behind pacing (1 of 18 runs executed) and idle capital.",
+    "walletUsdcBalance": "42.8385270565623072",
+    "message": "Swap failed [no_route]: Swap failed [no_route]: Stablecoin Service createSwap failed: Route or resource not found. Details: No route available"
   }
 ]

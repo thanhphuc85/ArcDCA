@@ -2377,8 +2377,15 @@
       // successful connection (this was making MetaMask look like it failed).
       var txs = [];
       try { txs = await fetchRecentTxs(account); } catch (txErr) { txs = []; }
-      showWalletProfile(account, nativeBal, usdc, cirbtc, walletId, txs);
-      if (typeof renderPortfolio === "function") renderPortfolio(_ledgerData);
+      // The wallet is already connected — a rendering hiccup (undefined field,
+      // missing element) must never revert to "Connection failed".
+      try {
+        showWalletProfile(account, nativeBal, usdc, cirbtc, walletId, txs);
+        if (typeof renderPortfolio === "function") renderPortfolio(_ledgerData);
+      } catch (renderErr) {
+        closeWalletModal();
+        if (typeof updateHeaderWallet === "function") updateHeaderWallet(account, walletId);
+      }
     } catch (err) {
       if (err && err.code === 4001) {
         status.innerHTML = '<span style="color:var(--muted);">' + (t.walletCancelled || "Connection cancelled.") + '</span>';
@@ -2472,8 +2479,13 @@
     } catch (e3) {}
     var txs = [];
     try { txs = await fetchRecentTxs(account); } catch (e4) { txs = []; }
-    showWalletProfile(account, nativeBal, usdc, cirbtc, "gmail", txs);
-    if (typeof renderPortfolio === "function") renderPortfolio(_ledgerData);
+    try {
+      showWalletProfile(account, nativeBal, usdc, cirbtc, "gmail", txs);
+      if (typeof renderPortfolio === "function") renderPortfolio(_ledgerData);
+    } catch (renderErr) {
+      closeWalletModal();
+      if (typeof updateHeaderWallet === "function") updateHeaderWallet(account, "gmail");
+    }
     } catch (err) { status.textContent = "Connection failed: " + (err.message || err); }
   }
 

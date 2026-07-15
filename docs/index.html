@@ -4866,7 +4866,7 @@
       en: {
         greeting: "Hi! I'm your Aura DCA assistant. Ask about your balance, the treasury, past trades, or tell me to adjust your DCA rate.",
         placeholder: "Type a message…",
-        suggestions: ["How much is in the treasury?", "What's my current DCA rate?", "Explain the last trade", "Increase my DCA rate to 0.5 USDC/day"],
+        suggestions: ["How much is in the treasury?", "What's my current DCA rate?", "Explain the last trade", "Adjust my DCA rate"],
         confirmRate: "Set DCA rate", confirmRun: "Run DCA now",
         rateDetail: function (r) { return r <= 0 ? "Pause your DCA (rate → 0)." : "Change your DCA rate to " + r + " USDC/day."; },
         runDetail: function (a) { return "Run a DCA buy now for " + a + " USDC."; },
@@ -4880,7 +4880,7 @@
       vi: {
         greeting: "Chào bạn! Tôi là trợ lý DCA của Aura. Hỏi về số dư, ngân quỹ, giao dịch trước, hoặc yêu cầu điều chỉnh tỉ lệ DCA của bạn.",
         placeholder: "Nhập tin nhắn…",
-        suggestions: ["Ngân quỹ còn bao nhiêu?", "Tỉ lệ DCA hiện tại của tôi?", "Giải thích giao dịch gần nhất", "Tăng DCA lên 0.5 USDC/ngày"],
+        suggestions: ["Ngân quỹ còn bao nhiêu?", "Tỉ lệ DCA hiện tại của tôi?", "Giải thích giao dịch gần nhất", "Điều chỉnh tỉ lệ DCA của tôi"],
         confirmRate: "Đặt tỉ lệ DCA", confirmRun: "Chạy DCA ngay",
         rateDetail: function (r) { return r <= 0 ? "Tạm dừng DCA (tỉ lệ → 0)." : "Đổi tỉ lệ DCA thành " + r + " USDC/ngày."; },
         runDetail: function (a) { return "Chạy một lệnh DCA ngay với " + a + " USDC."; },

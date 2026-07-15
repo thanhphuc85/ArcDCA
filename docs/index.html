@@ -1393,6 +1393,42 @@
     </div>
   </section>
 
+  <section class="reveal" id="intelligenceSection" style="display:none;">
+    <div class="eyebrow">Agent intelligence</div>
+    <div class="h2">How the agent is doing</div>
+    <p class="sub">Live risk, market regime, decision confidence and pattern alerts, derived from the agent's run history and reflections.</p>
+    <div class="intel-grid">
+      <div class="intel-card" style="--ig:rgba(251,113,133,.12);">
+        <span class="intel-icon">🛡️</span>
+        <span class="intel-val" id="intelRiskVal">—</span>
+        <span class="intel-label">Risk score</span>
+        <div class="intel-gauge"><div class="intel-gauge-fill" id="intelRiskGauge" style="width:0%;background:var(--green);"></div></div>
+        <span class="intel-sub" id="intelRiskSub">—</span>
+      </div>
+      <div class="intel-card" style="--ig:rgba(47,134,230,.12);">
+        <span class="intel-icon">🧭</span>
+        <span class="intel-val" id="intelRegimeVal">—</span>
+        <span class="intel-label">Market regime</span>
+        <span class="intel-sub" id="intelRegimeSub">—</span>
+      </div>
+      <div class="intel-card" style="--ig:rgba(138,92,246,.12);">
+        <span class="intel-icon">🧠</span>
+        <span class="intel-val" id="intelConfVal">—</span>
+        <span class="intel-label">Decision confidence</span>
+        <div class="intel-gauge"><div class="intel-gauge-fill" id="intelConfGauge" style="width:0%;background:#8a5cf6;"></div></div>
+        <span class="intel-sub" id="intelConfSub">—</span>
+      </div>
+      <div class="intel-card" style="--ig:rgba(52,211,153,.12);">
+        <span class="intel-icon">📈</span>
+        <span class="intel-val" id="intelMomentumVal">—</span>
+        <span class="intel-label">Price momentum</span>
+        <div class="intel-gauge"><div class="intel-gauge-fill" id="intelMomentumGauge" style="width:0%;background:var(--green);"></div></div>
+        <span class="intel-sub" id="intelMomentumSub">—</span>
+      </div>
+    </div>
+    <div class="pattern-alerts" id="patternAlerts"></div>
+  </section>
+
   <section class="reveal" id="leaderboardSection" style="display:none;">
     <div class="eyebrow" data-t="lbEye">Public Treasury</div>
     <div class="h2" data-t="lbTitle">Community deposits</div>
@@ -1527,10 +1563,10 @@
     trackSection: ["trackSection", "memorySection", "approvalSection"],
     strategySection: ["strategySection"],
     fundSection: ["fundSection"],
-    leaderboardSection: ["leaderboardSection", "exportSection"],
+    leaderboardSection: ["intelligenceSection", "leaderboardSection", "exportSection"],
     settingsDrawer: ["settingsDrawer"]
   };
-  var MANAGED_SECTIONS = ["heroSection", "dashSection", "insightsSection", "portfolioSection", "trackSection", "memorySection", "approvalSection", "strategySection", "fundSection", "leaderboardSection", "exportSection", "settingsDrawer"];
+  var MANAGED_SECTIONS = ["heroSection", "dashSection", "insightsSection", "portfolioSection", "trackSection", "memorySection", "approvalSection", "strategySection", "fundSection", "intelligenceSection", "leaderboardSection", "exportSection", "settingsDrawer"];
 
   (function setupSidebar() {
     var sidebar = document.getElementById("sidebar");

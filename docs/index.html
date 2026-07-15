@@ -1371,6 +1371,7 @@
             <input type="text" id="wmGmailName" placeholder="Your name" data-ph-t="wmNamePh" />
             <input type="email" id="wmGmailEmail" placeholder="your.email@gmail.com" />
             <button class="wm-create-btn" id="wmGmailSubmit" data-t="wmCreateSubmit">Create wallet & sign in</button>
+            <p style="font-size:11px;color:var(--muted);margin:10px 2px 0;line-height:1.5;" data-t="wmGmailNote">No email is sent — this instantly creates a demo wallet derived from your email (no seed phrase). Sign back in with the same email to restore it.</p>
           </div>
         </div>
         <div class="wm-status" id="wmStatus"></div>
@@ -2372,7 +2373,10 @@
       } catch (balErr) {
         status.textContent = "Connected but balance read failed — you may need to switch to Arc Testnet in your wallet.";
       }
-      var txs = await fetchRecentTxs(account);
+      // Non-fatal: a network hiccup fetching recent txs must NOT abort a
+      // successful connection (this was making MetaMask look like it failed).
+      var txs = [];
+      try { txs = await fetchRecentTxs(account); } catch (txErr) { txs = []; }
       showWalletProfile(account, nativeBal, usdc, cirbtc, walletId, txs);
       if (typeof renderPortfolio === "function") renderPortfolio(_ledgerData);
     } catch (err) {
@@ -2466,7 +2470,8 @@
       usdc = Number(await tokenBalanceOf(ARC.usdc, account)) / 1e6;
       cirbtc = Number(await tokenBalanceOf(ARC.cirbtc, account)) / 1e8;
     } catch (e3) {}
-    var txs = await fetchRecentTxs(account);
+    var txs = [];
+    try { txs = await fetchRecentTxs(account); } catch (e4) { txs = []; }
     showWalletProfile(account, nativeBal, usdc, cirbtc, "gmail", txs);
     if (typeof renderPortfolio === "function") renderPortfolio(_ledgerData);
     } catch (err) { status.textContent = "Connection failed: " + (err.message || err); }
@@ -4245,6 +4250,7 @@
       footerDisclaimer: "Aura DCA Agent · Testnet only · not financial advice.",
       wmTitle: "Connect Wallet", wmOr: "or", wmCreate: "Create account", wmSignin: "Sign in",
       wmBack: "Back", wmCreateSubmit: "Create wallet & sign in",
+      wmGmailNote: "No email is sent — this instantly creates a demo wallet derived from your email (no seed phrase). Sign back in with the same email to restore it.",
       wmFooter: 'By connecting a wallet, you agree this is a <b>testnet demo</b> with no real value. <a href="https://github.com/thanhphuc85/ArcDCA" target="_blank" rel="noopener">View source</a>.',
       wpBalanceSub: "Portfolio value on Arc Testnet",
       wpWelcome: "Welcome!", wpWelcomeDesc: "Get started with your first action below.",
@@ -4350,6 +4356,7 @@
       footerDisclaimer: "Aura DCA Agent · Chỉ dùng trên Testnet · không phải tư vấn tài chính.",
       wmTitle: "Kết nối ví", wmOr: "hoặc", wmCreate: "Tạo tài khoản", wmSignin: "Đăng nhập",
       wmBack: "Quay lại", wmCreateSubmit: "Tạo ví & đăng nhập",
+      wmGmailNote: "Không gửi email — thao tác này tạo ngay một ví demo suy ra từ email của bạn (không cần seed phrase). Đăng nhập lại bằng cùng email để khôi phục.",
       wmFooter: 'Bằng việc kết nối ví, bạn đồng ý đây là <b>demo testnet</b> không có giá trị thực. <a href="https://github.com/thanhphuc85/ArcDCA" target="_blank" rel="noopener">Xem mã nguồn</a>.',
       wpBalanceSub: "Giá trị danh mục trên Arc Testnet",
       wpWelcome: "Chào mừng!", wpWelcomeDesc: "Bắt đầu với hành động đầu tiên bên dưới.",

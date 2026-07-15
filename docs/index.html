@@ -1220,6 +1220,32 @@
     </div>
   </section>
 
+  <section class="reveal" id="memorySection" style="display:none;">
+    <div class="eyebrow">Agent memory</div>
+    <div class="h2">What the agent has learned</div>
+    <p class="sub">After every run, the agent reflects on its decisions and outcomes — building persistent memory that shapes future strategy.</p>
+    <div class="export-bar" id="reflExportBar" style="display:none;">
+      <span class="export-label">Export:</span>
+      <button class="btn-sm" id="exportReflCSV"><span class="ic">📄</span> CSV</button>
+      <button class="btn-sm" id="exportReflJSON"><span class="ic">{ }</span> JSON</button>
+    </div>
+
+    <div class="card memory-latest">
+      <p class="insight" id="memInsight"><span class="skel skel-line w80"></span></p>
+      <p class="strategy" id="memStrategy"></p>
+      <p class="meta" id="memMeta"></p>
+      <div class="tag-cloud" id="tagCloud"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <h3 style="margin:0;">Reflection timeline</h3>
+        <p class="cs" style="margin:0;" id="refTimelineSub"></p>
+      </div>
+      <div class="ref-timeline" id="refTimeline"></div>
+    </div>
+  </section>
+
   <section class="reveal" id="fundSection">
     <div class="eyebrow">Fund the agent</div>
     <div class="h2" data-t="fundTitle">Deposit to DCA treasury</div>
@@ -1453,13 +1479,13 @@
   var PAGES = {
     top: ["heroSection", "dashSection", "insightsSection"],
     portfolioSection: ["portfolioSection"],
-    trackSection: ["trackSection", "approvalSection"],
+    trackSection: ["trackSection", "memorySection", "approvalSection"],
     strategySection: ["strategySection"],
     fundSection: ["fundSection"],
     leaderboardSection: ["leaderboardSection", "exportSection"],
     settingsDrawer: ["settingsDrawer"]
   };
-  var MANAGED_SECTIONS = ["heroSection", "dashSection", "insightsSection", "portfolioSection", "trackSection", "approvalSection", "strategySection", "fundSection", "leaderboardSection", "exportSection", "settingsDrawer"];
+  var MANAGED_SECTIONS = ["heroSection", "dashSection", "insightsSection", "portfolioSection", "trackSection", "memorySection", "approvalSection", "strategySection", "fundSection", "leaderboardSection", "exportSection", "settingsDrawer"];
 
   (function setupSidebar() {
     var sidebar = document.getElementById("sidebar");
@@ -4739,6 +4765,18 @@
       $("runsBody").innerHTML = '<tr><td colspan="7"><div class="empty-state fade-in"><div class="empty-icon">🔌</div><p class="empty-title">Data unavailable</p><p class="empty-desc">Could not fetch run history. Check your connection and refresh.</p></div></td></tr>';
       ["tTotal","tRuns","tLast","bTotal","bRuns","bLast"].forEach(function (id) { $(id).textContent = "—"; });
     });
+
+  // Render agent memory independently of history — the reflection section must
+  // show whenever reflections.json is reachable, even if the history fetch above
+  // rejects (fetchHistory has no fallback, so a flaky history load would
+  // otherwise take the whole render chain — including memory — down with it).
+  fetchReflections()
+    .then(function (refl) {
+      _reflectionData = refl;
+      renderReflections(refl);
+      if (Array.isArray(refl) && refl.length) $("reflExportBar").style.display = "";
+    })
+    .catch(function () {});
 
   // Fetch leaderboard in parallel
   fetchLeaderboard();

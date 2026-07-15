@@ -2334,6 +2334,14 @@
     attachProviderListeners(provider);
     try {
       status.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Requesting accounts…</span>';
+      // Force the wallet's account picker so that after a disconnect, reconnecting
+      // always asks the user to log in again (instead of silently reusing the
+      // previously-granted permission). Falls back if the wallet lacks this method.
+      try {
+        await provider.request({ method: "wallet_requestPermissions", params: [{ eth_accounts: {} }] });
+      } catch (permErr) {
+        if (permErr && permErr.code === 4001) throw permErr; // user rejected the login prompt
+      }
       var accounts = await provider.request({ method: "eth_requestAccounts" });
       var account = accounts[0];
       state.account = account;

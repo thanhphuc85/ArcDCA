@@ -5,7 +5,7 @@
 <h1 align="center">Arc DCA Agent</h1>
 
 <p align="center">
-  <a href="https://auradca.github.io"><img src="https://img.shields.io/badge/%F0%9F%8C%90%20Live%20app-auradca.github.io-2775CA" alt="Live app" /></a>
+  <a href="https://arc-dca.vercel.app"><img src="https://img.shields.io/badge/%F0%9F%8C%90%20Live%20dashboard-arc--dca.vercel.app-2775CA" alt="Live dashboard" /></a>
   <a href="https://github.com/thanhphuc85/ArcDCA/actions/workflows/dca.yml"><img src="https://github.com/thanhphuc85/ArcDCA/actions/workflows/dca.yml/badge.svg" alt="Daily DCA Bot" /></a>
   <a href="https://testnet.arcscan.app"><img src="https://img.shields.io/badge/Arc-Testnet-2ea44f" alt="Arc Testnet" /></a>
   <a href="https://www.anthropic.com"><img src="https://img.shields.io/badge/decisions%20by-Claude-8A2BE2" alt="Decisions by Claude" /></a>
@@ -13,7 +13,7 @@
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript" /></a>
 </p>
 
-**🌐 Live web app:** **https://auradca.github.io** — connect your wallet to view your Arc Testnet balance and the agent's live on-chain track record.
+**🌐 Live dashboard:** **https://arc-dca.vercel.app** — connect your wallet (or sign in with email) to view your Arc Testnet balance, set your own DCA rate, chat with the agent, and watch its live on-chain track record.
 
 ![Daily flow: cron → read balance → Claude decides → guardrails clamp → swap → commit history](docs/flow.svg)
 
@@ -86,19 +86,42 @@ Every run records *which* constraint bound the outcome (`boundBy`), so the audit
 
 ```
 src/
-  config.ts        env parsing (zod) + guardrail defaults
-  wallet.ts         Circle Developer-Controlled Wallets client + USDC balance getter
+  config.ts          env parsing (zod) + guardrail defaults
+  wallet.ts          Circle Developer-Controlled Wallets client + USDC balance getter
   decision/
-    prompt.ts        context + system prompt sent to Claude
-    client.ts         Anthropic tool-use call, zod-validated
-    guardrails.ts     clampDecision() -- the real spending authority
+    prompt.ts          context + system prompt sent to Claude
+    client.ts          Anthropic tool-use call, zod-validated
+    guardrails.ts      clampDecision() -- the real spending authority
+    tools.ts           analysis tools Claude can call (pacing, dip ladder, risk, …)
+    reflect.ts         post-run reflection: Claude writes an insight to memory
   swap/swapKit.ts    Circle Swap Kit execution via the Circle Wallets adapter (+ dry-run stub)
+  price/priceFeed.ts real cirBTC price via Circle Swap Kit rates
+  ledger/            per-user pooled + non-custodial (allowance) accounting
   history/store.ts   data/history.json read/append + budget math
+  history/reflectionStore.ts  data/reflections.json — the agent's vector memory
   run.ts             orchestrator for one daily run
   index.ts           entrypoint, exit-code handling
+api/                 Vercel serverless functions behind the dashboard (see below)
+docs/index.html      the single-file dashboard (deployed to Vercel)
 scripts/
   create-arc-wallet.mjs   one-off setup script: creates the wallet the bot signs with
 ```
+
+## Dashboard & serverless API (Vercel)
+
+Beyond the autonomous cron agent, the repo ships a full **dashboard** ([`docs/index.html`](docs/index.html)) deployed to **[arc-dca.vercel.app](https://arc-dca.vercel.app)**, backed by Vercel serverless functions in [`api/`](api). Users connect a wallet (EIP-6963 multi-wallet) or sign in with email, set their own DCA rate, and interact with the agent. Every state-changing action is authorized by an **EIP-191 wallet signature**, verified server-side.
+
+| Endpoint | What it does |
+|---|---|
+| `api/set-dca-rate.ts` | Set a user's own daily DCA rate (signed; 0 = pause). |
+| `api/run-dca.ts` | On-demand USDC → cirBTC swap for a user (signed; funds reserved and refunded on failure). |
+| `api/withdraw.ts` | Real-time withdrawal of USDC/cirBTC back to the user's wallet (signed). |
+| `api/chat.ts` | Claude assistant with tool calling — answers about treasury/trades and *proposes* sensitive actions (rate change, run DCA) for the user to confirm and sign. |
+| `api/send-welcome.ts` | Sends a real welcome email on email sign-up (via [Resend](https://resend.com)). |
+
+The dashboard also surfaces the agent's **vector memory** (per-run reflections) and an **Agent intelligence** panel (risk / regime / confidence / pattern alerts) derived from the run history.
+
+**Vercel environment variables** (in addition to the Circle creds below): `GH_PAT` (commit ledger updates), `ANTHROPIC_API_KEY` (chat), `KIT_KEY` (on-demand swap), `RESEND_API_KEY` (welcome email). See [`.env.example`](.env.example) and [`DEPLOY.md`](DEPLOY.md).
 
 ## Prerequisites
 

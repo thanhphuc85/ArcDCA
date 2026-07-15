@@ -23,16 +23,23 @@ token with write access to this repo.
 
 ## 3. Environment variables
 
-| Vercel env var | Value |
-| --- | --- |
-| `GH_PAT` | the token from step 1 |
-| `CIRCLE_API_KEY` | same value as your GitHub Actions secret `CIRCLE_API_KEY` |
-| `CIRCLE_ENTITY_SECRET` | same as GitHub secret `CIRCLE_ENTITY_SECRET` |
-| `CIRCLE_WALLET_ID` | same value as GitHub secret **`WALLET_ID`** |
+| Vercel env var | Required for | Value |
+| --- | --- | --- |
+| `GH_PAT` | ledger writes (all signed actions) | the token from step 1 |
+| `CIRCLE_API_KEY` | withdraw, run-dca | same value as GitHub secret `CIRCLE_API_KEY` |
+| `CIRCLE_ENTITY_SECRET` | withdraw, run-dca | same as GitHub secret `CIRCLE_ENTITY_SECRET` |
+| `CIRCLE_WALLET_ID` | withdraw, run-dca | same value as GitHub secret **`WALLET_ID`** |
+| `ANTHROPIC_API_KEY` | chat assistant (`/api/chat`) | same as GitHub secret `ANTHROPIC_API_KEY` |
+| `KIT_KEY` | on-demand swap (`/api/run-dca`) | same as GitHub secret `KIT_KEY` |
+| `RESEND_API_KEY` | welcome email (`/api/send-welcome`) | key from [resend.com](https://resend.com/api-keys) |
 
 > The Circle wallet id is named `WALLET_ID` in the GitHub Actions workflow but
 > `CIRCLE_WALLET_ID` here. The API accepts **either** name, so setting `WALLET_ID`
 > on Vercel also works — but `CIRCLE_WALLET_ID` is preferred for clarity.
+>
+> The first four are enough for withdrawals; add `ANTHROPIC_API_KEY`, `KIT_KEY`,
+> and `RESEND_API_KEY` to enable the chat assistant, on-demand DCA, and the
+> welcome email respectively. Each feature degrades gracefully if its key is absent.
 
 ## 4. Deploy & test
 

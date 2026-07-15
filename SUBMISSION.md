@@ -30,7 +30,7 @@ It runs entirely on a **GitHub Actions cron** — no server to host. Each run co
 
 On top of the autonomous cron, we shipped a full **dashboard** (live at **[arc-dca.vercel.app](https://arc-dca.vercel.app)**) that turns the agent into something people can actually use:
 
-![The Aura DCA dashboard](docs/dashboard.svg)
+![The Aura DCA dashboard](docs/dashboard.png)
 
 - **Per-user, non-custodial DCA.** Anyone connects a wallet (EIP-6963 multi-wallet) or signs in with email, sets their **own** daily DCA rate, and the agent pools everyone's schedule into each run. Every state change (`set rate`, `run DCA now`, `withdraw`) is authorized by an **EIP-191 wallet signature** and verified in a Vercel serverless function — the user stays in control of their keys.
 - **A conversational agent.** A Claude assistant (tool calling) answers "how much is in the treasury?", "explain the last trade", etc. from live on-chain data, and for sensitive actions it only **proposes** — the user confirms and signs in the UI before anything executes.

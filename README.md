@@ -15,7 +15,7 @@
 
 **🌐 Live dashboard:** **https://arc-dca.vercel.app** — connect your wallet (or sign in with email) to view your Arc Testnet balance, set your own DCA rate, chat with the agent, and watch its live on-chain track record.
 
-![The Aura DCA dashboard — sidebar navigation, treasury stats, per-user DCA, and the AI chat assistant](docs/dashboard.svg)
+![The Aura DCA dashboard — sidebar navigation, treasury stats, per-user DCA, and the AI chat assistant](docs/dashboard.png)
 
 ![Daily flow: cron → read balance → Claude decides → guardrails clamp → swap → commit history](docs/flow.svg)
 

@@ -2557,13 +2557,15 @@
         var w = _walletEntries[idx];
         if (!w) return;
         if (w.action === "soon" && !w.detected) return;
+        // Immediate feedback so a click never feels dead.
+        $("wmStatus").innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;color:var(--muted);"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> ' +
+          (currentLang === "vi" ? "Đang kết nối " : "Connecting to ") + w.name + '…</span>';
         if (w.provider) {
           connectWithProvider(w.provider, w.id, $("wmStatus"));
-        } else if (w.install) {
-          $("wmStatus").innerHTML = '<span style="color:var(--amber);">' + w.name + ' ' +
-            (currentLang === "vi" ? "chưa được cài." : "is not installed.") +
-            ' <a href="' + w.install + '" target="_blank" rel="noopener">' + installLabel + ' ↗</a></span>';
         } else {
+          // No pre-resolved provider (possibly a false-negative detection): try a
+          // fresh resolution. connectWallet only shows an install link if the
+          // provider is genuinely absent after re-checking.
           connectWallet(w.id, $("wmStatus"));
         }
       });

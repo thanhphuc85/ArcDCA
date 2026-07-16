@@ -305,5 +305,17 @@
     "reasoning": "Rate-based DCA: 1 active user(s), executing 5.000000 USDC this run.",
     "walletUsdcBalance": "37.8341271368623072",
     "message": "Swap failed [no_route]: Swap failed [no_route]: Stablecoin Service createSwap failed: Route or resource not found. Details: No route available"
+  },
+  {
+    "date": "2026-07-16",
+    "timestamp": "2026-07-16T22:32:06.761Z",
+    "status": "error_swap_failed",
+    "requestedAmountUsdc": "1.000000",
+    "clampedAmountUsdc": "1.000000",
+    "boundBy": "user_schedule",
+    "tokenOut": "cirBTC",
+    "reasoning": "Market brief is bearish (Fear&Greed 25, \"decrease 10-15%\" bias) but irrelevant since price signal, dip ladder, and regime tools all still report no/insufficient data (26-day structural \"No route available\" outage, confirmed across all tested sizes 0.10-5.00 USDC per stored reflections) — there is no dip or momentum edge to size against. Risk score is medium (36), driven entirely by the 10+ run error streak/0% reliability rather than volatility or concentration (only 3% of ~37.8 USDC deployed), and today's history already shows two failed same-day attempts at $5.00, so per my most recent high-confidence reflection's explicit strategy adjustment (avoid multiple same-day attempts; reduce probe frequency to every 5-7 days since probing every ~2 days for 20+ days produced zero new information), I'm withholding today (proceed=false) to preserve the safe idle balance and avoid wasting a third cycle on a confirmed-dead route.",
+    "walletUsdcBalance": "37.8341271368623072",
+    "message": "Swap failed [no_route]: Swap failed [no_route]: Stablecoin Service createSwap failed: Route or resource not found. Details: No route available"
   }
 ]

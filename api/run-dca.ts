@@ -126,8 +126,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const walletAddress = walletRes.data?.wallet?.address;
     if (!walletAddress) throw new Error("Could not resolve agent wallet address");
 
-    const adapterMod = nodeRequire("@circle-fin/adapter-circle-wallets") as typeof import("@circle-fin/adapter-circle-wallets");
-    const swapMod = nodeRequire("@circle-fin/swap-kit") as typeof import("@circle-fin/swap-kit");
+    // Swap Kit and its adapter are ESM-only (they pull in ESM-only deps like
+    // rpc-websockets); createRequire() would blow up with "require() of ES
+    // Module ... not supported". Dynamic import() works with both CJS and ESM
+    // and is Vercel's supported way to load ESM from a Node function.
+    const adapterMod = await import("@circle-fin/adapter-circle-wallets");
+    const swapMod = await import("@circle-fin/swap-kit");
     const adapter = adapterMod.createCircleWalletsAdapter({ apiKey: circleApiKey, entitySecret: circleEntitySecret });
     const kit = new swapMod.SwapKit();
     const result = await kit.swap({

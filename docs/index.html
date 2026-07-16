@@ -3103,7 +3103,26 @@
     if (s && s.indexOf("skip") === 0) return "b-skip";
     return "b-error";
   }
-  function statusLabel(s) { return String(s).replace(/_/g, " "); }
+  // Map raw run statuses (from history.json) to human-friendly labels.
+  // The raw values like "error_swap_failed" leak implementation detail and read
+  // as an angry red string on the dashboard — even when the real cause is an
+  // upstream Arc route outage, not a code bug.
+  function statusLabel(s) {
+    var t = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
+    switch (String(s)) {
+      case "success": return t.statSuccess || "Success";
+      case "dry_run": return t.statDry || "Dry run";
+      case "error_swap_failed": return t.statSwapUnavail || "Swap route unavailable";
+      case "error_config": return t.statConfigErr || "Config error";
+      case "error_api": return t.statApiErr || "API error";
+      case "skipped_no_balance": return t.statSkipBalance || "Skipped — low balance";
+      case "skipped_llm_declined": return t.statSkipLlm || "Skipped — agent declined";
+      case "skipped_guardrail": return t.statSkipGuard || "Skipped — guardrail";
+      default:
+        // Fallback: pretty-print any other status (spaces + Sentence case).
+        return String(s || "—").replace(/_/g, " ").replace(/^./, function (c) { return c.toUpperCase(); });
+    }
+  }
 
   // ---------- shared chart tooltip ----------
   var tip = $("chartTip");
@@ -4510,6 +4529,9 @@
       rateBtn: "Save rate",
       rateModeLabel: "Quick DCA modes — deploy your balance over (or type any amount above):",
       rateModeMax: "🚀 Max · ~1d", rateModeAggr: "⚡ Aggressive · 7d", rateModeFast: "Fast · 14d", rateModeBal: "Balanced · 30d", rateModeSlow: "🐢 Slow · 90d",
+      statSuccess: "Success", statDry: "Dry run", statSwapUnavail: "Swap route unavailable",
+      statConfigErr: "Config error", statApiErr: "API error",
+      statSkipBalance: "Skipped — low balance", statSkipLlm: "Skipped — agent declined", statSkipGuard: "Skipped — guardrail",
       rateClickSave: "click Save rate to confirm",
       rateNoAccount: "Deposit USDC first to start a DCA schedule.", ratePaused: "Paused", rateAuto: "auto",
       rateDay: "day", rateDays: "days", rateRunway: "runway", rateBalance: "Balance",
@@ -4617,6 +4639,9 @@
       rateBtn: "Lưu tốc độ",
       rateModeLabel: "Chế độ DCA nhanh — giải ngân số dư trong (hoặc nhập số bất kỳ ở trên):",
       rateModeMax: "🚀 Max · ~1 ngày", rateModeAggr: "⚡ Mạnh · 7 ngày", rateModeFast: "Nhanh · 14 ngày", rateModeBal: "Cân bằng · 30 ngày", rateModeSlow: "🐢 Chậm · 90 ngày",
+      statSuccess: "Thành công", statDry: "Chạy thử", statSwapUnavail: "Tuyến swap tạm ngưng",
+      statConfigErr: "Lỗi cấu hình", statApiErr: "Lỗi API",
+      statSkipBalance: "Bỏ qua — số dư thấp", statSkipLlm: "Bỏ qua — agent từ chối", statSkipGuard: "Bỏ qua — guardrail",
       rateClickSave: "bấm Lưu tốc độ để xác nhận",
       rateNoAccount: "Nạp USDC trước để bắt đầu lịch DCA.", ratePaused: "Đã tạm dừng", rateAuto: "tự động",
       rateDay: "ngày", rateDays: "ngày", rateRunway: "còn", rateBalance: "Số dư",

@@ -97,6 +97,12 @@ export interface UserAccount {
   dcaRatePerDay?: string; // USDC/day this user's schedule spends
   dcaRateIsCustom?: boolean; // true once the user sets it themselves (don't auto-recompute)
   dcaPaused?: boolean; // user paused their DCA
+  // "auto" (default): the scheduled cron includes this user in every run based
+  //   on their rate/day.
+  // "manual": the cron skips this user entirely; they only buy when they
+  //   trigger it themselves from the dashboard. rate/day still stored as the
+  //   size of a per-command buy.
+  dcaMode?: "auto" | "manual";
   lastChargedAt?: string; // ISO timestamp of the last run that spent for this user
 }
 

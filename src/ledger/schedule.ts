@@ -27,6 +27,9 @@ export function computeScheduledSpends(ledger: Ledger, nowIso: string): Schedule
 
   for (const user of Object.values(ledger.users)) {
     if (user.dcaPaused) continue;
+    // Manual-mode users are excluded from the scheduled cron; they only buy
+    // when they trigger it themselves from the dashboard.
+    if (user.dcaMode === "manual") continue;
     const rate = Number.parseFloat(user.dcaRatePerDay ?? "0");
     const balance = Number.parseFloat(user.usdcBalance ?? "0");
     if (!(rate > 0) || !(balance > 0)) continue;

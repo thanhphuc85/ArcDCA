@@ -1088,8 +1088,8 @@
     <div class="dash-row2">
       <div class="card">
         <h3 style="margin:0 0 4px;">🤖 Your DCA Agent</h3>
-        <p class="cs" style="margin:0 0 12px;">Runs automatically 3× a day on Arc Testnet.</p>
-        <div class="agent-countdown">
+        <p class="cs" style="margin:0 0 12px;" id="agentSubtitle">Runs on the schedule you set — 3× a day on Arc Testnet when Auto, or on your command when Manual.</p>
+        <div class="agent-countdown" id="agentCountdown">
           <span class="ac-label">Next agent run</span>
           <span class="ac-timer" id="nextRunTimer">—</span>
         </div>
@@ -1385,6 +1385,16 @@
         <input id="rateAmount" type="number" min="0" step="0.000001" placeholder="Any USDC/day — no limit (0 = pause)" />
         <button class="btn" id="rateBtn" data-t="rateBtn">Save rate</button>
         <button class="btn btn-ghost" id="ratePauseBtn" data-t="ratePauseBtn">Pause</button>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12.5px;">
+        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="radio" name="dcaMode" value="auto" id="rateModeAuto" checked />
+          <span data-t="rateModeAutoLbl">🤖 Auto — agent runs on schedule (3× / day)</span>
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="radio" name="dcaMode" value="manual" id="rateModeManual" />
+          <span data-t="rateModeManualLbl">✋ Manual — I trigger it myself</span>
+        </label>
       </div>
       <div style="margin-top:10px;font-size:11px;color:var(--muted);margin-bottom:6px;" data-t="rateModeLabel">Quick DCA modes — deploy your balance over (or type any amount above):</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -3973,9 +3983,19 @@
     var bal = parseFloat(user.usdcBalance || "0");
     var custom = !!user.dcaRateIsCustom;
     var paused = !!user.dcaPaused || rate <= 0;
+    var mode = user.dcaMode === "manual" ? "manual" : "auto";
     if (input && document.activeElement !== input) input.value = rate ? rate.toFixed(6).replace(/0+$/, "").replace(/\.$/, "") : "";
+    // Reflect the stored mode in the radio group (only when the user isn't
+    // actively editing it).
+    var autoR = $("rateModeAuto"), manR = $("rateModeManual");
+    if (autoR && manR && !autoR.matches(":focus") && !manR.matches(":focus")) {
+      autoR.checked = mode === "auto"; manR.checked = mode === "manual";
+    }
     var pauseBtn = $("ratePauseBtn");
     if (pauseBtn) pauseBtn.textContent = paused ? (t.rateResumeBtn || "Resume") : (t.ratePauseBtn || "Pause");
+    var modeBadge = mode === "manual"
+      ? ' · <span style="color:var(--cyan);">✋ ' + (t.rateModeManualBadge || "Manual") + '</span>'
+      : ' · <span style="color:var(--green);">🤖 ' + (t.rateModeAutoBadge || "Auto") + '</span>';
     if (paused) {
       el.innerHTML = '<span style="color:var(--amber);">⏸ ' + (t.ratePaused || "Paused") + '</span> · ' + (t.rateBalance || "Balance") + ' ' + fmt(bal, 2) + ' USDC';
     } else {
@@ -3983,8 +4003,22 @@
       el.innerHTML =
         '<b>' + fmt(rate, 6) + ' USDC/' + (t.rateDay || "day") + '</b>' +
         (custom ? '' : ' <span style="opacity:.7;">(' + (t.rateAuto || "auto") + ')</span>') +
+        modeBadge +
         ' · ' + (t.rateRunway || "runway") + ' ~' + runwayDays + ' ' + (t.rateDays || "days") +
         ' · ' + (t.rateBalance || "Balance") + ' ' + fmt(bal, 2) + ' USDC';
+    }
+    // Reflect mode on the "Your DCA Agent" card: manual users hide the cron
+    // countdown (it doesn't apply to them) and see a matching subtitle.
+    var sub = $("agentSubtitle"), cd = $("agentCountdown");
+    if (mode === "manual") {
+      if (sub) sub.textContent = t.agentSubtitleManual || "Manual mode — the agent won't run for you until you trigger it from the chat.";
+      if (cd) cd.style.display = "none";
+    } else if (!paused) {
+      if (sub) sub.textContent = t.agentSubtitleAuto || "Runs automatically 3× a day on Arc Testnet.";
+      if (cd) cd.style.display = "";
+    } else {
+      if (sub) sub.textContent = t.agentSubtitlePaused || "Paused — turn it back on or switch to Manual to keep control.";
+      if (cd) cd.style.display = "none";
     }
   }
 
@@ -4016,11 +4050,18 @@
 
     var pauseBtn = $("ratePauseBtn");
 
-    async function submitRate(rate) {
+    async function submitRate(rate, overrideMode) {
       var t = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
       st.innerHTML = "";
       if (!state.account || !state.provider) { st.innerHTML = '<span style="color:var(--amber);">' + (t.wdErrConnect || "Connect your wallet first.") + '</span>'; return; }
       if (isNaN(rate) || rate < 0) { st.innerHTML = '<span style="color:var(--amber);">' + (t.rateErrAmount || "Enter a rate ≥ 0 (0 = pause).") + '</span>'; return; }
+
+      // Auto vs Manual. Pause always writes "auto" (no reason to pin a paused
+      // rate as manual); otherwise take the selected radio, defaulting to auto.
+      var selectedMode = overrideMode
+        || (document.querySelector('input[name="dcaMode"]:checked') || {}).value
+        || "auto";
+      if (rate === 0) selectedMode = "auto";
 
       var apiBase = loadStore("aura-withdraw-api", "");
       var endpoint = apiBase ? apiBase.replace(/\/+$/, "") + "/api/set-dca-rate" : "/api/set-dca-rate";
@@ -4028,6 +4069,7 @@
       var timestamp = Date.now();
       var message = "Aura DCA Agent — Set DCA Rate\n" +
         "Rate: " + rateStr + "\n" +
+        "Mode: " + selectedMode + "\n" +
         "Address: " + state.account + "\n" +
         "Timestamp: " + timestamp;
 
@@ -4914,7 +4956,11 @@
         placeholder: "Type a message…",
         suggestions: ["How much is in the treasury?", "What's my current DCA rate?", "Explain the last trade", "Adjust my DCA rate"],
         confirmRate: "Set DCA rate", confirmRun: "Run DCA now",
-        rateDetail: function (r) { return r <= 0 ? "Pause your DCA (rate → 0)." : "Change your DCA rate to " + r + " USDC/day."; },
+        rateDetail: function (r, m) {
+          if (r <= 0) return "Pause your DCA (rate → 0).";
+          var modeTxt = m === "manual" ? " (Manual — you'll trigger runs)" : m === "auto" ? " (Auto — 3× a day)" : "";
+          return "Change your DCA rate to " + r + " USDC/day" + modeTxt + ".";
+        },
         runDetail: function (a) { return "Run a DCA buy now for " + a + " USDC."; },
         confirmBtn: "Confirm & sign", cancelBtn: "Cancel",
         connectFirst: "Connect your wallet first to confirm this.",
@@ -4929,7 +4975,11 @@
         placeholder: "Nhập tin nhắn…",
         suggestions: ["Ngân quỹ còn bao nhiêu?", "Tỉ lệ DCA hiện tại của tôi?", "Giải thích giao dịch gần nhất", "Điều chỉnh tỉ lệ DCA của tôi"],
         confirmRate: "Đặt tỉ lệ DCA", confirmRun: "Chạy DCA ngay",
-        rateDetail: function (r) { return r <= 0 ? "Tạm dừng DCA (tỉ lệ → 0)." : "Đổi tỉ lệ DCA thành " + r + " USDC/ngày."; },
+        rateDetail: function (r, m) {
+          if (r <= 0) return "Tạm dừng DCA (tỉ lệ → 0).";
+          var modeTxt = m === "manual" ? " (Manual — bạn tự bấm chạy)" : m === "auto" ? " (Auto — 3 lần/ngày)" : "";
+          return "Đổi tỉ lệ DCA thành " + r + " USDC/ngày" + modeTxt + ".";
+        },
         runDetail: function (a) { return "Chạy một lệnh DCA ngay với " + a + " USDC."; },
         confirmBtn: "Xác nhận & ký", cancelBtn: "Huỷ",
         connectFirst: "Hãy kết nối ví trước để xác nhận.",
@@ -5013,7 +5063,7 @@
       var card = document.createElement("div");
       card.className = "chat-confirm";
       var title = p.action === "set_dca_rate" ? ct().confirmRate : ct().confirmRun;
-      var detail = p.action === "set_dca_rate" ? ct().rateDetail(p.rate) : ct().runDetail(p.amountUsdc);
+      var detail = p.action === "set_dca_rate" ? ct().rateDetail(p.rate, p.mode) : ct().runDetail(p.amountUsdc);
       card.innerHTML = '<p class="cc-title">⚠️ </p><p class="cc-detail"></p><div class="cc-actions"><button class="cc-yes"></button><button class="cc-no"></button></div><p class="cc-status"></p>';
       card.querySelector(".cc-title").appendChild(document.createTextNode(title));
       card.querySelector(".cc-detail").textContent = detail;
@@ -5021,19 +5071,26 @@
       yes.textContent = ct().confirmBtn; no.textContent = ct().cancelBtn;
       no.addEventListener("click", function () { yes.disabled = true; no.disabled = true; status.style.color = "var(--muted)"; status.textContent = ct().cancelled; });
       yes.addEventListener("click", function () {
-        if (p.action === "set_dca_rate") confirmRate(p.rate, yes, no, status);
+        if (p.action === "set_dca_rate") confirmRate(p.rate, p.mode, yes, no, status);
         else confirmRun(p.amountUsdc, yes, no, status);
       });
       body.appendChild(card); scrollDown();
     }
 
-    function confirmRate(rate, yes, no, status) {
+    function confirmRate(rate, proposedMode, yes, no, status) {
       if (!state.account || !state.provider) { status.style.color = "var(--amber)"; status.textContent = ct().connectFirst; return; }
       yes.disabled = true; no.disabled = true;
       status.style.color = "var(--amber)"; status.textContent = ct().signing;
       var rateStr = Number(rate).toFixed(6);
+      // If Claude didn't propose a specific mode, keep the user's current one
+      // (default auto). Pause always resolves to "auto".
+      var key = state.account && state.account.toLowerCase();
+      var currentUser = key && _ledgerData && _ledgerData.users ? _ledgerData.users[key] : null;
+      var currentMode = currentUser && currentUser.dcaMode === "manual" ? "manual" : "auto";
+      var mode = proposedMode === "manual" ? "manual" : (proposedMode === "auto" ? "auto" : currentMode);
+      if (Number(rate) === 0) mode = "auto";
       var timestamp = Date.now();
-      var message = "Aura DCA Agent — Set DCA Rate\n" + "Rate: " + rateStr + "\n" + "Address: " + state.account + "\n" + "Timestamp: " + timestamp;
+      var message = "Aura DCA Agent — Set DCA Rate\n" + "Rate: " + rateStr + "\n" + "Mode: " + mode + "\n" + "Address: " + state.account + "\n" + "Timestamp: " + timestamp;
       var apiBase = loadStore("aura-withdraw-api", "");
       var endpoint = apiBase ? apiBase.replace(/\/+$/, "") + "/api/set-dca-rate" : "/api/set-dca-rate";
       state.provider.request({ method: "personal_sign", params: [message, state.account] })

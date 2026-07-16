@@ -133,8 +133,15 @@ const TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "propose_set_dca_rate",
-    description: "PROPOSE changing the user's daily DCA rate. This does NOT apply the change — it asks the frontend to show a Confirm button the user must click and sign with their wallet. Use when the user asks to change/increase/decrease/pause their DCA rate. Rate is in USDC per day; 0 means pause.",
-    input_schema: { type: "object", properties: { rate: { type: "number", description: "Proposed DCA rate in USDC per day (>= 0; 0 = pause)." } }, required: ["rate"] },
+    description: "PROPOSE changing the user's daily DCA rate and/or execution mode. This does NOT apply the change — it asks the frontend to show a Confirm button the user must click and sign with their wallet. Use when the user asks to change/increase/decrease/pause their DCA rate, or switch between Auto and Manual modes. Rate is in USDC per day; 0 means pause. Mode: 'auto' = agent runs on schedule (3× / day); 'manual' = agent skips the user in scheduled runs, they trigger buys themselves.",
+    input_schema: {
+      type: "object",
+      properties: {
+        rate: { type: "number", description: "Proposed DCA rate in USDC per day (>= 0; 0 = pause)." },
+        mode: { type: "string", enum: ["auto", "manual"], description: "Execution mode. Optional — omit to keep the user's current mode." },
+      },
+      required: ["rate"],
+    },
   },
   {
     name: "propose_run_dca",
@@ -155,7 +162,7 @@ Guidelines:
 - You are not a licensed financial advisor; do not give personalized investment advice. You may explain how the agent works and what the data shows.`;
 
 type Proposal =
-  | { action: "set_dca_rate"; rate: number }
+  | { action: "set_dca_rate"; rate: number; mode?: "auto" | "manual" }
   | { action: "run_dca"; amountUsdc: number };
 
 function sanitizeMessages(raw: unknown): Anthropic.MessageParam[] | null {
@@ -224,8 +231,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
           case "propose_set_dca_rate": {
             const rate = num(input.rate);
             if (rate < 0) { content = JSON.stringify({ error: "Rate must be >= 0." }); break; }
-            proposal = { action: "set_dca_rate", rate };
-            content = JSON.stringify({ status: "PROPOSAL_PRESENTED", note: "A Confirm button was shown to the user. The rate is NOT changed until they click Confirm and sign. Tell them to confirm below." });
+            const mode = input.mode === "manual" ? "manual" : (input.mode === "auto" ? "auto" : undefined);
+            proposal = mode ? { action: "set_dca_rate", rate, mode } : { action: "set_dca_rate", rate };
+            content = JSON.stringify({ status: "PROPOSAL_PRESENTED", note: "A Confirm button was shown to the user. The rate/mode is NOT changed until they click Confirm and sign. Tell them to confirm below." });
             break;
           }
           case "propose_run_dca": {

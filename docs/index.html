@@ -5072,7 +5072,12 @@
         .then(function (signature) {
           status.textContent = ct().runSubmitting;
           return fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: message, signature: signature }) })
-            .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); });
+            .then(function (r) {
+              return r.text().then(function (t) {
+                var j; try { j = JSON.parse(t); } catch (_) { j = { error: "Server error (HTTP " + r.status + "). The endpoint crashed — check Vercel function logs." }; }
+                return { ok: r.ok, j: j };
+              });
+            });
         })
         .then(function (res) {
           if (res && res.ok && res.j.success) {

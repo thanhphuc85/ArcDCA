@@ -1,13 +1,15 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { ethers } from "ethers";
-import { createRequire } from "node:module";
+import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets";
+import { createCircleWalletsAdapter } from "@circle-fin/adapter-circle-wallets";
+import { SwapKit } from "@circle-fin/swap-kit";
 
 // On-demand DCA: a user signs "Run DCA" for a USDC amount, and the agent wallet
 // swaps that much of the user's pooled USDC balance into cirBTC via Circle's
 // Swap Kit right now (instead of waiting for the scheduled cron run). Mirrors
-// api/withdraw.ts: same ledger read/write, EIP-191 signature check, and the
-// createRequire trick that keeps the ESM-only Circle SDKs out of esbuild's bundle.
-const nodeRequire = createRequire(import.meta.url);
+// api/withdraw.ts (ledger read/write, EIP-191 signature check) — the imports
+// stay top-level ESM so @vercel/nft traces every transitive dep and so the
+// adapter (ESM) sees the same wallets SDK graph that exports `Blockchain`.
 
 const USDC_DECIMALS = 6;
 const CIRBTC_DECIMALS = 8;
@@ -120,20 +122,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   let txHash: string | undefined, amountOut: string | undefined;
   try {
-    const walletsSdk = nodeRequire("@circle-fin/developer-controlled-wallets") as typeof import("@circle-fin/developer-controlled-wallets");
-    const client = walletsSdk.initiateDeveloperControlledWalletsClient({ apiKey: circleApiKey, entitySecret: circleEntitySecret });
+    const client = initiateDeveloperControlledWalletsClient({ apiKey: circleApiKey, entitySecret: circleEntitySecret });
     const walletRes = await client.getWallet({ id: circleWalletId });
     const walletAddress = walletRes.data?.wallet?.address;
     if (!walletAddress) throw new Error("Could not resolve agent wallet address");
 
-    // Swap Kit and its adapter are ESM-only (they pull in ESM-only deps like
-    // rpc-websockets); createRequire() would blow up with "require() of ES
-    // Module ... not supported". Dynamic import() works with both CJS and ESM
-    // and is Vercel's supported way to load ESM from a Node function.
-    const adapterMod = await import("@circle-fin/adapter-circle-wallets");
-    const swapMod = await import("@circle-fin/swap-kit");
-    const adapter = adapterMod.createCircleWalletsAdapter({ apiKey: circleApiKey, entitySecret: circleEntitySecret });
-    const kit = new swapMod.SwapKit();
+    const adapter = createCircleWalletsAdapter({ apiKey: circleApiKey, entitySecret: circleEntitySecret });
+    const kit = new SwapKit();
     const result = await kit.swap({
       from: { adapter, chain: "Arc_Testnet", address: walletAddress as `0x${string}` },
       tokenIn: "USDC",

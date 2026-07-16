@@ -156,5 +156,31 @@
       "budget",
       "no-route"
     ]
+  },
+  {
+    "id": "ref-1784221102110",
+    "date": "2026-07-16",
+    "timestamp": "2026-07-16T16:58:22.110Z",
+    "runStatus": "error_swap_failed",
+    "insight": "Day 26 of campaign, cumulative spend only 1.00 USDC — the \"no_route\" swap failure for cirBTC is a persistent structural outage (26+ days), not a transient error, and continued daily probing at $5 has produced zero successful executions while wasting cycles.",
+    "patterns": [
+      "Every single run since inception has failed with identical 'no_route'/'No route available' error regardless of trade size ($0.10 to $5.00) or time of day.",
+      "Reasoning quality has degraded: recent runs (07-16) show generic 'Rate-based DCA' boilerplate with no reference to stored reflections or risk analysis, unlike the more thorough 07-14/07-15 entries.",
+      "Prior strategy adjustment to reduce probe frequency to every 5-7 days was NOT followed — two probe attempts occurred same-day on 07-16, repeating the exact same-day double-probe mistake flagged in 07-15 reflections.",
+      "Wallet balance keeps growing (37.8 USDC now) while cumulative spent stagnates at 1.00 USDC, meaning pacing is catastrophically behind (roughly 1/26 days executed) purely due to infrastructure failure, not market timing decisions."
+    ],
+    "strategyAdjustment": "Stop treating this as a probe-worthy transient issue — 26 days of 100% failure across all sizes confirms cirBTC swap route is structurally broken, likely delisted or liquidity pool removed. Escalate: (1) flag for human/external intervention rather than continuing autonomous daily retries, (2) if retries must continue, hard-enforce max 1 attempt per 5-7 days as previously decided but apparently not implemented, (3) consider whether tokenOut should be reconsidered/reconfigured since no amount of patience has restored the route, (4) stop writing generic boilerplate reasoning and explicitly reference the 26-day failure streak and stored reflections in every run's decision log to ensure continuity.",
+    "confidenceLevel": "high",
+    "cumulativeSpentUsdc": "1.000000",
+    "dayNumber": 26,
+    "walletBalance": "37.8341271368623072",
+    "tags": [
+      "error-recovery",
+      "structural-failure",
+      "pacing",
+      "no_route",
+      "probe-frequency",
+      "budget-idle"
+    ]
   }
 ]

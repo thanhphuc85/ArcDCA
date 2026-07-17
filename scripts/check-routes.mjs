@@ -30,10 +30,16 @@ if (missing.length) {
 }
 
 const amountIn = process.argv[2] ?? "0.10";
-// Swap Kit advertises stablecoins (USDC/USDT/EURC/DAI/PYUSD/USDe), wrapped
-// assets (WBTC/WETH/…) and chain natives. Not all exist on Arc Testnet — that's
-// exactly what we're probing.
-const CANDIDATES = ["cirBTC", "EURC", "USDT", "WBTC", "WETH", "DAI"];
+// Every token symbol Swap Kit's registry knows (see TokenSymbolRegistry in
+// @circle-fin/adapter-circle-wallets). Most are other-chain assets — probing all
+// of them tells us exactly which ones Arc Testnet actually wires up, rather than
+// guessing. "not supported on Arc Testnet by SDK" = not mapped for this chain;
+// "No route available" = mapped but no liquidity.
+const CANDIDATES = [
+  "cirBTC", "EURC", "USDT", "DAI", "USDE", "PYUSD",
+  "WBTC", "WETH", "WSOL", "WAVAX", "WPOL",
+  "ETH", "POL", "NATIVE",
+];
 
 const client = initiateDeveloperControlledWalletsClient({ apiKey, entitySecret });
 const walletRes = await client.getWallet({ id: walletId });
@@ -50,7 +56,10 @@ console.log(`\nProbing USDC → X routes on Arc_Testnet`);
 console.log(`wallet: ${address}`);
 console.log(`amountIn: ${amountIn} USDC\n`);
 
-const live = [];
+const live = [];      // quotes fine → tradeable today
+const noRoute = [];   // known on Arc, but no liquidity
+const unmapped = [];  // SDK doesn't wire this symbol on Arc at all
+
 for (const tokenOut of CANDIDATES) {
   try {
     const quote = await kit.estimate({
@@ -64,20 +73,29 @@ for (const tokenOut of CANDIDATES) {
     console.log(`✅ USDC → ${tokenOut.padEnd(7)} quote OK` + (out ? `  ≈ ${out.amount} ${out.token}` : ""));
     live.push(tokenOut);
   } catch (err) {
-    const msg = (err?.message ?? String(err)).replace(/\s+/g, " ").slice(0, 110);
-    console.log(`❌ USDC → ${tokenOut.padEnd(7)} ${msg}`);
+    const raw = (err?.message ?? String(err)).replace(/\s+/g, " ");
+    if (/not supported on Arc Testnet/i.test(raw)) unmapped.push(tokenOut);
+    else if (/no route|route or resource not found/i.test(raw)) noRoute.push(tokenOut);
+    console.log(`❌ USDC → ${tokenOut.padEnd(7)} ${raw.slice(0, 100)}`);
   }
 }
 
-console.log("");
-if (!live.length) {
-  console.log("No route quoted for any candidate — the outage isn't cirBTC-specific.");
-} else if (live.includes("cirBTC")) {
-  console.log("cirBTC is quoting again — the outage looks over; no config change needed.");
+console.log("\n" + "─".repeat(60));
+console.log(`Tradeable now      : ${live.length ? live.join(", ") : "(none)"}`);
+console.log(`On Arc, no liquidity: ${noRoute.length ? noRoute.join(", ") : "(none)"}`);
+console.log(`Not on Arc at all  : ${unmapped.length ? unmapped.join(", ") : "(none)"}`);
+console.log("─".repeat(60));
+
+const volatile = live.filter((t) => !["EURC", "USDT", "DAI", "USDE", "PYUSD"].includes(t));
+if (live.includes("cirBTC")) {
+  console.log("\ncirBTC is quoting again — the outage is over. No config change needed.");
+} else if (volatile.length) {
+  console.log(`\nA volatile asset is tradeable: ${volatile.join(", ")} → real DCA target. Set TOKEN_OUT=${volatile[0]}`);
+} else if (live.length) {
+  console.log(`\nOnly stablecoin routes are live (${live.join(", ")}).`);
+  console.log("Those are FX pairs, not a meaningful DCA target — cirBTC is still the only");
+  console.log("volatile asset on Arc Testnet, and its liquidity is down.");
 } else {
-  console.log(`Live route(s): ${live.join(", ")}`);
-  console.log(`cirBTC is still down. To DCA into a live asset instead, set TOKEN_OUT=${live[0]}`);
-  console.log(`  • GitHub → Settings → Secrets and variables → Actions → Variables → TOKEN_OUT`);
-  console.log(`  • (local) add TOKEN_OUT=${live[0]} to .env`);
+  console.log("\nNothing quotes at all — the outage isn't cirBTC-specific.");
 }
 console.log("");

@@ -21,7 +21,9 @@
 
 ![Daily flow: cron → read balance → Claude decides → guardrails clamp → swap → commit history](docs/flow.svg)
 
-> **An LLM-driven dollar-cost-averaging agent that runs itself.** Every day a GitHub Actions cron wakes up, asks **Claude** how much USDC to allocate, enforces hard spend guardrails in code, executes a real **USDC → cirBTC** swap on **Arc Testnet** via Circle's official Swap Kit, and commits the audit trail back to this repo — no server, no human in the loop.
+> **An autonomous agent that lets Claude drive strategy while code owns every number that touches money.** A GitHub Actions cron asks **Claude** what to do, [`clampDecision()`](src/decision/guardrails.ts) re-derives the real limit from hard guardrails and owns the amount actually spent, and many users' schedules settle through **one pooled USDC → cirBTC swap, distributed pro-rata** — executed on **Arc Testnet** via Circle's Swap Kit, authorised by each user's own signature, with the audit trail committed back to this repo. No server, no human in the loop, and no key ever leaves the user's wallet.
+>
+> Dollar-cost averaging is the reference implementation. The architecture underneath is the point.
 
 Built for the **Encode Club × Circle Programmable Money Hackathon** — full write-up: [`SUBMISSION.md`](SUBMISSION.md) · bản tiếng Việt: [`SUBMISSION.vi.md`](SUBMISSION.vi.md).
 

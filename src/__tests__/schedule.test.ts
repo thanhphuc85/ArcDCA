@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeScheduledSpends } from "../ledger/schedule.js";
+import { computeScheduledSpends, applyScheduledDistribution } from "../ledger/schedule.js";
 import type { Ledger, UserAccount } from "../types.js";
 
 function mkUser(addr: string, over: Partial<UserAccount> = {}): UserAccount {
@@ -102,5 +102,77 @@ describe("computeScheduledSpends — legacy model still works", () => {
     expect(computeScheduledSpends(l, "2026-06-15T10:00:00.000Z").spends).toHaveLength(0);
     // 13:00 is a slot hour → fires
     expect(computeScheduledSpends(l, "2026-06-15T13:00:00.000Z").spends).toHaveLength(1);
+  });
+});
+
+describe("applyScheduledDistribution — pooled swap, pro-rata settlement", () => {
+  it("splits the received cirBTC pro-rata by each user's contribution", () => {
+    const l = mkLedger([mkUser("0xa"), mkUser("0xb")]);
+    const rec = applyScheduledDistribution(
+      l,
+      [{ address: "0xa", spend: 1 }, { address: "0xb", spend: 3 }], // 25% / 75%
+      "4.000000", "0.00000400", NOW,
+    );
+    expect(rec).not.toBeNull();
+    const byAddr = Object.fromEntries(rec!.allocations.map((a) => [a.address, a]));
+    expect(parseFloat(byAddr["0xa"]!.poolFraction)).toBeCloseTo(0.25, 8);
+    expect(parseFloat(byAddr["0xb"]!.poolFraction)).toBeCloseTo(0.75, 8);
+    expect(parseFloat(byAddr["0xa"]!.cirBtcShare)).toBeCloseTo(0.000001, 8);
+    expect(parseFloat(byAddr["0xb"]!.cirBtcShare)).toBeCloseTo(0.000003, 8);
+  });
+
+  it("books close: shares sum to exactly what was executed and received", () => {
+    // 1/3 splits force rounding — the remainder must not vanish or duplicate.
+    const l = mkLedger([mkUser("0xa"), mkUser("0xb"), mkUser("0xc")]);
+    const rec = applyScheduledDistribution(
+      l,
+      [{ address: "0xa", spend: 1 }, { address: "0xb", spend: 1 }, { address: "0xc", spend: 1 }],
+      "1.000000", "0.00000001", NOW,
+    );
+    const sumUsdc = rec!.allocations.reduce((s, a) => s + parseFloat(a.usdcShare), 0);
+    const sumBtc = rec!.allocations.reduce((s, a) => s + parseFloat(a.cirBtcShare), 0);
+    expect(sumUsdc).toBeCloseTo(1.0, 6);
+    expect(sumBtc).toBeCloseTo(0.00000001, 8);
+  });
+
+  it("scales every share down together when a guardrail capped the total", () => {
+    const l = mkLedger([mkUser("0xa"), mkUser("0xb")]);
+    // Schedule wanted 4 USDC; the guardrail only allowed 2 → everyone halves.
+    const rec = applyScheduledDistribution(
+      l,
+      [{ address: "0xa", spend: 1 }, { address: "0xb", spend: 3 }],
+      "2.000000", "0.00000400", NOW,
+    );
+    const byAddr = Object.fromEntries(rec!.allocations.map((a) => [a.address, a]));
+    expect(parseFloat(byAddr["0xa"]!.usdcShare)).toBeCloseTo(0.5, 6);
+    expect(parseFloat(byAddr["0xb"]!.usdcShare)).toBeCloseTo(1.5, 6);
+    // cirBTC still splits by contribution — nobody subsidises anyone.
+    expect(parseFloat(byAddr["0xb"]!.cirBtcShare) / parseFloat(byAddr["0xa"]!.cirBtcShare)).toBeCloseTo(3, 4);
+  });
+
+  it("debits USDC, credits cirBTC, and records the charge on each user", () => {
+    const l = mkLedger([mkUser("0xa", { usdcBalance: "10.000000" })]);
+    applyScheduledDistribution(l, [{ address: "0xa", spend: 4 }], "4.000000", "0.00000400", NOW);
+    const u = l.users["0xa"]!;
+    expect(parseFloat(u.usdcBalance)).toBeCloseTo(6, 6);
+    expect(parseFloat(u.cirBtcBalance)).toBeCloseTo(0.000004, 8);
+    expect(parseFloat(u.totalSwapped)).toBeCloseTo(4, 6);
+    expect(u.lastChargedAt).toBe(NOW);
+  });
+
+  it("advances the rolling spend windows so daily/weekly caps stay honest", () => {
+    const l = mkLedger([mkUser("0xa", { dcaSpentDayUsdc: "2.000000", dcaSpentDayDate: "2026-06-15" })]);
+    applyScheduledDistribution(l, [{ address: "0xa", spend: 3 }], "3.000000", "0.00000300", NOW);
+    const u = l.users["0xa"]!;
+    expect(u.dcaSpentDayDate).toBe("2026-06-15");
+    expect(parseFloat(u.dcaSpentDayUsdc!)).toBeCloseTo(5, 6); // 2 already spent + 3 now
+    expect(u.dcaSpentWeekStart).toBe("2026-06-15"); // NOW is a Monday
+  });
+
+  it("returns null rather than corrupting the ledger on a failed swap", () => {
+    const l = mkLedger([mkUser("0xa")]);
+    expect(applyScheduledDistribution(l, [{ address: "0xa", spend: 1 }], "0", "0", NOW)).toBeNull();
+    expect(applyScheduledDistribution(l, [], "1.000000", "0.00000100", NOW)).toBeNull();
+    expect(parseFloat(l.users["0xa"]!.usdcBalance)).toBeCloseTo(100, 6); // untouched
   });
 });

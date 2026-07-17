@@ -13,20 +13,27 @@ Bằng chứng on-chain: https://testnet.arcscan.app/tx/0x83097f432db9c013b3f8d7
 
 ## Tagline
 
-Một agent DCA (dollar-cost averaging) do LLM điều khiển, tự vận hành: mỗi ngày nó hỏi Claude nên phân bổ bao nhiêu USDC, áp giới hạn chi tiêu cứng bằng code, rồi thực hiện swap thật USDC → cirBTC trên Arc Testnet — không server, không cần con người can thiệp.
+Một agent tự trị để Claude dẫn dắt chiến lược, còn **code nắm giữ mọi con số chạm vào tiền** — và gộp lịch của nhiều người dùng thành **một cú swap on-chain duy nhất, quyết toán theo tỉ lệ**. DCA vào cirBTC trên Arc Testnet là bản triển khai tham chiếu; kiến trúc bên dưới mới là đóng góp thật.
 
 ## Vấn đề
 
 "Tài chính điều khiển bởi agent" là một trong những chủ đề chính của hackathon, nhưng nó ẩn chứa một mâu thuẫn thật sự: LLM rất giỏi phán đoán theo ngữ cảnh, nhưng bạn *không bao giờ* được để một mô hình ngôn ngữ làm người quyết định cuối cùng về việc chuyển bao nhiêu tiền. Trao toàn quyền cho nó thì chỉ một con số ảo giác cũng có thể vét sạch ví. Tước hết quyền tự chủ thì nó chỉ còn là một cron script rườm rà.
 
+Mâu thuẫn đó gay gắt hơn hẳn khi **tiền không phải của bạn**. Một agent phục vụ **nhiều** người phải vừa an toàn vừa công bằng: lịch của từng người được tôn trọng chính xác, tiền của từng người tách bạch khỏi người khác, và mọi phân bổ đều tái dựng được sau đó — mà vẫn phải thực thi hiệu quả on-chain, chứ không phải mỗi người một giao dịch.
+
 ## Chúng tôi đã xây gì
 
-Một bot DCA hàng ngày cho **cirBTC** trên **Arc Testnet**, giải quyết mâu thuẫn đó bằng một thiết kế hai tầng có chủ đích:
+Một agent giải quyết cả hai nửa của bài toán đó, với **DCA là trường hợp cụ thể**:
 
-1. **Claude quyết định chiến lược.** Mỗi lần chạy, agent đưa cho Claude số dư ví hiện tại, số ngày đã DCA, ngân sách còn lại và lịch sử giao dịch gần đây, rồi hỏi — qua một tool call bắt buộc và được validate theo schema — hôm nay nên mua bao nhiêu USDC và tại sao. Đây là "agentic" thật sự: Claude đọc lịch sử của chính nó, dàn đều chi tiêu, và thậm chí **từ chối giao dịch** khi nhận ra ngân sách ngày đã hết.
-2. **Code nắm giữ tiền.** Câu trả lời của Claude chỉ là *đề xuất*. Một hàm thuần túy, đã unit-test là `clampDecision()` mới là nơi duy nhất quyết định số tiền thực sự được swap — nó tự tính lại giới hạn từ các guardrail cứng (tối đa/ngày, số dư dự trữ tối thiểu, ngưỡng bụi, ngân sách chiến dịch tùy chọn) và không bao giờ tin vào phép tính của LLM. Mỗi lần chạy đều ghi lại *ràng buộc nào* đã giới hạn kết quả, nên nhật ký kiểm toán luôn minh bạch.
+**1. Claude quyết định chiến lược — code nắm giữ tiền.** Mỗi lần chạy, agent đưa Claude số dư thật, nhịp chi tiêu, ngân sách và lịch sử giao dịch của chính nó, rồi hỏi — qua tool call bắt buộc, validate theo schema — nên làm gì và tại sao. Claude đọc lịch sử của mình, dàn đều chi tiêu, và **từ chối giao dịch** khi nhận ra ngân sách đã hết. Nhưng câu trả lời của nó chỉ là *đề xuất*: hàm thuần `clampDecision()` đã unit-test mới tự tính lại giới hạn thật từ các guardrail cứng (tối đa/ngày, dự trữ tối thiểu, ngưỡng bụi, ngân sách chiến dịch) và là **nơi duy nhất** quyết định con số thực sự được swap. Mỗi lần chạy đều ghi lại *ràng buộc nào* đã chặn kết quả.
 
-Logo của chúng tôi chính là sự phân tách đó, được vẽ ra: hai quỹ đạo không bao giờ chứa nhau, và chỉ gặp nhau tại đúng nơi một quyết định được đưa ra.
+> Logo của chúng tôi chính là sự phân tách đó, được vẽ ra: hai quỹ đạo không bao giờ chứa nhau, chỉ gặp nhau tại đúng nơi một quyết định được đưa ra.
+
+**2. Nhiều người dùng, một cú swap, quyết toán công bằng.** Mỗi ví tự đặt tần suất, số tiền và giới hạn riêng. Mỗi lần chạy, agent tính phần đến hạn của từng người, thực thi **tổng dưới dạng một cú swap duy nhất**, rồi phân phối cirBTC nhận về **theo tỉ lệ đóng góp** — nếu guardrail cắt tổng thì mọi phần cùng co lại theo, và phần dư làm tròn được gán tất định để **sổ sách luôn khớp**. Một giao dịch phục vụ tất cả; không ai bù cho ai. ([`schedule.ts`](src/ledger/schedule.ts), đã unit-test.)
+
+**3. Non-custodial ngay từ thiết kế.** Người dùng không bao giờ giao khoá. Mọi thay đổi trạng thái — đặt lịch, chạy ngay, rút tiền — đều được ủy quyền bằng **chữ ký EIP-191** do chính người dùng ký trong ví của mình và server verify trước khi chạm vào ledger. Agent có thể thực thi chiến lược; nó **không bao giờ có thể tự bịa ra sự đồng ý** của người dùng.
+
+**4. Nó ghi nhớ.** Sau mỗi lần chạy Claude viết một reflection vào `data/reflections.json` và có thể truy xuất lại khi ra quyết định — đó chính là cách nó nhận ra outage cirBTC là *cấu trúc* và ngừng đốt phí vào đó.
 
 Bản thân giao dịch swap đi qua SDK **Swap Kit** chính thức của Circle — con đường swap duy nhất được document chính thức và khả dụng ổn định trên Arc Testnet (USDC / EURC / cirBTC). Ví là **Developer-Controlled Wallet** của Circle, nên không có private key thô nào để rò rỉ.
 

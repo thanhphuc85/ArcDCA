@@ -11,20 +11,27 @@ On-chain proof: https://testnet.arcscan.app/tx/0x83097f432db9c013b3f8d7748b58f18
 
 ## Tagline
 
-An LLM-driven dollar-cost-averaging agent that runs itself: every day it asks Claude how much USDC to allocate, enforces hard spend limits in code, and executes a real USDC → cirBTC swap on Arc Testnet — no server, no human in the loop.
+An autonomous agent that lets Claude drive strategy while **code owns every number that touches money** — and pools many users' schedules into a **single on-chain swap, settled pro-rata**. Dollar-cost averaging into cirBTC on Arc Testnet is the reference implementation; the architecture underneath it is the contribution.
 
 ## The problem
 
 "Agent-driven finance" is one of the hackathon's headline themes, but it hides a real tension: an LLM is great at contextual judgment, yet you can *never* let a language model be the final authority on how much money to move. Give it the keys and one hallucinated number drains the wallet. Take away all its agency and it's just a cron script with extra steps.
 
+That tension gets sharper the moment the money isn't yours. An agent serving **many** users has to be fair as well as safe: each person's schedule honoured exactly, each person's funds ring-fenced from everyone else's, and every allocation reconstructable after the fact — while still executing efficiently on-chain rather than one transaction per user.
+
 ## What we built
 
-A daily DCA (dollar-cost-averaging) bot for **cirBTC** on **Arc Testnet** that resolves that tension with a deliberate two-layer design:
+An agent that resolves both halves of that, with **dollar-cost averaging as the concrete instance**:
 
-1. **Claude decides the strategy.** On each run the agent feeds Claude the live wallet balance, day count, remaining budget, and recent trade history, then asks — via a forced, schema-validated tool call — how much USDC to buy today and why. This is genuinely agentic: Claude reads its own history, paces spending, and even declines to trade when it recognizes the daily budget is already spent.
-2. **Code owns the money.** Claude's answer is only a *recommendation*. A pure, unit-tested function `clampDecision()` is the sole authority on the amount actually swapped — it re-derives the cap from hard guardrails (max/day, minimum reserve, dust threshold, optional campaign budget) and never trusts the LLM's arithmetic. Every run records which constraint bound the result, so the audit trail is transparent.
+**1. Claude decides the strategy — code owns the money.** Each run feeds Claude live balances, pacing, budget, and its own trade history, and asks — via a forced, schema-validated tool call — what to do and why. Claude reads its own history, paces spending, and declines to trade when it recognises the budget is spent. But its answer is only a *recommendation*: a pure, unit-tested `clampDecision()` re-derives the real cap from hard guardrails (max/day, minimum reserve, dust threshold, campaign budget) and is the sole authority on the number actually swapped. Every run records *which* constraint bound the result.
 
-Our logo is that split, drawn: two orbits that never contain each other and meet only where a decision is made.
+> Our logo is that split, drawn: two orbits that never contain each other, meeting only where a decision is made.
+
+**2. Many users, one swap, fair settlement.** Each wallet sets its own cadence, amount and caps. Every run the agent computes each user's due spend, executes the **sum as a single swap**, then distributes the received cirBTC **pro-rata by contribution** — scaling every share down together if a guardrail capped the total, and assigning the rounding remainder deterministically so the books always close. One transaction serves everyone; nobody subsidises anyone. ([`schedule.ts`](src/ledger/schedule.ts), unit-tested.)
+
+**3. Non-custodial by construction.** Users never hand over keys. Every state change — set schedule, run now, withdraw — is authorised by an **EIP-191 signature** the user makes in their own wallet and the server verifies before touching the ledger. The agent can execute the strategy; it can never invent a user's consent.
+
+**4. It remembers.** After each run Claude writes a reflection to `data/reflections.json` and can recall past ones when deciding — which is how it recognised the cirBTC outage as *structural* and stopped burning fees on it.
 
 The swap itself goes through Circle's official **Swap Kit** SDK — the only officially documented, reliably-available swap path on Arc Testnet (USDC / EURC / cirBTC). The wallet is a Circle **Developer-Controlled Wallet**, so there's no raw private key to leak.
 

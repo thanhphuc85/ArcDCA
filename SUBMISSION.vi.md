@@ -41,7 +41,7 @@ Toàn bộ chạy trên **GitHub Actions cron** — không cần server. Mỗi l
 
 ### Dashboard — từ bot thành sản phẩm
 
-Trên nền cron tự động, chúng tôi xây thêm một **dashboard** hoàn chỉnh (chạy tại **[arc-dca.vercel.app](https://arc-dca.vercel.app)**), biến agent thành thứ người dùng thật sự dùng được:
+Trên nền cron tự động, chúng tôi xây thêm một **dashboard** hoàn chỉnh (chạy tại **[aura-dca.vercel.app](https://aura-dca.vercel.app)**), biến agent thành thứ người dùng thật sự dùng được:
 
 ![Dashboard Aura DCA](docs/dashboard.png)
 

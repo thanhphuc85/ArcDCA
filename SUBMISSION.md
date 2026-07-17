@@ -39,7 +39,7 @@ It runs entirely on a **GitHub Actions cron** — no server to host. Each run co
 
 ### The dashboard — from bot to product
 
-On top of the autonomous cron, we shipped a full **dashboard** (live at **[arc-dca.vercel.app](https://arc-dca.vercel.app)**) that turns the agent into something people can actually use:
+On top of the autonomous cron, we shipped a full **dashboard** (live at **[aura-dca.vercel.app](https://aura-dca.vercel.app)**) that turns the agent into something people can actually use:
 
 ![The Aura DCA dashboard](docs/dashboard.png)
 

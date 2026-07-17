@@ -7,7 +7,7 @@
 <p align="center"><em>An autonomous DCA agent — built on Arc Network.</em></p>
 
 <p align="center">
-  <a href="https://arc-dca.vercel.app"><img src="https://img.shields.io/badge/%F0%9F%8C%90%20Live%20dashboard-arc--dca.vercel.app-2775CA" alt="Live dashboard" /></a>
+  <a href="https://aura-dca.vercel.app"><img src="https://img.shields.io/badge/%F0%9F%8C%90%20Live%20dashboard-aura--dca.vercel.app-2775CA" alt="Live dashboard" /></a>
   <a href="https://github.com/thanhphuc85/ArcDCA/actions/workflows/dca.yml"><img src="https://github.com/thanhphuc85/ArcDCA/actions/workflows/dca.yml/badge.svg" alt="Daily DCA Bot" /></a>
   <a href="https://testnet.arcscan.app"><img src="https://img.shields.io/badge/Arc-Testnet-2ea44f" alt="Arc Testnet" /></a>
   <a href="https://www.anthropic.com"><img src="https://img.shields.io/badge/decisions%20by-Claude-8A2BE2" alt="Decisions by Claude" /></a>
@@ -15,7 +15,7 @@
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript" /></a>
 </p>
 
-**🌐 Live dashboard:** **https://arc-dca.vercel.app** — connect your wallet (or sign in with email) to view your Arc Testnet balance, set your own DCA rate, chat with the agent, and watch its live on-chain track record.
+**🌐 Live dashboard:** **https://aura-dca.vercel.app** — connect your wallet (or sign in with email) to view your Arc Testnet balance, set your own DCA rate, chat with the agent, and watch its live on-chain track record.
 
 ![The Aura DCA dashboard — sidebar navigation, treasury stats, per-user DCA, and the AI chat assistant](docs/dashboard.png)
 
@@ -138,7 +138,7 @@ scripts/
 
 ## Dashboard & serverless API (Vercel)
 
-Beyond the autonomous cron agent, the repo ships a full **dashboard** ([`docs/index.html`](docs/index.html)) deployed to **[arc-dca.vercel.app](https://arc-dca.vercel.app)**, backed by Vercel serverless functions in [`api/`](api). Users connect a wallet (EIP-6963 multi-wallet) or sign in with email, set their own DCA rate, and interact with the agent. Every state-changing action is authorized by an **EIP-191 wallet signature**, verified server-side.
+Beyond the autonomous cron agent, the repo ships a full **dashboard** ([`docs/index.html`](docs/index.html)) deployed to **[aura-dca.vercel.app](https://aura-dca.vercel.app)**, backed by Vercel serverless functions in [`api/`](api). Users connect a wallet (EIP-6963 multi-wallet) or sign in with email, set their own DCA rate, and interact with the agent. Every state-changing action is authorized by an **EIP-191 wallet signature**, verified server-side.
 
 | Endpoint | What it does |
 |---|---|

@@ -1,4 +1,6 @@
-# Arc DCA Agent — Hackathon Submission
+# Aura DCA — Hackathon Submission
+
+*An autonomous DCA agent, built on Arc.*
 
 *Encode Club × Circle — Programmable Money Hackathon (build on Arc)*
 

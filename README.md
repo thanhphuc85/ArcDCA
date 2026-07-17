@@ -1,8 +1,10 @@
 <p align="center">
-  <img src="docs/logo.svg" alt="Arc DCA Agent logo" width="96" height="96" />
+  <img src="docs/logo.svg" alt="Aura DCA logo" width="96" height="96" />
 </p>
 
-<h1 align="center">Arc DCA Agent</h1>
+<h1 align="center">Aura DCA</h1>
+
+<p align="center"><em>An autonomous DCA agent — built on Arc.</em></p>
 
 <p align="center">
   <a href="https://arc-dca.vercel.app"><img src="https://img.shields.io/badge/%F0%9F%8C%90%20Live%20dashboard-arc--dca.vercel.app-2775CA" alt="Live dashboard" /></a>
@@ -210,6 +212,16 @@ Go to the **Actions** tab → **Daily DCA Bot** → **Run workflow**, leave `dry
 ## Reading `data/history.json`
 
 Each entry has a `status` field: `success` / `dry_run` for completed runs, `skipped_*` for routine no-ops (low balance, LLM declined, guardrail clamped to zero), and `error_*` for failures. `requestedAmountUsdc` is what Claude proposed; `clampedAmountUsdc` is what the guardrails actually allowed, with `boundBy` showing which constraint bound the result.
+
+## Brand & trademark
+
+**Aura DCA is an independent project built on Arc. It is not affiliated with, endorsed by, or a product of Circle.**
+
+Per [Arc's brand guidelines](https://community.arc.io/home/blogs/arc-brand-guidelines-and-partner-toolkit-is-live-2026-07-16) — *"Your brand leads. Arc is the infrastructure."* — this project:
+
+- Uses **Aura** as its own product name and logo; "Arc" never appears in the product name, logo, or brand system.
+- Refers to Arc only in the approved factual sense — *built on Arc*, *on Arc Testnet* — never as an endorsement.
+- Does **not** reproduce, modify, or recolor Arc/Circle logo assets. The Aura mark in [`docs/logo.svg`](docs/logo.svg) is original and unrelated to Arc's identity.
 
 ## Safety notes
 

@@ -1,4 +1,6 @@
-# Arc DCA Agent — Mô tả Submission
+# Aura DCA — Mô tả Submission
+
+*Một agent DCA tự trị, xây trên Arc.*
 
 *Encode Club × Circle — Programmable Money Hackathon (build trên Arc)*
 

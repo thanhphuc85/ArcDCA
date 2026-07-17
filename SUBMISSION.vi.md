@@ -1,6 +1,6 @@
 # Aura DCA — Mô tả Submission
 
-*Một agent DCA tự trị, xây trên Arc.*
+*Một agent DCA tự trị, xây trên Arc Network.*
 
 *Encode Club × Circle — Programmable Money Hackathon (build trên Arc)*
 
@@ -173,6 +173,17 @@ chính chúng tôi là sai.
 - Rà soát sẵn sàng cho mainnet khi Arc mainnet ra mắt
 
 > Kể từ submission đầu, chúng tôi phát triển từ một bot cron không giao diện thành sản phẩm dùng được: dashboard per-user non-custodial, trợ lý Claude hội thoại với action xác-nhận-rồi-ký, rút tiền thời gian thực và DCA theo yêu cầu, cùng bộ nhớ vector của chính agent — tất cả vẫn nằm dưới cùng một guardrail "code nắm giữ tiền".
+
+## Thương hiệu & nhãn hiệu
+
+**Aura DCA là dự án độc lập, xây trên Arc Network — không liên kết, không được Circle bảo trợ, và không phải sản phẩm của Circle.**
+
+Đã đối chiếu với [Arc brand guidelines and partner toolkit](https://www.arc.io/brand-guidelines-and-partner-toolkit):
+tên sản phẩm và logo là **của riêng Aura** ("Arc" không xuất hiện ở cả hai); Arc chỉ được nhắc
+theo đúng nghĩa factual được phép (*built on Arc Network*, *on Arc Testnet*), không bao giờ như
+một sự bảo trợ; dùng "Arc Network" ở lần nhắc đầu tiên; và chúng tôi **không** dùng bất kỳ brand
+asset nào của Arc/Circle — cách đơn giản nhất để tôn trọng quy định về việc chỉnh sửa hay làm lấn
+át mark của họ. Bảng đối chiếu từng điểm nằm ở [README](README.md#brand--trademark).
 
 ## Lưu ý an toàn
 

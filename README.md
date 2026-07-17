@@ -4,7 +4,7 @@
 
 <h1 align="center">Aura DCA</h1>
 
-<p align="center"><em>An autonomous DCA agent — built on Arc.</em></p>
+<p align="center"><em>An autonomous DCA agent — built on Arc Network.</em></p>
 
 <p align="center">
   <a href="https://arc-dca.vercel.app"><img src="https://img.shields.io/badge/%F0%9F%8C%90%20Live%20dashboard-arc--dca.vercel.app-2775CA" alt="Live dashboard" /></a>
@@ -27,7 +27,7 @@
 
 Built for the **Encode Club × Circle Programmable Money Hackathon** — full write-up: [`SUBMISSION.md`](SUBMISSION.md) · bản tiếng Việt: [`SUBMISSION.vi.md`](SUBMISSION.vi.md).
 
-Every day, a GitHub Actions cron job:
+Every hour, a GitHub Actions cron job wakes up — and each user's own cadence decides whether this hour is one of theirs:
 
 1. Checks the bot's Circle **Developer-Controlled Wallet** USDC balance on Arc Testnet.
 2. Calls **Claude** (Anthropic API) to decide how much USDC to allocate to today's buy, given the remaining budget, day count, and recent trade history.
@@ -241,13 +241,23 @@ Violet fades to cyan along each path: judgment resolving into execution.
 
 ## Brand & trademark
 
-**Aura DCA is an independent project built on Arc. It is not affiliated with, endorsed by, or a product of Circle.**
+**Aura DCA is an independent project built on Arc Network. It is not affiliated with, endorsed by, or a product of Circle.**
 
-Per [Arc's brand guidelines](https://community.arc.io/home/blogs/arc-brand-guidelines-and-partner-toolkit-is-live-2026-07-16) — *"Your brand leads. Arc is the infrastructure."* — this project:
+Checked against the [Arc brand guidelines and partner toolkit](https://www.arc.io/brand-guidelines-and-partner-toolkit)
+([announcement](https://community.arc.io/home/blogs/arc-brand-guidelines-and-partner-toolkit-is-live-2026-07-16)) —
+*"Your brand leads. Arc is the infrastructure."*
 
-- Uses **Aura** as its own product name and logo; "Arc" never appears in the product name, logo, or brand system.
-- Refers to Arc only in the approved factual sense — *built on Arc*, *on Arc Testnet* — never as an endorsement.
-- Does **not** reproduce, modify, or recolor Arc/Circle logo assets. The Aura mark in [`docs/logo.svg`](docs/logo.svg) is original and unrelated to Arc's identity.
+| Guideline | How this project complies |
+|---|---|
+| Don't incorporate Arc into a company name, product name, app icon, or brand system | The product is **Aura DCA**; the mark in [`docs/logo.svg`](docs/logo.svg) is original. "Arc" appears in neither. |
+| Describe Arc only in the approved factual sense | We say *built on Arc Network*, *on Arc Testnet* — never as endorsement, partnership, or a joint product. |
+| Use "Arc Network" on first mention, then "Arc" | Applied in this README, both submission write-ups, and the dashboard title. |
+| Don't modify, recolor, distort, recreate, or overlay Arc brand assets | We use **no** Arc or Circle brand assets at all — the simplest way to honour this. |
+| Arc's mark must not outweigh your own branding | Not applicable: Aura's is the only brand mark present. |
+
+Circle may review or revoke Arc brand-asset usage at any time. If anything here still
+reads as implied endorsement, we'll change it — contact the maintainer via the repo, or
+Circle at the address in the guidelines above.
 
 ## Safety notes
 

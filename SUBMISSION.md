@@ -1,6 +1,6 @@
 # Aura DCA — Hackathon Submission
 
-*An autonomous DCA agent, built on Arc.*
+*An autonomous DCA agent, built on Arc Network.*
 
 *Encode Club × Circle — Programmable Money Hackathon (build on Arc)*
 
@@ -173,6 +173,17 @@ wrong.
 - Mainnet-readiness review when Arc mainnet ships
 
 > Since the first submission we grew this from a headless cron bot into a usable product: a per-user, non-custodial dashboard, a conversational Claude assistant with confirm-to-sign actions, real-time withdrawals and on-demand DCA, and the agent's own vector memory — all still governed by the same code-owns-the-money guardrail.
+
+## Brand & trademark
+
+**Aura DCA is an independent project built on Arc Network — not affiliated with, endorsed by, or a product of Circle.**
+
+Checked against the [Arc brand guidelines and partner toolkit](https://www.arc.io/brand-guidelines-and-partner-toolkit):
+the product name and logo are **Aura's own** ("Arc" appears in neither); Arc is referenced
+only in the approved factual sense (*built on Arc Network*, *on Arc Testnet*), never as
+endorsement; "Arc Network" is used on first mention; and we use **no** Arc or Circle brand
+assets at all, which is the simplest way to honour the rules on modifying or over-weighting
+their mark. The [README](README.md#brand--trademark) has the point-by-point mapping.
 
 ## Safety note
 

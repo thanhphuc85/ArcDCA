@@ -329,5 +329,17 @@
     "reasoning": "Market brief is bearish (Fear&Greed 27, \"decrease 10-15%\" bias) but moot: the real cirBTC price feed, price-action, dip-ladder, and regime tools all still report no/insufficient data, so there is no dip or momentum edge to size against regardless. Risk score is medium (36), driven entirely by a 10+ run consecutive error streak and 0% reliability (not volatility or concentration — only 3% of the ~37.3 USDC wallet deployed) — review_history confirms this is a persistent structural \"No route available\" outage spanning 27+ runs and every tested size ($0.10–$5.00), with the most recent attempts (three, including two full-size $5 swaps) failing again just yesterday (07-16). My highest-confidence stored reflections explicitly advise reducing probe frequency to once every 5-7 days since more frequent probing has produced zero new information for weeks; since only one day has passed since the last (failed) attempts, I'm withholding today (proceed=false) to avoid wasting another cycle on a confirmed-dead route, preserving the safe idle balance until a longer interval has passed or an external signal confirms the route is restored, at which point a larger catch-up allocation should resume given severely behind pacing (1 successful run out of 27+).",
     "walletUsdcBalance": "37.3162895675411072",
     "message": "Swap failed [no_route]: Swap failed [no_route]: Stablecoin Service createSwap failed: Route or resource not found. Details: No route available"
+  },
+  {
+    "date": "2026-07-17",
+    "timestamp": "2026-07-17T12:19:41.723Z",
+    "status": "error_swap_failed",
+    "requestedAmountUsdc": "1.000000",
+    "clampedAmountUsdc": "1.000000",
+    "boundBy": "user_schedule",
+    "tokenOut": "cirBTC",
+    "reasoning": "Rate-based DCA: 1 active user(s), executing 1.000000 USDC this run.",
+    "walletUsdcBalance": "37.3162895675411072",
+    "message": "Swap failed [no_route]: Swap failed [no_route]: Stablecoin Service createSwap failed: Route or resource not found. Details: No route available"
   }
 ]

@@ -50,14 +50,43 @@ Trên nền cron tự động, chúng tôi xây thêm một **dashboard** hoàn 
 - **Bộ nhớ vector + reflection.** Sau mỗi lần chạy Claude ghi một reflection vào `data/reflections.json`; dashboard hiển thị "bộ nhớ agent" này cùng bảng **Agent intelligence** (rủi ro / market regime / độ tự tin / pattern alerts) suy ra từ lịch sử chạy.
 - **Đa agent.** Một market-analyst chạy Claude Haiku tạo bản tóm tắt thị trường mà agent quyết định chính đưa vào cân nhắc phân bổ.
 
+## Nó có chạy không? — sự thật trần trụi
+
+Bạn sẽ mở [`data/history.json`](data/history.json) và thấy một dãy dài
+`error_swap_failed`. Đây là sự thật đó, nói thẳng, trước khi bất cứ phần nào khác
+của tài liệu này cố gây ấn tượng với bạn.
+
+**Đường ống thì chạy.** Circle wallet → Swap Kit → Arc Testnet đã thực hiện một
+swap thật hôm nay: [`0xe54ee0…e3a3`](https://testnet.arcscan.app/tx/0xe54ee0951bed8c7263075b393af40e78606b88e763ce9dd8b7498d6c6a89e3a3)
+(`0.50 USDC → 0.402303 EURC`). Bạn tự tái lập bằng `npm run prove-swap`.
+
+**Thị trường cirBTC thì không.** `USDC → cirBTC` trả về *"No route available"* ở cả
+24 lần thử suốt 9 ngày liên tiếp. Đó là **outage thanh khoản của Arc Testnet, không
+phải bug của agent** — và `npm run check-routes` cho thấy nó chỉ giới hạn ở cirBTC,
+tài sản biến động duy nhất mà Arc có (chain này stablecoin-native tới mức native gas
+token cũng là USDC).
+
+**Và agent đã xử lý đúng như ta mong muốn.** Nó nhận ra các lỗi này mang tính *cấu
+trúc chứ không thoáng qua*, ghi lại lập luận đó vào [reflections](data/reflections.json)
+của chính mình, giảm tần suất thử để ngừng đốt phí, và **ngừng chi tiêu để bảo toàn
+vốn** — suốt 20+ ngày, không ai giám sát. Biết **khi nào KHÔNG hành động** mới là nửa
+khó của một agent tài chính tự trị, và đây chính là đoạn lịch sử nó bị thử thách thật.
+
+Chúng tôi đã có thể làm demo sáng đèn bằng cách trỏ `TOKEN_OUT` sang EURC. Chúng tôi
+không: làm vậy biến một agent tích luỹ BTC thành một lệnh ngoại hối — một demo chạy
+được của một sản phẩm khác. Phần [Những gì chúng tôi đã ĐO](#những-gì-chúng-tôi-đã-đo-và-thesis-chúng-tôi-tự-giết)
+có toàn bộ dữ liệu, kể cả kết luận của chính chúng tôi đã bị dữ liệu lật ngược.
+
 ## Cách hoạt động (luồng)
 
 ```
-GitHub Actions cron (hàng ngày)
+GitHub Actions cron (mỗi giờ — lịch riêng của từng user quyết định giờ này có phải của họ)
   → đọc số dư USDC của ví Circle trên Arc Testnet
-  → Claude quyết định: { proceed, amountUsdc, reasoning }   (forced tool-use, validate bằng zod)
+  → computeScheduledSpends(): ai đến hạn, mỗi người bao nhiêu, chặn bởi giới hạn riêng
+  → Claude quyết định / tư vấn: { proceed, amountUsdc, reasoning }  (forced tool-use, validate zod)
   → clampDecision(): guardrail cứng áp số tiền thật sự
-  → Circle Swap Kit: swap USDC → cirBTC (hoặc dry-run)
+  → Circle Swap Kit: MỘT cú swap USDC → cirBTC cho tổng đã gộp (hoặc dry-run)
+  → applyScheduledDistribution(): chia pro-rata lại cho từng user
   → ghi vào data/history.json  →  commit ngược lại repo
 ```
 
@@ -130,11 +159,7 @@ chính chúng tôi là sai.
 
 ## Khó khăn đã gặp
 
-- **Cặp cirBTC rơi vào outage thanh khoản** — khó khăn lớn nhất. `USDC → cirBTC` trả về *"No route available"* ở **mọi** lần thử suốt 9+ ngày liên tiếp, nên `data/history.json` là một dãy `error_swap_failed`. Chúng tôi xử lý nó như một bài toán **đo lường** chứ không phải cái cớ, và viết hai công cụ để mọi khẳng định đều kiểm chứng được:
-  - `npm run prove-swap` đã thực hiện **một swap thật hôm nay** trên cặp còn sống — [`0xe54ee0…e3a3`](https://testnet.arcscan.app/tx/0xe54ee0951bed8c7263075b393af40e78606b88e763ce9dd8b7498d6c6a89e3a3) (`0.50 USDC → 0.402303 EURC`). Circle wallet → Swap Kit → Arc Testnet **sống, có bằng chứng**; đường ống không phải vấn đề.
-  - `npm run check-routes` quét mọi token symbol mà SDK biết và cho thấy outage **chỉ giới hạn ở cirBTC**: EURC quote bình thường, còn lại (WBTC/WETH/USDT/DAI/…) **không hề được wire cho Arc Testnet**. Arc là chain stablecoin-native — đến native gas token cũng là USDC — nên **cirBTC là tài sản biến động duy nhất để DCA vào**.
-
-  Phần chúng tôi tự hào là **cách agent phản ứng**: nó nhận ra các lỗi này mang tính *cấu trúc chứ không thoáng qua*, tự ghi điều đó vào [reflections](data/reflections.json), **giảm tần suất thử để ngừng đốt phí**, và **ngừng chi tiêu để bảo toàn vốn** — suốt 20+ ngày, không ai giám sát. Một agent biết **khi nào KHÔNG nên hành động** mới là nửa khó của bài toán. Chúng tôi giữ nguyên `TOKEN_OUT=cirBTC`: đổi sang EURC sẽ khiến demo "chạy được" nhưng lặng lẽ biến một agent tích luỹ BTC thành một lệnh ngoại hối — thứ không user nào yêu cầu.
+- **Cặp cirBTC rơi vào outage thanh khoản** — khó khăn lớn nhất, đã trình bày ở [Nó có chạy không?](#nó-có-chạy-không--sự-thật-trần-trụi) và [Những gì chúng tôi đã ĐO](#những-gì-chúng-tôi-đã-đo-và-thesis-chúng-tôi-tự-giết). Tóm lại: chúng tôi coi đó là bài toán **đo lường** chứ không phải cái cớ, và viết các công cụ để mọi khẳng định ở đây đều kiểm chứng được.
 - **Arc Testnet không có "altcoin thật"** — các DEX cộng đồng (ArcSwap/Presto/…) không có địa chỉ contract được xác minh công khai, nên chúng tôi chủ động chuẩn hóa theo Swap Kit chính thức của Circle (USDC↔EURC↔cirBTC) để submission thật sự chạy được.
 - **Đóng gói SDK của Circle** — yêu cầu Node ≥ 22 và có những đặc thù ESM named-export chỉ lộ ra trên một số phiên bản Node nhất định; đã ghim CI về Node 24 để khớp môi trường đã kiểm chứng.
 - **Config chuỗi rỗng trong CI** — biến GitHub Actions chưa set sẽ đến dưới dạng `""`, mà `.default()` của zod không lấp `""`; đã sửa bằng bước tiền xử lý chuyển rỗng thành undefined.

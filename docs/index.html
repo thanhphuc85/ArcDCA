@@ -1119,7 +1119,7 @@
       </div>
       <div class="card">
         <h3 style="margin:0 0 4px;">🧠 Latest decision</h3>
-        <p class="cs" style="margin:0 0 10px;" id="agentLastStatus"><div class="skel skel-line w40"></div></p>
+        <div class="cs" style="margin:0 0 10px;" id="agentLastStatus"><div class="skel skel-line w40"></div></div>
         <div id="agentLastDecision" class="agent-last"><div class="skel skel-line w80"></div><div class="skel skel-line w60"></div></div>
       </div>
     </div>
@@ -2283,10 +2283,16 @@
 
   // count-up animation
   function countUp(el, target, suffix, decimals) {
-    var start = 0, t0 = performance.now(), dur = 900;
+    if (!el) return;
+    var d = decimals == null ? 0 : decimals, suf = suffix || "";
+    // In a hidden/background tab requestAnimationFrame is paused, so the animated
+    // path would never fire and the skeleton would sit there forever. Write the
+    // final value directly in that case (nothing to animate for an unseen tab).
+    if (typeof document !== "undefined" && document.hidden) { el.textContent = fmt(target, d) + suf; return; }
+    var t0 = performance.now(), dur = 900;
     function step(t) {
       var p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
-      el.textContent = fmt(target * e, decimals == null ? 0 : decimals) + (suffix || "");
+      el.textContent = fmt(target * e, d) + suf;
       if (p < 1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);

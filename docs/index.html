@@ -3718,20 +3718,14 @@
     }
   }
 
-  // Next-run countdown (cron at 07:00 / 13:00 / 19:00 UTC).
+  // Next-run countdown. The cron fires hourly at minute 0 UTC ("0 * * * *"),
+  // so the next run is always the top of the coming hour.
   (function setupCountdown() {
     var el = document.getElementById("nextRunTimer");
     if (!el) return;
-    var HOURS = [7, 13, 19];
     function nextRun() {
       var now = new Date();
-      for (var d = 0; d < 2; d++) {
-        for (var i = 0; i < HOURS.length; i++) {
-          var t = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + d, HOURS[i], 0, 0));
-          if (t > now) return t;
-        }
-      }
-      return null;
+      return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours() + 1, 0, 0));
     }
     function pad(n) { return String(n).padStart(2, "0"); }
     function tick() {
@@ -5174,7 +5168,7 @@
         confirmRate: "Set DCA rate", confirmRun: "Run DCA now",
         rateDetail: function (r, m) {
           if (r <= 0) return "Pause your DCA (rate → 0).";
-          var modeTxt = m === "manual" ? " (Manual — you'll trigger runs)" : m === "auto" ? " (Auto — 3× a day)" : "";
+          var modeTxt = m === "manual" ? " (Manual — you'll trigger runs)" : m === "auto" ? " (Auto — the agent runs it on schedule)" : "";
           return "Change your DCA rate to " + r + " USDC/day" + modeTxt + ".";
         },
         runDetail: function (a) { return "Run a DCA buy now for " + a + " USDC."; },
@@ -5193,7 +5187,7 @@
         confirmRate: "Đặt tỉ lệ DCA", confirmRun: "Chạy DCA ngay",
         rateDetail: function (r, m) {
           if (r <= 0) return "Tạm dừng DCA (tỉ lệ → 0).";
-          var modeTxt = m === "manual" ? " (Manual — bạn tự bấm chạy)" : m === "auto" ? " (Auto — 3 lần/ngày)" : "";
+          var modeTxt = m === "manual" ? " (Manual — bạn tự bấm chạy)" : m === "auto" ? " (Auto — agent tự chạy theo lịch)" : "";
           return "Đổi tỉ lệ DCA thành " + r + " USDC/ngày" + modeTxt + ".";
         },
         runDetail: function (a) { return "Chạy một lệnh DCA ngay với " + a + " USDC."; },

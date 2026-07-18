@@ -23,7 +23,7 @@
       "totalDeposited": "5.000000",
       "totalSwapped": "0",
       "totalWithdrawnCirBtc": "0",
-      "totalWithdrawnUsdc": "3.000000",
+      "totalWithdrawnUsdc": "4.000000",
       "firstSeen": "2026-07-10T16:07:29.490Z",
       "lastActivity": "2026-07-18T01:41:32.551Z",
       "dcaRatePerDay": "1.000000",
@@ -143,8 +143,11 @@
       "address": "0xdd6045a634ef2c61d6070552b556aae40099e84b",
       "token": "USDC",
       "amount": "1.000000",
-      "status": "processing",
-      "requestedAt": "2026-07-18T01:41:32.551Z"
+      "status": "completed",
+      "requestedAt": "2026-07-18T01:41:32.551Z",
+      "txHash": "0x66c6f983cfb57984d93b5ce27f7c63a6cb2237b6e4755f14927a574d20623b33",
+      "processedAt": "2026-07-18T01:41:35.019Z",
+      "circleTxId": "ddeca40d-c9ae-56b2-96b6-ce994de3599a"
     }
   ]
 }

@@ -125,6 +125,17 @@ function toBaseUnits(amountUsdc: string, decimals: number): string {
   return (BigInt(whole || "0") * 10n ** BigInt(decimals) + BigInt(fracPadded || "0")).toString();
 }
 
+// Circle's create*Transaction calls are async — they return an id in state
+// INITIATED with no on-chain hash. Wait for the real hash so a fund movement is
+// only treated as done once it has actually settled; waitForTxHash rejects if
+// the transaction hits a terminal failure state (reverted/denied/cancelled),
+// which propagates to the caller so it never books an unconfirmed transfer.
+type WalletsClient = ReturnType<typeof initiateDeveloperControlledWalletsClient>;
+async function waitForOnchainHash(client: WalletsClient, txId: string, timeoutMs = 60000): Promise<string | undefined> {
+  const res = await client.getTransaction({ id: txId, waitForTxHash: true, signal: AbortSignal.timeout(timeoutMs) });
+  return res.data?.transaction?.txHash;
+}
+
 /**
  * Pull USDC from a user's wallet into the agent wallet via ERC-20 transferFrom,
  * using the allowance the user granted. Executed by the agent's Circle wallet
@@ -138,7 +149,7 @@ export async function pullUsdcFromUser(params: {
   agentAddress: string;
   user: string;
   amountUsdc: string;
-}): Promise<{ txId?: string }> {
+}): Promise<{ txId?: string; txHash?: string }> {
   const client = initiateDeveloperControlledWalletsClient({ apiKey: params.apiKey, entitySecret: params.entitySecret });
   const base = toBaseUnits(params.amountUsdc, USDC_DECIMALS);
   const res = await client.createContractExecutionTransaction({
@@ -148,7 +159,11 @@ export async function pullUsdcFromUser(params: {
     abiParameters: [params.user, params.agentAddress, base],
     fee: { type: "level", config: { feeLevel: "HIGH" } },
   });
-  return { txId: res.data?.id };
+  const txId = res.data?.id;
+  if (!txId) throw new Error("Circle did not return a transaction id for the pull");
+  // Confirm on-chain before the caller books this pull; rejects if it reverts.
+  const txHash = await waitForOnchainHash(client, txId);
+  return { txId, txHash };
 }
 
 /**
@@ -162,7 +177,7 @@ export async function sendTokenToUser(params: {
   tokenContract: string;
   user: string;
   amount: string;
-}): Promise<{ txId?: string }> {
+}): Promise<{ txId?: string; txHash?: string }> {
   const client = initiateDeveloperControlledWalletsClient({ apiKey: params.apiKey, entitySecret: params.entitySecret });
   const walletRes = await client.getWallet({ id: params.walletId });
   const walletAddress = walletRes.data?.wallet?.address;
@@ -175,5 +190,9 @@ export async function sendTokenToUser(params: {
     amount: [params.amount],
     fee: { type: "level", config: { feeLevel: "HIGH" } },
   });
-  return { txId: res.data?.id };
+  const txId = res.data?.id;
+  if (!txId) throw new Error("Circle did not return a transaction id for the send-back");
+  // Confirm on-chain before the caller credits the user; rejects if it reverts.
+  const txHash = await waitForOnchainHash(client, txId);
+  return { txId, txHash };
 }

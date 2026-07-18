@@ -207,19 +207,23 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
         for (const p of pulled) {
           const share = ((p.amount / pulledTotal) * totalOut).toFixed(8);
           try {
+            // sendTokenToUser now waits for on-chain confirmation and throws if
+            // the send-back reverts — so the ledger is credited ONLY after the
+            // cirBTC has actually reached the user's wallet, never on a failed or
+            // unconfirmed send.
             await sendTokenToUser({
               apiKey: config.circleApiKey, entitySecret: config.circleEntitySecret, walletId: config.walletId,
               tokenContract: ARC_CIRBTC_CONTRACT, user: p.user, amount: share,
             });
+            const u = ledger.users[p.user.toLowerCase()];
+            if (u) {
+              u.cirBtcBalance = (Number.parseFloat(u.cirBtcBalance) + Number.parseFloat(share)).toFixed(8);
+              u.totalSwapped = (Number.parseFloat(u.totalSwapped) + p.amount).toFixed(6);
+              u.lastChargedAt = timestamp;
+              u.lastActivity = timestamp;
+            }
           } catch (err) {
-            logger.error(`cirBTC send-back failed for ${p.user} (non-fatal)`, err);
-          }
-          const u = ledger.users[p.user.toLowerCase()];
-          if (u) {
-            u.cirBtcBalance = (Number.parseFloat(u.cirBtcBalance) + Number.parseFloat(share)).toFixed(8);
-            u.totalSwapped = (Number.parseFloat(u.totalSwapped) + p.amount).toFixed(6);
-            u.lastChargedAt = timestamp;
-            u.lastActivity = timestamp;
+            logger.error(`cirBTC send-back failed for ${p.user} (non-fatal); ledger not credited`, err);
           }
         }
         await saveLedger(ledger);

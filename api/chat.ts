@@ -58,6 +58,22 @@ async function fetchJson<T>(sources: string[]): Promise<T | null> {
 
 function num(v: unknown): number { const n = parseFloat(String(v ?? "0")); return Number.isFinite(n) ? n : 0; }
 
+// Best-effort in-memory rate limit. Serverless instances aren't shared, so this
+// only throttles within a warm instance — enough to blunt a naive flood of
+// unauthenticated calls (each one hits Claude, up to MAX_TURNS times, and costs
+// real credits). Not a security boundary.
+const _rlHits = new Map<string, number[]>();
+function rateLimited(req: VercelRequest, limit: number, windowMs: number): boolean {
+  const xff = req.headers["x-forwarded-for"];
+  const ip = (Array.isArray(xff) ? xff[0] : xff)?.split(",")[0]?.trim() || "unknown";
+  const now = Date.now();
+  const recent = (_rlHits.get(ip) ?? []).filter((t) => now - t < windowMs);
+  if (recent.length >= limit) { _rlHits.set(ip, recent); return true; }
+  recent.push(now); _rlHits.set(ip, recent);
+  if (_rlHits.size > 5000) { for (const [k, v] of _rlHits) { if (v.every((t) => now - t >= windowMs)) _rlHits.delete(k); } }
+  return false;
+}
+
 // ---------- read-only tool implementations ----------
 async function getTreasuryOverview(): Promise<string> {
   const ledger = await fetchJson<Ledger>(LEDGER_SOURCES);
@@ -190,6 +206,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") { res.status(200).end(); return; }
   if (req.method !== "POST") { res.status(405).json({ error: "Method not allowed" }); return; }
+  if (rateLimited(req, 20, 60_000)) { res.status(429).json({ error: "Too many requests. Please slow down and try again shortly." }); return; }
 
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) { res.status(500).json({ error: "Server misconfigured: missing ANTHROPIC_API_KEY" }); return; }

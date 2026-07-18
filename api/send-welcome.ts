@@ -7,6 +7,22 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Best-effort in-memory rate limit (per warm serverless instance; not shared
+// across instances, so it only blunts naive floods — not a security boundary).
+// This endpoint sends mail to any address with no auth, so cap it tightly to
+// limit its usefulness as a spam relay.
+const _rlHits = new Map<string, number[]>();
+function rateLimited(req: VercelRequest, limit: number, windowMs: number): boolean {
+  const xff = req.headers["x-forwarded-for"];
+  const ip = (Array.isArray(xff) ? xff[0] : xff)?.split(",")[0]?.trim() || "unknown";
+  const now = Date.now();
+  const recent = (_rlHits.get(ip) ?? []).filter((t) => now - t < windowMs);
+  if (recent.length >= limit) { _rlHits.set(ip, recent); return true; }
+  recent.push(now); _rlHits.set(ip, recent);
+  if (_rlHits.size > 5000) { for (const [k, v] of _rlHits) { if (v.every((t) => now - t >= windowMs)) _rlHits.delete(k); } }
+  return false;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -14,6 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   if (req.method === "OPTIONS") { res.status(200).end(); return; }
   if (req.method !== "POST") { res.status(405).json({ error: "Method not allowed" }); return; }
+  if (rateLimited(req, 3, 60_000)) { res.status(429).json({ error: "Too many requests. Please try again later." }); return; }
 
   const { email, name, address } = (req.body ?? {}) as { email?: string; name?: string; address?: string };
   if (!email || !EMAIL_RE.test(email)) { res.status(400).json({ error: "Valid email required" }); return; }

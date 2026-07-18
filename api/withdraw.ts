@@ -73,7 +73,8 @@ async function readLedgerFromGitHub(token: string): Promise<{ ledger: Ledger; sh
   return { ledger: JSON.parse(content) as Ledger, sha: data.sha };
 }
 
-async function writeLedgerToGitHub(token: string, ledger: Ledger, sha: string, message: string): Promise<void> {
+// Returns the new file sha so a follow-up write can chain off it without a re-read.
+async function writeLedgerToGitHub(token: string, ledger: Ledger, sha: string, message: string): Promise<string> {
   const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${LEDGER_PATH}`;
   const content = Buffer.from(JSON.stringify(ledger, null, 2) + "\n").toString("base64");
   const res = await fetch(url, {
@@ -85,6 +86,8 @@ async function writeLedgerToGitHub(token: string, ledger: Ledger, sha: string, m
     const errBody = await res.text();
     throw new Error(`GitHub commit failed: ${res.status} ${errBody}`);
   }
+  const data = (await res.json()) as { content?: { sha?: string } };
+  return data.content?.sha ?? sha;
 }
 
 function parseWithdrawalMessage(msg: string): { token: string; amount: string; address: string; timestamp: number } | null {
@@ -175,19 +178,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(429).json({ error: `Rate limited. Try again in ${waitSec}s.` }); return;
   }
 
-  const decimals = token === "USDC" ? USDC_DECIMALS : CIRBTC_DECIMALS;
-  const wdId = `wd-${Date.now()}-${key.slice(-6)}`;
-  const withdrawal: WithdrawalRecord = {
-    id: wdId, address: key, token, amount, status: "processing", requestedAt: new Date().toISOString(),
-  };
-
-  user[balanceField] = (balance - amountNum).toFixed(decimals);
-  user.lastActivity = new Date().toISOString();
-  ledger.withdrawals.push(withdrawal);
-
   // Trim env values: pasting a full line from a .env file into the Vercel UI can
   // leave a trailing newline/space, which makes Circle reject the API key as
-  // "malformed" (it must be the exact TEST_API_KEY:id:secret triplet).
+  // "malformed" (it must be the exact TEST_API_KEY:id:secret triplet). Checked
+  // BEFORE reserving funds so a misconfig can't debit a balance with no transfer.
   const circleApiKey = process.env.CIRCLE_API_KEY?.trim();
   const circleEntitySecret = process.env.CIRCLE_ENTITY_SECRET?.trim();
   // Accept either name: the GitHub Actions workflow uses WALLET_ID, so allow it
@@ -195,6 +189,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const circleWalletId = (process.env.CIRCLE_WALLET_ID || process.env.WALLET_ID)?.trim();
   if (!circleApiKey || !circleEntitySecret || !circleWalletId) {
     res.status(500).json({ error: "Server misconfigured: missing Circle credentials" }); return;
+  }
+
+  const decimals = token === "USDC" ? USDC_DECIMALS : CIRBTC_DECIMALS;
+  const wdId = `wd-${Date.now()}-${key.slice(-6)}`;
+  const withdrawal: WithdrawalRecord = {
+    id: wdId, address: key, token, amount, status: "processing", requestedAt: new Date().toISOString(),
+  };
+
+  // Reserve funds BEFORE transferring: debit the balance and record the pending
+  // withdrawal, then commit with the sha we read. If another request committed
+  // first, GitHub rejects our now-stale sha and we abort here WITHOUT moving any
+  // money. This optimistic lock is what stops two concurrent withdrawals from
+  // both passing the balance check above and double-spending the pooled wallet.
+  user[balanceField] = (balance - amountNum).toFixed(decimals);
+  user.lastActivity = new Date().toISOString();
+  ledger.withdrawals.push(withdrawal);
+
+  let sha2: string;
+  try {
+    sha2 = await writeLedgerToGitHub(githubToken, ledger, sha, `chore: withdrawal ${wdId} reserved`);
+  } catch (err) {
+    console.error("Reservation write failed (concurrent request?):", err);
+    res.status(409).json({ error: "The ledger was just updated by another request. Please retry in a moment." }); return;
   }
 
   try {
@@ -228,18 +245,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       user.totalWithdrawnCirBtc = (parseFloat(user.totalWithdrawnCirBtc || "0") + amountNum).toFixed(CIRBTC_DECIMALS);
     }
   } catch (err) {
+    // Transfer failed after the reservation committed — refund the balance and
+    // record the failure, chaining off the reservation's sha.
     withdrawal.status = "failed";
     withdrawal.processedAt = new Date().toISOString();
     withdrawal.error = err instanceof Error ? err.message : String(err);
     user[balanceField] = (parseFloat(user[balanceField]) + amountNum).toFixed(decimals);
 
-    try { await writeLedgerToGitHub(githubToken, ledger, sha, `chore: withdrawal ${wdId} failed`); } catch {}
+    try { await writeLedgerToGitHub(githubToken, ledger, sha2, `chore: withdrawal ${wdId} failed`); } catch {}
 
     res.status(500).json({ error: "Transfer failed: " + (err instanceof Error ? err.message : String(err)), withdrawalId: wdId }); return;
   }
 
   try {
-    await writeLedgerToGitHub(githubToken, ledger, sha, `chore: withdrawal ${wdId} completed`);
+    await writeLedgerToGitHub(githubToken, ledger, sha2, `chore: withdrawal ${wdId} completed`);
   } catch (err) {
     console.error("Ledger commit failed after successful transfer:", err);
   }

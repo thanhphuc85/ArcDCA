@@ -4035,7 +4035,7 @@
           '<span class="wd-badge ' + badgeClass + '">' + label + '</span>' +
           '<span>' + w.amount + ' ' + w.token + '</span>' +
           '<span style="color:var(--muted);font-size:11px;">' + (w.requestedAt || "").slice(0, 10) + '</span>' +
-          (w.txHash ? '<a href="' + ARC.explorer + '/tx/' + w.txHash + '" target="_blank" rel="noopener" style="font-size:11px;">tx ↗</a>' : '') +
+          (/^0x[0-9a-fA-F]{6,}$/.test(w.txHash || "") ? '<a href="' + ARC.explorer + '/tx/' + w.txHash + '" target="_blank" rel="noopener" style="font-size:11px;">tx ↗</a>' : '') +
         '</div>';
       });
     }
@@ -4411,8 +4411,11 @@
         if (response.ok && result.success) {
           setStep(2, "done");
           setStep(3, "done");
-          st.innerHTML = '<span style="color:var(--green);">✅ ' + (t.wdSuccess || "Withdrawal completed!") + ' ' + result.amount + ' ' + result.token + '</span>' +
-            (result.txHash ? '<br><a href="' + ARC.explorer + '/tx/' + result.txHash + '" target="_blank" rel="noopener" style="font-size:12px;">View transaction ↗</a>' : '');
+          var wdMsg = result.status === "processing"
+            ? '⏳ ' + (t.wdPending || "Withdrawal submitted — confirming on-chain…")
+            : '✅ ' + (t.wdSuccess || "Withdrawal completed!");
+          st.innerHTML = '<span style="color:var(--green);">' + wdMsg + ' ' + result.amount + ' ' + result.token + '</span>' +
+            (/^0x[0-9a-fA-F]{6,}$/.test(result.txHash || "") ? '<br><a href="' + ARC.explorer + '/tx/' + result.txHash + '" target="_blank" rel="noopener" style="font-size:12px;">View transaction ↗</a>' : '');
 
           if (tg.token && tg.chatId) {
             sendTelegram(tg.token, tg.chatId,
@@ -4724,7 +4727,7 @@
       apvConfirm: "Confirm in your wallet…", apvApproved: "Approved!", apvRevoked: "Allowance revoked.", apvErrAmount: "Enter an amount greater than 0.",
       portWithdrawBtn: "Withdraw now",
       wdStep1: "Signing message with wallet…", wdStep2: "Verifying signature & processing transfer…", wdStep3: "Completing withdrawal…",
-      wdSuccess: "Withdrawal completed!", wdCancelled: "Signing cancelled.",
+      wdSuccess: "Withdrawal completed!", wdPending: "Withdrawal submitted — confirming on-chain…", wdCancelled: "Signing cancelled.",
       wdErrConnect: "Connect your wallet first.", wdErrProvider: "MetaMask not available.",
       wdErrAmount: "Enter a valid amount.", wdErrLedger: "Ledger not loaded yet. Please try again.", wdLoadingLedger: "Loading account…",
       wdErrBalance: "Insufficient balance: ", wdErrApiUrl: "Set your Withdrawal API URL in Settings first.",
@@ -4839,7 +4842,7 @@
       apvConfirm: "Xác nhận trong ví…", apvApproved: "Đã cấp quyền!", apvRevoked: "Đã thu hồi quyền.", apvErrAmount: "Nhập số tiền lớn hơn 0.",
       portWithdrawBtn: "Rút ngay",
       wdStep1: "Đang ký message bằng ví…", wdStep2: "Xác minh chữ ký & xử lý chuyển tiền…", wdStep3: "Hoàn tất rút tiền…",
-      wdSuccess: "Rút tiền thành công!", wdCancelled: "Đã hủy ký.",
+      wdSuccess: "Rút tiền thành công!", wdPending: "Đã gửi lệnh rút — đang xác nhận on-chain…", wdCancelled: "Đã hủy ký.",
       wdErrConnect: "Kết nối ví trước.", wdErrProvider: "MetaMask không khả dụng.",
       wdErrAmount: "Nhập số tiền hợp lệ.", wdErrLedger: "Chưa tải được sổ cái. Vui lòng thử lại.", wdLoadingLedger: "Đang tải tài khoản…",
       wdErrBalance: "Số dư không đủ: ", wdErrApiUrl: "Cấu hình URL API rút tiền trong Cài đặt trước.",

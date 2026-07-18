@@ -44,7 +44,8 @@ interface WithdrawalRecord {
   status: string;
   requestedAt: string;
   processedAt?: string;
-  txHash?: string;
+  txHash?: string;        // the REAL on-chain hash (0x…), once confirmed
+  circleTxId?: string;    // Circle's internal transaction id (a UUID), for support
   error?: string;
 }
 
@@ -214,6 +215,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(409).json({ error: "The ledger was just updated by another request. Please retry in a moment." }); return;
   }
 
+  let txId: string | undefined;
+  let pending = false;
   try {
     const circleSdk = nodeRequire("@circle-fin/developer-controlled-wallets") as typeof import("@circle-fin/developer-controlled-wallets");
     const initiateClient = circleSdk.initiateDeveloperControlledWalletsClient;
@@ -234,22 +237,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       amount: [amount],
       fee: { type: "level", config: { feeLevel: "HIGH" } },
     });
+    txId = txRes.data?.id;
+    if (!txId) throw new Error("Circle did not return a transaction id");
 
-    withdrawal.status = "completed";
+    // createTransaction is async: it returns a Circle id in state INITIATED with
+    // no on-chain hash yet. Wait for the REAL txHash so we store a working
+    // explorer link (not the internal UUID) and so an on-chain failure surfaces
+    // instead of a false "completed". waitForTxHash rejects on a terminal failure
+    // state; the AbortSignal caps the wait inside the 30s function budget. A
+    // timeout is NOT a failure — the transfer is already submitted, so we leave
+    // it pending rather than refund (refunding a slow-but-valid transfer would
+    // double-credit the user).
+    try {
+      const confirmed = await client.getTransaction({ id: txId, waitForTxHash: true, signal: AbortSignal.timeout(22000) });
+      withdrawal.txHash = confirmed.data?.transaction?.txHash;
+    } catch (waitErr) {
+      const nm = (waitErr as { name?: string } | undefined)?.name;
+      if (nm === "TimeoutError" || nm === "AbortError") pending = true;
+      else throw waitErr; // terminal on-chain failure → outer catch refunds
+    }
+
+    withdrawal.status = pending ? "processing" : "completed";
     withdrawal.processedAt = new Date().toISOString();
-    withdrawal.txHash = txRes.data?.id;
-
-    if (token === "USDC") {
-      user.totalWithdrawnUsdc = (parseFloat(user.totalWithdrawnUsdc || "0") + amountNum).toFixed(USDC_DECIMALS);
-    } else {
-      user.totalWithdrawnCirBtc = (parseFloat(user.totalWithdrawnCirBtc || "0") + amountNum).toFixed(CIRBTC_DECIMALS);
+    withdrawal.circleTxId = txId;
+    if (!pending) {
+      if (token === "USDC") {
+        user.totalWithdrawnUsdc = (parseFloat(user.totalWithdrawnUsdc || "0") + amountNum).toFixed(USDC_DECIMALS);
+      } else {
+        user.totalWithdrawnCirBtc = (parseFloat(user.totalWithdrawnCirBtc || "0") + amountNum).toFixed(CIRBTC_DECIMALS);
+      }
     }
   } catch (err) {
-    // Transfer failed after the reservation committed — refund the balance and
-    // record the failure, chaining off the reservation's sha.
+    // Reached only when funds did NOT settle: createTransaction failed, or Circle
+    // reported a terminal on-chain failure (reverted/denied/cancelled). Refund is
+    // safe here — a mere timeout is handled as pending above, never as failure.
     withdrawal.status = "failed";
     withdrawal.processedAt = new Date().toISOString();
     withdrawal.error = err instanceof Error ? err.message : String(err);
+    if (txId) withdrawal.circleTxId = txId;
     user[balanceField] = (parseFloat(user[balanceField]) + amountNum).toFixed(decimals);
 
     try { await writeLedgerToGitHub(githubToken, ledger, sha2, `chore: withdrawal ${wdId} failed`); } catch {}
@@ -258,19 +283,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
 
   try {
-    await writeLedgerToGitHub(githubToken, ledger, sha2, `chore: withdrawal ${wdId} completed`);
+    await writeLedgerToGitHub(githubToken, ledger, sha2, `chore: withdrawal ${wdId} ${pending ? "submitted" : "completed"}`);
   } catch (err) {
     console.error("Ledger commit failed after successful transfer:", err);
   }
 
   if (telegramToken && telegramChatId) {
     const txLink = withdrawal.txHash ? `\nTx: ${withdrawal.txHash}` : "";
+    const head = pending ? "⏳ <b>Withdrawal submitted</b> (confirming on-chain)" : "💰 <b>Withdrawal completed!</b>";
     sendTelegram(telegramToken, telegramChatId,
-      `💰 <b>Withdrawal completed!</b>\n${amount} ${token} → <code>${address.slice(0, 8)}…${address.slice(-4)}</code>${txLink}`,
+      `${head}\n${amount} ${token} → <code>${address.slice(0, 8)}…${address.slice(-4)}</code>${txLink}`,
     ).catch(() => {});
   }
 
   res.status(200).json({
-    success: true, withdrawalId: wdId, txHash: withdrawal.txHash, token, amount, status: "completed",
+    success: true, withdrawalId: wdId, txHash: withdrawal.txHash, circleTxId: txId, token, amount, status: withdrawal.status, pending,
   });
 }

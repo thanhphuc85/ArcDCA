@@ -44,6 +44,32 @@ export function dayCount(history: HistoryEntry[], today?: string): number {
   return Math.max(1, days.size);
 }
 
+/**
+ * The current cirBTC-route outage, measured from history: how many trailing runs
+ * have failed with `error_swap_failed` since the last successful swap, and how
+ * many DISTINCT DATES those failures span.
+ *
+ * Both are handed to Claude so it stops inferring the outage's length in *days*
+ * from the *run* count — at an hourly cron, N failed runs is roughly N/24 days,
+ * not N days. The agent had been writing "30+ days" for what was ~10 days because
+ * it read the run tally as a day tally. Non-swap statuses (skips it chose, config
+ * errors) are stepped over without counting or breaking the streak; a `success`
+ * ends it.
+ */
+export function outageStreak(history: HistoryEntry[]): { consecutiveRuns: number; days: number } {
+  const dates = new Set<string>();
+  let consecutiveRuns = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const entry = history[i]!;
+    if (entry.status === "success") break;
+    if (entry.status === "error_swap_failed") {
+      consecutiveRuns += 1;
+      if (entry.date) dates.add(entry.date);
+    }
+  }
+  return { consecutiveRuns, days: dates.size };
+}
+
 export function alreadySpentToday(history: HistoryEntry[], date: string): string {
   const total = history
     .filter((e) => e.date === date && SUCCESS_STATUSES.has(e.status))

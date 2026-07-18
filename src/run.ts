@@ -1,6 +1,6 @@
 import type { AppConfig } from "./config.js";
 import { createWallet } from "./wallet.js";
-import { readHistory, appendEntry, recentHistory, dayCount, alreadySpentToday, remainingCampaignBudget } from "./history/store.js";
+import { readHistory, appendEntry, recentHistory, dayCount, alreadySpentToday, remainingCampaignBudget, outageStreak } from "./history/store.js";
 import { readReflections, appendReflection } from "./history/reflectionStore.js";
 import { readLedger, writeLedger, ensureDefaultRates } from "./ledger/store.js";
 import { scanDeposits } from "./ledger/scanner.js";
@@ -293,6 +293,7 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
   // reasoning is kept only to enrich the dashboard's AI insights + reflections.
   let reasoning = `Rate-based DCA: ${schedule.spends.length} active user(s), executing ${executableStr} USDC this run.`;
   try {
+    const outage = outageStreak(history);
     const context: DecisionContext = {
       date,
       dayCount: dayCount(history, date),
@@ -301,6 +302,8 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
       dcaStrategy: config.dcaStrategy,
       remainingCampaignBudgetUsdc: remainingCampaignBudget(history, config.guardrails.campaignTotalBudgetUsdc),
       alreadySpentTodayUsdc: alreadySpentToday(history, date),
+      outageConsecutiveRuns: outage.consecutiveRuns,
+      outageDurationDays: outage.days,
       recentHistory: recentHistory(history).map((e) => ({
         date: e.date,
         status: e.status,

@@ -59,6 +59,11 @@ export interface DecisionContext {
   dcaStrategy: DcaStrategy;
   remainingCampaignBudgetUsdc?: string;
   alreadySpentTodayUsdc: string;
+  // Code-measured cirBTC-route outage. outageDurationDays is DISTINCT calendar
+  // days; outageConsecutiveRuns is the trailing failed-run tally. The agent must
+  // cite the days figure and never derive days from the run count.
+  outageConsecutiveRuns: number;
+  outageDurationDays: number;
   recentHistory: Array<{
     date: string;
     status: RunStatus;

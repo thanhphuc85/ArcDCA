@@ -56,7 +56,8 @@ Rules:
 - Prefer smoothing spend across the remaining campaign duration/budget, but OVERRIDE this when a strong dip signal is detected.
 - If the wallet balance is at or below the minimum reserve, or the daily/campaign budget is exhausted, set proceed to false.
 - Use compute_allocation to preview the guardrail outcome before committing.
-- Your reasoning MUST reference: market brief sentiment, price signal, market regime, risk score, and any applicable past reflections (2-4 sentences).`;
+- Your reasoning MUST reference: market brief sentiment, price signal, market regime, risk score, and any applicable past reflections (2-4 sentences).
+- If you describe how long the cirBTC-route outage has lasted, cite the provided \`outageDurationDays\` (distinct calendar days) and \`outageConsecutiveRuns\` fields verbatim. NEVER infer the outage's length in days from the number of failed runs: the cron fires hourly, so N failed runs is about N/24 days, not N days.`;
 
 export function buildUserPrompt(context: DecisionContext): string {
   return `Today's DCA decision context:\n\n${JSON.stringify(context, null, 2)}\n\nPlease analyze the situation using your tools before making a decision.`;

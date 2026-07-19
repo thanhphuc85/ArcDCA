@@ -498,5 +498,16 @@
     "reasoning": "Today's daily cap ($1.00) was already fully consumed by a successful swap earlier in the run (alreadySpentTodayUsdc=$1.00), and compute_allocation confirms remaining_daily_cap=$0.00 binds any further request, so no additional swap can execute today regardless of signals. Market brief is bearish (Fear&Greed 28, decrease 10-15% bias) but moot since real price feed, dip ladder, and regime tools all still report insufficient data (only 1 real price point recorded) — no dip/momentum edge exists to override anyway. Risk score is medium (45), driven by 100% daily utilization and a recent error streak from repeated same-day retries after the cap was already spent, which stored reflections explicitly warn against (avoid wasting cycles on same-day repeat attempts). Proceeding is correctly withheld; next allocation should resume on the next scheduled day.",
     "walletUsdcBalance": "34.292676622860296748",
     "message": "Swap failed [cirBTC/no_route]: Swap failed [no_route]: Stablecoin Service createSwap failed: Route or resource not found. Details: No route available"
+  },
+  {
+    "date": "2026-07-19",
+    "timestamp": "2026-07-19T22:37:23.940Z",
+    "status": "skipped_guardrail_clamped",
+    "requestedAmountUsdc": "0.000000",
+    "clampedAmountUsdc": "0",
+    "boundBy": "scheduled_below_min",
+    "tokenOut": "cirBTC",
+    "walletUsdcBalance": "34.292676622860296748",
+    "message": "No buy this run: 0 active user(s), scheduled 0.000000 USDC, executable 0.000000 < min swap 0.1"
   }
 ]

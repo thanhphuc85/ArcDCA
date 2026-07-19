@@ -4,10 +4,10 @@ import { readHistory, appendEntry, recentHistory, dayCount, alreadySpentToday, r
 import { readReflections, appendReflection } from "./history/reflectionStore.js";
 import { readLedger, writeLedger, ensureDefaultRates } from "./ledger/store.js";
 import { scanDeposits } from "./ledger/scanner.js";
-import { computeScheduledSpends, applyScheduledDistribution } from "./ledger/schedule.js";
+import { computeScheduledSpends, applyScheduledDistribution, groupSpendsByToken } from "./ledger/schedule.js";
 import { computeAllowanceSpends, pullUsdcFromUser, sendTokenToUser } from "./ledger/allowance.js";
 import { requestWithdrawal, processPendingWithdrawals } from "./ledger/withdraw.js";
-import { ARC_TESTNET_RPC, ARC_USDC_CONTRACT, ARC_CIRBTC_CONTRACT } from "./ledger/constants.js";
+import { ARC_TESTNET_RPC, ARC_USDC_CONTRACT, ARC_CIRBTC_CONTRACT, dcaTokenInfo } from "./ledger/constants.js";
 import { getClaudeDecision } from "./decision/client.js";
 import { generateReflection } from "./decision/reflect.js";
 import { runMarketAnalyst } from "./decision/analyst.js";
@@ -54,6 +54,33 @@ async function writeAndReturn(
     }
   }
   return { entry, isFatal };
+}
+
+/**
+ * Emit one run that produced several history entries — one per token group in a
+ * multi-token run. Appends and notifies each, then reflects ONCE for the whole
+ * run (reflection is an AI call), on the last entry as the representative
+ * outcome. Returns that entry as the run's RunOutcome.
+ */
+async function emitRunEntries(
+  entries: HistoryEntry[],
+  discordWebhookUrl?: string,
+  reflectionCtx?: { apiKey: string; allHistory: HistoryEntry[] },
+): Promise<RunOutcome> {
+  for (const e of entries) {
+    await appendEntry(e);
+    await notifyAll(e, discordWebhookUrl);
+  }
+  const primary = entries[entries.length - 1]!;
+  if (reflectionCtx && entries.length > 0) {
+    const updatedHistory = [...reflectionCtx.allHistory, ...entries];
+    const reflection = await generateReflection(reflectionCtx.apiKey, primary, updatedHistory.slice(-8), updatedHistory);
+    if (reflection) {
+      await appendReflection(reflection);
+      logger.info(`Reflection saved: ${reflection.insight.slice(0, 80)}…`);
+    }
+  }
+  return { entry: primary, isFatal: false };
 }
 
 async function saveLedger(ledger: Ledger): Promise<void> {
@@ -330,56 +357,75 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
     logger.warn(`Advisory commentary failed (non-fatal): ${(err as Error).message}`);
   }
 
-  try {
-    const swapResult = await executeSwap({
-      circleApiKey: config.circleApiKey,
-      circleEntitySecret: config.circleEntitySecret,
-      walletAddress: wallet.address,
-      kitKey: config.kitKey,
-      tokenOut: config.tokenOut,
-      amountUsdc: executableStr,
-      dryRun: config.dryRun,
-    });
+  // --- Multi-token settlement: one pooled swap per token group ---
+  // Each user DCAs into their chosen token (default config.tokenOut). Group the
+  // run by token, size each group by its share of the wallet-clamped executable
+  // total, and settle ONE USDC -> token swap per group. A failed or sub-minimum
+  // group never blocks the others. Guardrails stay global: `scale` carries the
+  // wallet-reserve clamp across every group uniformly.
+  const scale = scheduledTotal > 0 ? executable / scheduledTotal : 0;
+  const groups = groupSpendsByToken(schedule.spends);
+  const tokens = [...groups.keys()].sort(); // deterministic settlement order
+  const entries: HistoryEntry[] = [];
 
-    logger.info(swapResult.dryRun ? "Dry run: swap skipped" : `Swap executed: ${swapResult.txHash}`);
+  for (const token of tokens) {
+    const info = dcaTokenInfo(token);
+    const groupSpends = groups.get(token)!;
+    const users = groupSpends.length;
+    const groupScheduled = groupSpends.reduce((s, x) => s + x.spend, 0);
+    const groupExec = Number.parseFloat((groupScheduled * scale).toFixed(6));
+    const boundBy = scale < 1 ? "wallet_available_after_reserve" : "user_schedule";
 
-    // Attribute the swap back to each user's schedule.
-    if (!swapResult.dryRun && swapResult.amountOut) {
-      applyScheduledDistribution(ledger, schedule.spends, executableStr, swapResult.amountOut, timestamp);
-      await saveLedger(ledger);
+    if (groupExec < minSwap) {
+      entries.push({
+        date, timestamp, status: "skipped_guardrail_clamped",
+        requestedAmountUsdc: groupScheduled.toFixed(6), clampedAmountUsdc: "0",
+        boundBy: "group_below_min_swap", tokenOut: token, reasoning,
+        walletUsdcBalance: usdcBalance,
+        message: `No buy for ${token}: ${users} user(s), executable ${groupExec.toFixed(6)} USDC < min swap ${minSwap}`,
+      });
+      continue;
     }
 
-    return writeAndReturn({
-      date,
-      timestamp,
-      status: swapResult.dryRun ? "dry_run" : "success",
-      requestedAmountUsdc: scheduledTotal.toFixed(6),
-      clampedAmountUsdc: executableStr,
-      boundBy: executable < scheduledTotal ? "wallet_available_after_reserve" : "user_schedule",
-      tokenOut: config.tokenOut,
-      reasoning,
-      txHash: swapResult.txHash,
-      explorerUrl: swapResult.explorerUrl,
-      amountOut: swapResult.amountOut,
-      walletUsdcBalance: usdcBalance,
-      message: swapResult.dryRun
-        ? `[DRY RUN] Would have swapped ${executableStr} USDC -> ${config.tokenOut} across ${schedule.spends.length} user(s)`
-        : `Swapped ${executableStr} USDC -> ${config.tokenOut} across ${schedule.spends.length} user(s)`,
-    }, false, config.discordWebhookUrl, refCtx);
-  } catch (err) {
-    const category = err instanceof SwapExecutionError ? err.category : "unknown";
-    logger.error(`Swap execution failed [${category}]`, err);
-    return writeAndReturn({
-      date,
-      timestamp,
-      status: "error_swap_failed",
-      requestedAmountUsdc: scheduledTotal.toFixed(6),
-      clampedAmountUsdc: executableStr,
-      boundBy: "user_schedule",
-      tokenOut: config.tokenOut,
-      reasoning,
-      walletUsdcBalance: usdcBalance,
-      message: `Swap failed [${category}]: ${(err as Error).message}`,
-    }, false, config.discordWebhookUrl, refCtx);
+    const groupExecStr = groupExec.toFixed(6);
+    try {
+      const swapResult = await executeSwap({
+        circleApiKey: config.circleApiKey,
+        circleEntitySecret: config.circleEntitySecret,
+        walletAddress: wallet.address,
+        kitKey: config.kitKey,
+        tokenOut: token,
+        amountUsdc: groupExecStr,
+        dryRun: config.dryRun,
+      });
+      logger.info(swapResult.dryRun ? `Dry run: ${token} swap skipped` : `Swap executed [${token}]: ${swapResult.txHash}`);
+      if (!swapResult.dryRun && swapResult.amountOut) {
+        applyScheduledDistribution(ledger, groupSpends, groupExecStr, swapResult.amountOut, timestamp, token, info.decimals);
+      }
+      entries.push({
+        date, timestamp,
+        status: swapResult.dryRun ? "dry_run" : "success",
+        requestedAmountUsdc: groupScheduled.toFixed(6), clampedAmountUsdc: groupExecStr,
+        boundBy, tokenOut: token, reasoning,
+        txHash: swapResult.txHash, explorerUrl: swapResult.explorerUrl, amountOut: swapResult.amountOut,
+        walletUsdcBalance: usdcBalance,
+        message: swapResult.dryRun
+          ? `[DRY RUN] Would swap ${groupExecStr} USDC -> ${token} across ${users} user(s)`
+          : `Swapped ${groupExecStr} USDC -> ${token} across ${users} user(s)`,
+      });
+    } catch (err) {
+      const category = err instanceof SwapExecutionError ? err.category : "unknown";
+      logger.error(`Swap execution failed [${token}/${category}]`, err);
+      entries.push({
+        date, timestamp, status: "error_swap_failed",
+        requestedAmountUsdc: groupScheduled.toFixed(6), clampedAmountUsdc: groupExecStr,
+        boundBy, tokenOut: token, reasoning,
+        walletUsdcBalance: usdcBalance,
+        message: `Swap failed [${token}/${category}]: ${(err as Error).message}`,
+      });
+    }
   }
+
+  await saveLedger(ledger);
+  return emitRunEntries(entries, config.discordWebhookUrl, refCtx);
 }

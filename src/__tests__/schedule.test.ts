@@ -222,4 +222,31 @@ describe("multi-token DCA — per-user token, pooled per token", () => {
     expect(parseFloat(u.cirBtcBalance)).toBeCloseTo(0.000004, 8);
     expect(u.tokenBalances!["cirBTC"]).toBe(u.cirBtcBalance);
   });
+
+  it("mirrors run.ts: two tokens, a wallet clamp scales every group uniformly", () => {
+    // 0xa DCAs 3 USDC into cirBTC, 0xb DCAs 1 USDC into EURC → scheduledTotal 4.
+    // The wallet only allows 2 USDC executable this run → scale 0.5 for all.
+    const l = mkLedger([mkUser("0xa", { usdcBalance: "50" }), mkUser("0xb", { usdcBalance: "50" })]);
+    const spends = [sp("0xa", 3, "cirBTC"), sp("0xb", 1, "EURC")];
+    const scheduledTotal = 4, executable = 2, scale = executable / scheduledTotal;
+
+    const groups = groupSpendsByToken(spends);
+    for (const token of [...groups.keys()].sort()) {
+      const g = groups.get(token)!;
+      const groupScheduled = g.reduce((s, x) => s + x.spend, 0);
+      const groupExec = Number.parseFloat((groupScheduled * scale).toFixed(6));
+      // Pretend the swap returned exactly groupExec-worth of the token (1:1 for the test).
+      const decimals = token === "EURC" ? 6 : 8;
+      applyScheduledDistribution(l, g, groupExec.toFixed(6), groupExec.toFixed(decimals), NOW, token, decimals);
+    }
+
+    const a = l.users["0xa"]!, b = l.users["0xb"]!;
+    // cirBTC group executed 1.5 USDC (3 × 0.5); EURC group executed 0.5 (1 × 0.5).
+    expect(parseFloat(a.usdcBalance)).toBeCloseTo(48.5, 6); // 50 − 1.5
+    expect(parseFloat(b.usdcBalance)).toBeCloseTo(49.5, 6); // 50 − 0.5
+    expect(parseFloat(a.cirBtcBalance)).toBeCloseTo(1.5, 8);
+    expect(b.tokenBalances!["EURC"]).toBeDefined();
+    expect(parseFloat(b.tokenBalances!["EURC"]!)).toBeCloseTo(0.5, 6);
+    expect(parseFloat(b.cirBtcBalance)).toBe(0); // EURC buyer holds no cirBTC
+  });
 });

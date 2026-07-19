@@ -464,5 +464,16 @@
     "reasoning": "The cirBTC route remains in a confirmed structural \"No route available\" outage spanning outageDurationDays=11 distinct calendar days (outageConsecutiveRuns=34, 100% failure across every tested size $0.10-$6.00); real price feed, price-action, dip ladder, and regime tools all still report no/insufficient data, so there is no dip or momentum signal to override the blocker despite the market brief's bearish-but-contrarian \"increase 15-20%\" bias (Fear&Greed 28). Risk score is medium (36), driven entirely by the error streak/0% reliability rather than volatility or concentration (only 3% of ~35.3 USDC deployed), and the last attempts were just yesterday (07-18, four failed attempts across $1-$6 sizes). Per my highest-confidence stored reflections (07-18) explicitly advising against same-day/back-to-back-day retries and recommending reduced probe frequency of every 5-7 days since frequent probing has produced zero new information for weeks, I'm withholding today (proceed=false) to preserve the idle balance; a larger catch-up allocation should resume once an external signal confirms route restoration or the 5-7 day probe interval has elapsed.",
     "walletUsdcBalance": "35.313125741836296748",
     "message": "Swap failed [cirBTC/no_route]: Swap failed [no_route]: Stablecoin Service createSwap failed: Route or resource not found. Details: No route available"
+  },
+  {
+    "date": "2026-07-19",
+    "timestamp": "2026-07-19T11:41:10.724Z",
+    "status": "skipped_guardrail_clamped",
+    "requestedAmountUsdc": "0.000000",
+    "clampedAmountUsdc": "0",
+    "boundBy": "scheduled_below_min",
+    "tokenOut": "cirBTC",
+    "walletUsdcBalance": "34.292676622860296748",
+    "message": "No buy this run: 0 active user(s), scheduled 0.000000 USDC, executable 0.000000 < min swap 0.1"
   }
 ]

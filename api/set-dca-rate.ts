@@ -7,6 +7,12 @@ const GITHUB_OWNER = "thanhphuc85";
 const GITHUB_REPO = "AuraDCA";
 const LEDGER_PATH = "data/ledger.json";
 
+// Tokens the agent can DCA into on Arc Testnet (mirrors SUPPORTED_DCA_TOKENS in
+// src/ledger/constants.ts — kept inline so this serverless function stays
+// self-contained). A signed TokenOut must be one of these or the request is
+// rejected, so a client can never persist an unswappable target.
+const SUPPORTED_DCA_TOKENS = ["cirBTC", "EURC"] as const;
+
 interface LedgerUser {
   address: string;
   usdcBalance: string;
@@ -24,6 +30,7 @@ interface LedgerUser {
   dcaWeeklyCapUsdc?: string;
   dcaSmartMinDipPct?: number;
   dcaSmartFearBelow?: number;
+  dcaTokenOut?: string;
   lastActivity: string;
   [k: string]: unknown;
 }
@@ -76,7 +83,7 @@ interface SchedulePayload {
   smartFear?: number;
 }
 
-function parseRateMessage(msg: string): { rate: string; mode?: string; runs?: string; schedule?: SchedulePayload; address: string; timestamp: number } | null {
+function parseRateMessage(msg: string): { rate: string; mode?: string; runs?: string; token?: string; schedule?: SchedulePayload; address: string; timestamp: number } | null {
   const lines = msg.split("\n");
   if (!lines[0]?.startsWith("Aura DCA Agent")) return null;
   const get = (prefix: string) => lines.find((l) => l.startsWith(prefix))?.slice(prefix.length);
@@ -86,13 +93,14 @@ function parseRateMessage(msg: string): { rate: string; mode?: string; runs?: st
   // Optional fields (backward-compatible with signatures from earlier versions).
   const mode = get("Mode: ");
   const runs = get("Runs: ");
+  const token = get("TokenOut: "); // which token to DCA into; absent = keep current
   // Rich schedule carried as one compact JSON line, e.g.
   //   Schedule: {"freq":"hours","everyHours":6,"amountPerRun":"1.000000",...}
   let schedule: SchedulePayload | undefined;
   const scheduleRaw = get("Schedule: ");
   if (scheduleRaw) { try { schedule = JSON.parse(scheduleRaw) as SchedulePayload; } catch { schedule = undefined; } }
   if (rate === undefined || !address || !ts) return null;
-  return { rate, mode, runs, schedule, address, timestamp: parseInt(ts, 10) };
+  return { rate, mode, runs, token, schedule, address, timestamp: parseInt(ts, 10) };
 }
 
 function num(v: unknown): number | undefined { const n = Number.parseFloat(String(v)); return Number.isFinite(n) ? n : undefined; }
@@ -111,8 +119,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   const parsed = parseRateMessage(message);
   if (!parsed) { res.status(400).json({ error: "Invalid message format" }); return; }
-  const { rate, mode, runs, schedule, address, timestamp } = parsed;
+  const { rate, mode, runs, token, schedule, address, timestamp } = parsed;
   const dcaMode: "auto" | "manual" | "smart" = mode === "manual" ? "manual" : mode === "smart" ? "smart" : "auto";
+  // Token is optional (absent = keep the user's current choice). When present it
+  // must be one the network can actually swap into, or we reject rather than
+  // persist an unswappable target that would fail every run.
+  if (token !== undefined && !SUPPORTED_DCA_TOKENS.includes(token as (typeof SUPPORTED_DCA_TOKENS)[number])) {
+    res.status(400).json({ error: `Unsupported token "${token}". Choose one of: ${SUPPORTED_DCA_TOKENS.join(", ")}.` }); return;
+  }
   // runs is optional; clamp to 1/2/3 if provided, else undefined (keep prior).
   const parsedRuns = runs ? Number.parseInt(runs, 10) : NaN;
   const dcaRunsPerDay: 1 | 2 | 3 | undefined =
@@ -172,6 +186,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   user.dcaPaused = rateNum === 0; // rate 0 = paused
   user.dcaMode = dcaMode;
   if (dcaRunsPerDay) user.dcaRunsPerDay = dcaRunsPerDay;
+  if (token !== undefined) user.dcaTokenOut = token; // validated against SUPPORTED_DCA_TOKENS above
   user.lastActivity = now;
 
   // Rich schedule: when provided, persist the full cadence + caps + smart
@@ -202,5 +217,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(500).json({ error: "Failed to save rate: " + (err instanceof Error ? err.message : String(err)) }); return;
   }
 
-  res.status(200).json({ success: true, address: key, dcaRatePerDay: user.dcaRatePerDay, paused: user.dcaPaused, mode: dcaMode, frequency: user.dcaFrequency });
+  res.status(200).json({ success: true, address: key, dcaRatePerDay: user.dcaRatePerDay, paused: user.dcaPaused, mode: dcaMode, frequency: user.dcaFrequency, tokenOut: user.dcaTokenOut ?? "cirBTC" });
 }

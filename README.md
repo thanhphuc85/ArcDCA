@@ -21,9 +21,9 @@
 
 ![Daily flow: cron → read balance → Claude decides → guardrails clamp → swap → commit history](docs/flow.svg)
 
-> **An autonomous agent that lets Claude drive strategy while code owns every number that touches money.** A GitHub Actions cron asks **Claude** what to do, [`clampDecision()`](src/decision/guardrails.ts) re-derives the real limit from hard guardrails and owns the amount actually spent, and many users' schedules settle through **one pooled USDC → cirBTC swap, distributed pro-rata** — executed on **Arc Testnet** via Circle's Swap Kit, authorised by each user's own signature, with the audit trail committed back to this repo. No server, no human in the loop, and no key ever leaves the user's wallet.
+> **An autonomous agent that lets Claude drive strategy while code owns every number that touches money.** A GitHub Actions cron asks **Claude** what to do, [`clampDecision()`](src/decision/guardrails.ts) re-derives the real limit from hard guardrails and owns the amount actually spent, and — because each user picks the token they DCA into — many users' schedules settle through **one pooled swap per token, distributed pro-rata** — executed on **Arc Testnet** via Circle's Swap Kit, authorised by each user's own signature, with the audit trail committed back to this repo. No server, no human in the loop, and no key ever leaves the user's wallet.
 >
-> Dollar-cost averaging is the reference implementation. The architecture underneath is the point.
+> Dollar-cost averaging into any token the network supports is the reference implementation. The architecture underneath is the point.
 
 Built for the **Encode Club × Circle Programmable Money Hackathon** — full write-up: [`SUBMISSION.md`](SUBMISSION.md) · bản tiếng Việt: [`SUBMISSION.vi.md`](SUBMISSION.vi.md).
 
@@ -32,7 +32,7 @@ Every hour, a GitHub Actions cron job wakes up — and each user's own cadence d
 1. Checks the bot's Circle **Developer-Controlled Wallet** USDC balance on Arc Testnet.
 2. Calls **Claude** (Anthropic API) to decide how much USDC to allocate to today's buy, given the remaining budget, day count, and recent trade history.
 3. Clamps that recommendation against hard-coded guardrails in code (max per day, minimum reserve, minimum swap size, optional total campaign budget) — **Claude only recommends, the code decides**.
-4. Executes a USDC → cirBTC swap via Circle's official [Swap Kit](https://docs.arc.io/app-kit/swap.md) SDK (the only officially documented swap path on Arc Testnet today).
+4. Groups the due users by the token each chose and executes **one USDC → token swap per group** via Circle's official [Swap Kit](https://docs.arc.io/app-kit/swap.md) SDK — the only officially documented swap path on Arc Testnet today (which currently wires cirBTC and EURC).
 5. Appends a record to [`data/history.json`](data/history.json) and commits it back to the repo, so there's a visible audit trail over time.
 
 Arc Testnet only supports Swap Kit swaps between USDC, EURC, and cirBTC — third-party community DEXs on Arc were deliberately avoided since they don't have publicly verified contract addresses.

@@ -11,7 +11,7 @@ On-chain proof: https://testnet.arcscan.app/tx/0x83097f432db9c013b3f8d7748b58f18
 
 ## Tagline
 
-An autonomous agent that lets Claude drive strategy while **code owns every number that touches money** — and pools many users' schedules into a **single on-chain swap, settled pro-rata**. Dollar-cost averaging into cirBTC on Arc Testnet is the reference implementation; the architecture underneath it is the contribution.
+An autonomous agent that lets Claude drive strategy while **code owns every number that touches money** — and pools many users' schedules into **one on-chain swap per token they chose, settled pro-rata**. Dollar-cost averaging into any token the network supports (you pick; cirBTC and EURC are wired on Arc Testnet today) is the reference implementation; the architecture underneath it is the contribution.
 
 ## The problem
 
@@ -84,8 +84,9 @@ GitHub Actions cron (hourly — each user's own cadence decides if this hour is 
   → computeScheduledSpends(): who is due now, how much each, capped by their limits
   → Claude decides / advises: { proceed, amountUsdc, reasoning }  (forced tool-use, zod-validated)
   → clampDecision(): hard guardrails enforce the real amount
-  → Circle Swap Kit: ONE USDC → cirBTC swap for the pooled total (or dry-run stub)
-  → applyScheduledDistribution(): split pro-rata back to each user
+  → group the due spends by each user's chosen token
+  → Circle Swap Kit: ONE USDC → token swap per token group (or dry-run stub)
+  → applyScheduledDistribution(): split each group pro-rata back to its users
   → append to data/history.json  →  commit back to repo
 ```
 

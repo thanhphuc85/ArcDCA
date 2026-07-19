@@ -1039,7 +1039,7 @@
 
   <div class="hero" id="heroSection">
     <h1>An agent that <span class="grad">dollar-cost-averages</span> for you.</h1>
-    <p><b>Claude</b> decides the strategy — <b>code owns every number that touches money.</b> Each run settles a real <b>USDC → cirBTC</b> swap on Arc Testnet through Circle's Swap Kit, authorized by your own wallet. No server, no human in the loop.</p>
+    <p><b>Claude</b> decides the strategy — <b>code owns every number that touches money.</b> Pick any token the network supports; each run pools everyone's buys by token and settles a real swap through Circle's Swap Kit on Arc Testnet, authorized by your own wallet. No server, no human in the loop.</p>
     <div class="cta">
       <button class="btn" id="connectHero">Connect Wallet</button>
       <a class="btn ghost" href="https://github.com/thanhphuc85/AuraDCA" target="_blank" rel="noopener">View source ↗</a>
@@ -4313,14 +4313,14 @@
   var T = {
     en: {
       heroH1a: "An agent that ", heroGrad: "dollar-cost-averages", heroH1b: " for you.",
-      heroDesc: '<b>Claude</b> decides the strategy — <b>code owns every number that touches money.</b> Each run settles a real <b>USDC → cirBTC</b> swap on Arc Testnet through Circle\'s Swap Kit, authorized by your own wallet. No server, no human in the loop.',
+      heroDesc: '<b>Claude</b> decides the strategy — <b>code owns every number that touches money.</b> Pick any token the network supports; each run pools everyone\'s buys by token and settles a real swap through Circle\'s Swap Kit on Arc Testnet, authorized by your own wallet. No server, no human in the loop.',
       connectWallet: "Connect Wallet", viewSource: "View source ↗", liveSwap: "See a live swap ↗",
       usdcDeployed: "USDC deployed", agentRuns: "Agent runs", lastDecision: "Last decision",
       howEye: "How it works", howTitle: "Claude recommends. Code decides.",
       howSub: "The LLM is never the final authority on how much money moves.",
       step1t: "Claude decides", step1d: "Given balance, budget, day count & history, Claude returns a proposed amount + reasoning via a forced, schema-validated tool call.",
       step2t: "Guardrails clamp", step2d: "A pure, unit-tested function re-derives the cap from hard limits (max/day, reserve, dust, budget). The sole spending authority.",
-      step3t: "Swap & record", step3d: "Circle Swap Kit executes USDC → cirBTC on Arc Testnet; the run is appended to a public audit trail committed back to the repo.",
+      step3t: "Swap & record", step3d: "Circle Swap Kit settles one USDC → token swap per token group on Arc Testnet; the run is appended to a public audit trail committed back to the repo.",
       aiInsightsEye: "AI Insights", aiInsightsTitle: "Claude's best reasoning",
       aiInsightsSub: "Highlights from the agent's most insightful decisions — showing how it thinks about market conditions and allocation.",
       stratEye: "DCA Strategy", stratTitle: "Smart dip-buying agent",
@@ -4386,7 +4386,7 @@
       portUsdcLabel: "USDC in wallet", portUsdcSub: "Your own balance",
       portAllowanceLabel: "Allowance", portAllowanceSub: "Approved to agent",
       portCirBtcLabel: "cirBTC earned", portCirBtcSub: "In your wallet",
-      portSwappedLabel: "Total DCA'd", portSwappedSub: "USDC → cirBTC all-time",
+      portSwappedLabel: "Total DCA'd", portSwappedSub: "USDC swapped, all-time",
       portWithdrawTitle: "Withdraw your tokens", portWithdrawSub: "Sign a message to verify your identity — withdrawal completes in 10–30 seconds.",
       rateTitle: "Your DCA schedule", rateSub: "Build exactly how the agent buys for you — frequency, amount per run, caps, and mode. Sign to save (no gas).",
       rateBtn: "Save schedule",
@@ -4428,14 +4428,14 @@
     },
     vi: {
       heroH1a: "Agent tự động ", heroGrad: "DCA bình quân giá", heroH1b: " cho bạn.",
-      heroDesc: '<b>Claude</b> quyết định chiến lược — <b>code nắm mọi con số động đến tiền.</b> Mỗi lượt chạy thực hiện một swap <b>USDC → cirBTC</b> thật trên Arc Testnet qua Circle Swap Kit, được chính ví của bạn ký duyệt. Không server, không cần người can thiệp.',
+      heroDesc: '<b>Claude</b> quyết định chiến lược — <b>code nắm mọi con số động đến tiền.</b> Chọn bất kỳ token nào mạng hỗ trợ; mỗi lượt chạy gộp lệnh mua theo token và settle thành một swap thật qua Circle Swap Kit trên Arc Testnet, được chính ví của bạn ký duyệt. Không server, không cần người can thiệp.',
       connectWallet: "Kết nối ví", viewSource: "Mã nguồn ↗", liveSwap: "Xem giao dịch ↗",
       usdcDeployed: "USDC đã triển khai", agentRuns: "Lần chạy", lastDecision: "Quyết định gần nhất",
       howEye: "Cách hoạt động", howTitle: "Claude đề xuất. Code quyết định.",
       howSub: "LLM không bao giờ là thẩm quyền cuối cùng về số tiền di chuyển.",
       step1t: "Claude quyết định", step1d: "Dựa trên số dư, ngân sách, số ngày & lịch sử, Claude đề xuất số tiền + lý do qua tool call có schema cố định.",
       step2t: "Rào chắn giới hạn", step2d: "Hàm thuần túy, có unit test, tính lại giới hạn từ các ràng buộc cứng (max/ngày, dự trữ, dust, ngân sách). Đây mới là quyền chi tiêu.",
-      step3t: "Swap & ghi nhận", step3d: "Circle Swap Kit thực hiện USDC → cirBTC trên Arc Testnet; kết quả được thêm vào audit trail công khai và commit lại repo.",
+      step3t: "Swap & ghi nhận", step3d: "Circle Swap Kit settle một swap USDC → token cho mỗi nhóm token trên Arc Testnet; kết quả được thêm vào audit trail công khai và commit lại repo.",
       aiInsightsEye: "AI Insights", aiInsightsTitle: "Suy luận hay nhất của Claude",
       aiInsightsSub: "Điểm nhấn từ những quyết định sâu sắc nhất của agent — cho thấy cách nó suy nghĩ về thị trường và phân bổ.",
       stratEye: "Chiến lược DCA", stratTitle: "Agent mua thông minh khi giảm giá",
@@ -4501,7 +4501,7 @@
       portUsdcLabel: "USDC trong ví", portUsdcSub: "Số dư của bạn",
       portAllowanceLabel: "Allowance", portAllowanceSub: "Đã cấp cho agent",
       portCirBtcLabel: "cirBTC đã nhận", portCirBtcSub: "Trong ví của bạn",
-      portSwappedLabel: "Tổng đã DCA", portSwappedSub: "USDC → cirBTC tổng cộng",
+      portSwappedLabel: "Tổng đã DCA", portSwappedSub: "USDC đã swap, tổng cộng",
       portWithdrawTitle: "Rút token", portWithdrawSub: "Ký xác nhận danh tính — rút tiền hoàn tất trong 10–30 giây.",
       rateTitle: "Lịch DCA của bạn", rateSub: "Tự thiết lập cách agent mua cho bạn — tần suất, số tiền mỗi lần, giới hạn, và chế độ. Ký để lưu (không tốn gas).",
       rateBtn: "Lưu lịch",

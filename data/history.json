@@ -475,5 +475,16 @@
     "tokenOut": "cirBTC",
     "walletUsdcBalance": "34.292676622860296748",
     "message": "No buy this run: 0 active user(s), scheduled 0.000000 USDC, executable 0.000000 < min swap 0.1"
+  },
+  {
+    "date": "2026-07-19",
+    "timestamp": "2026-07-19T15:33:53.484Z",
+    "status": "skipped_guardrail_clamped",
+    "requestedAmountUsdc": "0.000000",
+    "clampedAmountUsdc": "0",
+    "boundBy": "scheduled_below_min",
+    "tokenOut": "cirBTC",
+    "walletUsdcBalance": "34.292676622860296748",
+    "message": "No buy this run: 0 active user(s), scheduled 0.000000 USDC, executable 0.000000 < min swap 0.1"
   }
 ]

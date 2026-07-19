@@ -1,10 +1,26 @@
 import type { Ledger, UserAccount, DistributionRecord } from "../types.js";
-import { USDC_DECIMALS, CIRBTC_DECIMALS } from "./constants.js";
+import { USDC_DECIMALS, CIRBTC_DECIMALS, DEFAULT_DCA_TOKEN } from "./constants.js";
 import { logger } from "../logger.js";
 
 export interface UserSpend {
   address: string;
   spend: number; // USDC this user's schedule wants to spend this run
+  tokenOut: string; // the token this user DCAs into (symbol); default DEFAULT_DCA_TOKEN
+}
+
+/**
+ * Group scheduled spends by their target token. Each group is settled as ONE
+ * pooled swap (USDC → that token) and distributed pro-rata within the group, so
+ * users who pick different tokens are never mixed into the same swap.
+ */
+export function groupSpendsByToken(spends: UserSpend[]): Map<string, UserSpend[]> {
+  const groups = new Map<string, UserSpend[]>();
+  for (const s of spends) {
+    const key = s.tokenOut || DEFAULT_DCA_TOKEN;
+    const g = groups.get(key);
+    if (g) g.push(s); else groups.set(key, [s]);
+  }
+  return groups;
 }
 
 export interface ScheduleResult {
@@ -91,7 +107,7 @@ function smartConditionMet(user: UserAccount, market: MarketContext): boolean {
  *   • Legacy (no dcaFrequency): rate/day × elapsed at the fixed 07/13/19 UTC
  *     slots, honoring dcaRunsPerDay.
  */
-export function computeScheduledSpends(ledger: Ledger, nowIso: string, market: MarketContext = {}): ScheduleResult {
+export function computeScheduledSpends(ledger: Ledger, nowIso: string, market: MarketContext = {}, defaultToken: string = DEFAULT_DCA_TOKEN): ScheduleResult {
   const now = new Date(nowIso).getTime();
   const utcHour = new Date(nowIso).getUTCHours();
   const legacySlot = utcHour < 12 ? 0 : utcHour < 18 ? 1 : 2;
@@ -138,7 +154,7 @@ export function computeScheduledSpends(ledger: Ledger, nowIso: string, market: M
     }
 
     if (spend > 0) {
-      spends.push({ address: user.address, spend });
+      spends.push({ address: user.address, spend, tokenOut: user.dcaTokenOut || defaultToken });
       total += spend;
     }
   }
@@ -147,53 +163,61 @@ export function computeScheduledSpends(ledger: Ledger, nowIso: string, market: M
 }
 
 /**
- * Attribute an executed swap back to the per-user schedule: each user gets cirBTC
- * in proportion to their scheduled spend, and their USDC is debited by the amount
- * actually executed (scaled down if a guardrail capped the total below schedule).
+ * Attribute an executed swap back to the per-user schedule for ONE token group:
+ * each user gets the received token in proportion to their scheduled spend, and
+ * their USDC is debited by the amount actually executed (scaled down if a
+ * guardrail capped the group total below schedule). `tokenSymbol`/`tokenDecimals`
+ * default to cirBTC, so existing single-token callers are unchanged.
  */
 export function applyScheduledDistribution(
   ledger: Ledger,
   spends: UserSpend[],
   executedUsdc: string,
-  cirBtcReceived: string,
+  tokenReceived: string,
   runTimestamp: string,
+  tokenSymbol: string = DEFAULT_DCA_TOKEN,
+  tokenDecimals: number = CIRBTC_DECIMALS,
 ): DistributionRecord | null {
   const scheduledTotal = spends.reduce((s, x) => s + x.spend, 0);
   const executed = Number.parseFloat(executedUsdc);
-  const received = Number.parseFloat(cirBtcReceived);
+  const received = Number.parseFloat(tokenReceived);
   if (scheduledTotal <= 0 || executed <= 0 || received <= 0) return null;
 
   const scale = Math.min(1, executed / scheduledTotal); // guardrail may cap total below schedule
 
   const allocations: DistributionRecord["allocations"] = [];
   let sumUsdc = 0;
-  let sumBtc = 0;
+  let sumTok = 0;
 
   for (const { address, spend } of spends) {
     const user = ledger.users[address];
     if (!user) continue;
     const fraction = spend / scheduledTotal;
     const usdcShare = Number.parseFloat((spend * scale).toFixed(USDC_DECIMALS));
-    const cirBtcShare = Number.parseFloat((fraction * received).toFixed(CIRBTC_DECIMALS));
+    const tokShare = Number.parseFloat((fraction * received).toFixed(tokenDecimals));
     allocations.push({
       address,
       usdcShare: usdcShare.toFixed(USDC_DECIMALS),
-      cirBtcShare: cirBtcShare.toFixed(CIRBTC_DECIMALS),
+      cirBtcShare: tokShare.toFixed(tokenDecimals), // received-token share (field kept for back-compat)
       poolFraction: fraction.toFixed(8),
     });
     sumUsdc += usdcShare;
-    sumBtc += cirBtcShare;
+    sumTok += tokShare;
   }
 
-  // Assign rounding remainder to the largest contributor.
-  const usdcRemainder = executed - sumUsdc;
-  const btcRemainder = received - sumBtc;
-  if ((usdcRemainder > 0 || btcRemainder > 0) && allocations.length > 0) {
+  // Assign the rounding remainder to the largest contributor so the books close
+  // EXACTLY. The remainder is signed: per-share rounding can push the sum a hair
+  // above OR below the executed/received totals, and both directions must be
+  // absorbed (an earlier version only handled the positive side, leaving a
+  // sub-micro over-debit when rounding overshot). Sub-token magnitude, clamped
+  // so a share can never go negative.
+  if (allocations.length > 0) {
     const largest = allocations.reduce((max, a) => (parseFloat(a.poolFraction) > parseFloat(max.poolFraction) ? a : max));
-    if (usdcRemainder > 0) largest.usdcShare = (parseFloat(largest.usdcShare) + usdcRemainder).toFixed(USDC_DECIMALS);
-    if (btcRemainder > 0) largest.cirBtcShare = (parseFloat(largest.cirBtcShare) + btcRemainder).toFixed(CIRBTC_DECIMALS);
+    largest.usdcShare = Math.max(0, parseFloat(largest.usdcShare) + (executed - sumUsdc)).toFixed(USDC_DECIMALS);
+    largest.cirBtcShare = Math.max(0, parseFloat(largest.cirBtcShare) + (received - sumTok)).toFixed(tokenDecimals);
   }
 
+  const isCirBtc = tokenSymbol === "cirBTC";
   const nowMs = new Date(runTimestamp).getTime();
   const dayKey = utcDate(nowMs);
   const weekKey = utcWeekStart(nowMs);
@@ -201,8 +225,14 @@ export function applyScheduledDistribution(
     const user = ledger.users[alloc.address];
     if (!user) continue;
     const share = parseFloat(alloc.usdcShare);
+    const tok = parseFloat(alloc.cirBtcShare);
     user.usdcBalance = Math.max(0, parseFloat(user.usdcBalance) - share).toFixed(USDC_DECIMALS);
-    user.cirBtcBalance = (parseFloat(user.cirBtcBalance) + parseFloat(alloc.cirBtcShare)).toFixed(CIRBTC_DECIMALS);
+    // Credit the per-token holding; mirror cirBtcBalance so older readers keep
+    // working. Seed a missing cirBTC entry from the legacy cirBtcBalance field.
+    const balances = (user.tokenBalances ??= {});
+    const prior = parseFloat(balances[tokenSymbol] ?? (isCirBtc ? user.cirBtcBalance : "0"));
+    balances[tokenSymbol] = (prior + tok).toFixed(tokenDecimals);
+    if (isCirBtc) user.cirBtcBalance = balances[tokenSymbol]!;
     user.totalSwapped = (parseFloat(user.totalSwapped) + share).toFixed(USDC_DECIMALS);
     // Roll the daily/weekly spend windows forward, resetting when they lapse.
     const daySpent = user.dcaSpentDayDate === dayKey ? parseFloat(user.dcaSpentDayUsdc ?? "0") : 0;
@@ -217,12 +247,13 @@ export function applyScheduledDistribution(
 
   const record: DistributionRecord = {
     runTimestamp,
+    tokenOut: tokenSymbol,
     totalUsdcSwapped: executedUsdc,
-    totalCirBtcReceived: cirBtcReceived,
+    totalCirBtcReceived: tokenReceived, // received-token total (field kept for back-compat)
     allocations,
     timestamp: new Date().toISOString(),
   };
   ledger.distributions.push(record);
-  logger.info(`Rate-based distribution: ${executedUsdc} USDC / ${cirBtcReceived} cirBTC across ${allocations.length} user(s)`);
+  logger.info(`Distribution: ${executedUsdc} USDC / ${tokenReceived} ${tokenSymbol} across ${allocations.length} user(s)`);
   return record;
 }

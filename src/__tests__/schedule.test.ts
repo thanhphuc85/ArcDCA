@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { computeScheduledSpends, applyScheduledDistribution } from "../ledger/schedule.js";
+import { computeScheduledSpends, applyScheduledDistribution, groupSpendsByToken } from "../ledger/schedule.js";
 import type { Ledger, UserAccount } from "../types.js";
+
+// UserSpend factory — tokenOut defaults to cirBTC (the historical single-token case).
+const sp = (address: string, spend: number, tokenOut = "cirBTC") => ({ address, spend, tokenOut });
 
 function mkUser(addr: string, over: Partial<UserAccount> = {}): UserAccount {
   return {
@@ -43,7 +46,7 @@ describe("computeScheduledSpends — rich schedule", () => {
   it("every-N-hours: due when elapsed ≥ interval, spends amountPerRun", () => {
     const l = mkLedger([mkUser("0xa", { dcaFrequency: "hours", dcaEveryHours: 6, dcaAmountPerRun: "2.500000", lastChargedAt: "2026-06-15T03:00:00.000Z" })]);
     const r = computeScheduledSpends(l, NOW); // 7h elapsed ≥ 6
-    expect(r.spends).toEqual([{ address: "0xa", spend: 2.5 }]);
+    expect(r.spends).toEqual([{ address: "0xa", spend: 2.5, tokenOut: "cirBTC" }]);
   });
 
   it("every-N-hours: NOT due when elapsed < interval", () => {
@@ -67,7 +70,7 @@ describe("computeScheduledSpends — rich schedule", () => {
       dcaSpentDayUsdc: "8", dcaSpentDayDate: "2026-06-15", lastChargedAt: "2026-06-15T08:00:00.000Z",
     })]);
     // remaining cap = 12 - 8 = 4 → spend clamped to 4
-    expect(computeScheduledSpends(l, NOW).spends).toEqual([{ address: "0xa", spend: 4 }]);
+    expect(computeScheduledSpends(l, NOW).spends).toEqual([{ address: "0xa", spend: 4, tokenOut: "cirBTC" }]);
   });
 
   it("daily cap already reached → skipped", () => {
@@ -110,7 +113,7 @@ describe("applyScheduledDistribution — pooled swap, pro-rata settlement", () =
     const l = mkLedger([mkUser("0xa"), mkUser("0xb")]);
     const rec = applyScheduledDistribution(
       l,
-      [{ address: "0xa", spend: 1 }, { address: "0xb", spend: 3 }], // 25% / 75%
+      [sp("0xa", 1), sp("0xb", 3)], // 25% / 75%
       "4.000000", "0.00000400", NOW,
     );
     expect(rec).not.toBeNull();
@@ -126,7 +129,7 @@ describe("applyScheduledDistribution — pooled swap, pro-rata settlement", () =
     const l = mkLedger([mkUser("0xa"), mkUser("0xb"), mkUser("0xc")]);
     const rec = applyScheduledDistribution(
       l,
-      [{ address: "0xa", spend: 1 }, { address: "0xb", spend: 1 }, { address: "0xc", spend: 1 }],
+      [sp("0xa", 1), sp("0xb", 1), sp("0xc", 1)],
       "1.000000", "0.00000001", NOW,
     );
     const sumUsdc = rec!.allocations.reduce((s, a) => s + parseFloat(a.usdcShare), 0);
@@ -140,7 +143,7 @@ describe("applyScheduledDistribution — pooled swap, pro-rata settlement", () =
     // Schedule wanted 4 USDC; the guardrail only allowed 2 → everyone halves.
     const rec = applyScheduledDistribution(
       l,
-      [{ address: "0xa", spend: 1 }, { address: "0xb", spend: 3 }],
+      [sp("0xa", 1), sp("0xb", 3)],
       "2.000000", "0.00000400", NOW,
     );
     const byAddr = Object.fromEntries(rec!.allocations.map((a) => [a.address, a]));
@@ -152,7 +155,7 @@ describe("applyScheduledDistribution — pooled swap, pro-rata settlement", () =
 
   it("debits USDC, credits cirBTC, and records the charge on each user", () => {
     const l = mkLedger([mkUser("0xa", { usdcBalance: "10.000000" })]);
-    applyScheduledDistribution(l, [{ address: "0xa", spend: 4 }], "4.000000", "0.00000400", NOW);
+    applyScheduledDistribution(l, [sp("0xa", 4)], "4.000000", "0.00000400", NOW);
     const u = l.users["0xa"]!;
     expect(parseFloat(u.usdcBalance)).toBeCloseTo(6, 6);
     expect(parseFloat(u.cirBtcBalance)).toBeCloseTo(0.000004, 8);
@@ -162,7 +165,7 @@ describe("applyScheduledDistribution — pooled swap, pro-rata settlement", () =
 
   it("advances the rolling spend windows so daily/weekly caps stay honest", () => {
     const l = mkLedger([mkUser("0xa", { dcaSpentDayUsdc: "2.000000", dcaSpentDayDate: "2026-06-15" })]);
-    applyScheduledDistribution(l, [{ address: "0xa", spend: 3 }], "3.000000", "0.00000300", NOW);
+    applyScheduledDistribution(l, [sp("0xa", 3)], "3.000000", "0.00000300", NOW);
     const u = l.users["0xa"]!;
     expect(u.dcaSpentDayDate).toBe("2026-06-15");
     expect(parseFloat(u.dcaSpentDayUsdc!)).toBeCloseTo(5, 6); // 2 already spent + 3 now
@@ -171,8 +174,52 @@ describe("applyScheduledDistribution — pooled swap, pro-rata settlement", () =
 
   it("returns null rather than corrupting the ledger on a failed swap", () => {
     const l = mkLedger([mkUser("0xa")]);
-    expect(applyScheduledDistribution(l, [{ address: "0xa", spend: 1 }], "0", "0", NOW)).toBeNull();
+    expect(applyScheduledDistribution(l, [sp("0xa", 1)], "0", "0", NOW)).toBeNull();
     expect(applyScheduledDistribution(l, [], "1.000000", "0.00000100", NOW)).toBeNull();
     expect(parseFloat(l.users["0xa"]!.usdcBalance)).toBeCloseTo(100, 6); // untouched
+  });
+});
+
+describe("multi-token DCA — per-user token, pooled per token", () => {
+  it("each spend carries the user's chosen token; default is cirBTC", () => {
+    const l = mkLedger([
+      mkUser("0xa", { dcaFrequency: "hours", dcaEveryHours: 1, dcaAmountPerRun: "1", dcaTokenOut: "EURC", lastChargedAt: "2026-06-15T08:00:00.000Z" }),
+      mkUser("0xb", { dcaFrequency: "hours", dcaEveryHours: 1, dcaAmountPerRun: "1", lastChargedAt: "2026-06-15T08:00:00.000Z" }),
+    ]);
+    const spends = computeScheduledSpends(l, NOW).spends;
+    const byAddr = Object.fromEntries(spends.map((s) => [s.address, s.tokenOut]));
+    expect(byAddr["0xa"]).toBe("EURC");
+    expect(byAddr["0xb"]).toBe("cirBTC"); // absent dcaTokenOut → default
+  });
+
+  it("groupSpendsByToken separates users by their target token", () => {
+    const groups = groupSpendsByToken([sp("0xa", 1, "EURC"), sp("0xb", 3, "cirBTC"), sp("0xc", 2, "EURC")]);
+    expect([...groups.keys()].sort()).toEqual(["EURC", "cirBTC"]);
+    expect(groups.get("EURC")!.map((s) => s.address)).toEqual(["0xa", "0xc"]);
+    expect(groups.get("cirBTC")!.map((s) => s.address)).toEqual(["0xb"]);
+  });
+
+  it("distributes an EURC group with 6-decimal rounding and never touches cirBtcBalance", () => {
+    const l = mkLedger([mkUser("0xa", { usdcBalance: "10.000000" }), mkUser("0xb", { usdcBalance: "10.000000" })]);
+    // 1 : 3 split of 0.804606 EURC received for 4 USDC.
+    applyScheduledDistribution(l, [sp("0xa", 1, "EURC"), sp("0xb", 3, "EURC")], "4.000000", "0.804606", NOW, "EURC", 6);
+    const a = l.users["0xa"]!, b = l.users["0xb"]!;
+    const ea = parseFloat(a.tokenBalances!["EURC"]!), eb = parseFloat(b.tokenBalances!["EURC"]!);
+    expect(a.tokenBalances!["EURC"]).toBeDefined();
+    expect(eb / ea).toBeCloseTo(3, 3);            // pro-rata: 75% / 25%
+    expect(ea + eb).toBeCloseTo(0.804606, 6);     // books close on the received EURC
+    // 6-decimal rounding — no share has more precision than the token allows.
+    expect(a.tokenBalances!["EURC"]!.split(".")[1]!.length).toBeLessThanOrEqual(6);
+    // EURC buyers hold zero cirBTC — the legacy field is left alone.
+    expect(parseFloat(a.cirBtcBalance)).toBe(0);
+    expect(parseFloat(b.cirBtcBalance)).toBe(0);
+  });
+
+  it("a cirBTC group mirrors into tokenBalances.cirBTC and keeps cirBtcBalance in sync", () => {
+    const l = mkLedger([mkUser("0xa")]);
+    applyScheduledDistribution(l, [sp("0xa", 4)], "4.000000", "0.00000400", NOW); // defaults cirBTC/8
+    const u = l.users["0xa"]!;
+    expect(parseFloat(u.cirBtcBalance)).toBeCloseTo(0.000004, 8);
+    expect(u.tokenBalances!["cirBTC"]).toBe(u.cirBtcBalance);
   });
 });

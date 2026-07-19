@@ -90,7 +90,11 @@ export interface ClampedDecision {
 export interface UserAccount {
   address: string;
   usdcBalance: string;
-  cirBtcBalance: string;
+  cirBtcBalance: string; // canonical cirBTC holding; mirrors tokenBalances["cirBTC"]
+  // Per-token holdings (symbol → balance string), for users who DCA into tokens
+  // other than cirBTC. cirBtcBalance stays the source of truth for cirBTC so
+  // older ledgers and the dashboard keep working unchanged.
+  tokenBalances?: Record<string, string>;
   totalDeposited: string;
   totalSwapped: string;
   totalWithdrawnCirBtc: string;
@@ -120,6 +124,11 @@ export interface UserAccount {
   dcaWeeklyCapUsdc?: string; // max USDC/week (absent or "0" = no cap)
   dcaSmartMinDipPct?: number;  // smart: only run if drawdown-from-high ≥ this %
   dcaSmartFearBelow?: number;  // smart: only run if Fear & Greed index < this
+  // Which token this user dollar-cost-averages into (symbol, see
+  // SUPPORTED_DCA_TOKENS). Absent = the default (cirBTC). The user picks it; the
+  // agent only advises. Users choosing different tokens are pooled per-token —
+  // one swap per token group each run.
+  dcaTokenOut?: string;
 
   // Rolling spend windows, maintained by applyScheduledDistribution, used to
   // enforce the daily/weekly caps. Dates are UTC YYYY-MM-DD.
@@ -150,8 +159,9 @@ export interface DepositRecord {
 
 export interface DistributionRecord {
   runTimestamp: string;
+  tokenOut?: string; // which token this group bought (absent = cirBTC, for old records)
   totalUsdcSwapped: string;
-  totalCirBtcReceived: string;
+  totalCirBtcReceived: string; // received-token total; name kept for back-compat
   allocations: Array<{
     address: string;
     usdcShare: string;

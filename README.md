@@ -50,7 +50,7 @@ This isn't a mockup. The agent has executed a **real swap on Arc Testnet**:
 
 `data/history.json` currently shows a run of `error_swap_failed` entries. That is
 **not** the agent failing — Arc Testnet's `USDC → cirBTC` route has returned
-*"No route available"* on every attempt for 10+ consecutive days. Two things make
+*"No route available"* on every attempt for 12+ consecutive days. Two things make
 that verifiable rather than an excuse:
 
 - **The execution path is provably live right now** — a real swap on a working
@@ -61,13 +61,15 @@ that verifiable rather than an excuse:
   symbol the SDK knows and reports that `EURC` quotes fine while `cirBTC` has no
   liquidity, and that every other asset (`WBTC`, `WETH`, `USDT`, …) isn't wired to
   Arc Testnet at all. Arc is stablecoin-native — even its native gas token is USDC
-  — so **cirBTC is the only volatile asset available to DCA into**.
+  — so **cirBTC is the only *volatile* asset on the chain** (EURC, the other
+  target a user can pick, is a stablecoin).
 
 Rather than burn fees on a dead route, the agent detects the structural outage,
 reasons about it in its [reflections](data/reflections.json), reduces probe
-frequency, and **withholds spend to preserve capital**. The DCA target stays
-cirBTC (`TOKEN_OUT`); when Arc restores liquidity the agent resumes on its own,
-no change required.
+frequency, and **withholds spend to preserve capital**. The DCA target is a
+per-user choice: wallets set to cirBTC have the agent hold spend until the route
+returns, while wallets set to EURC settle live now — no change required when
+cirBTC recovers.
 
 **Autonomous run in CI** — [verify live on the Actions tab →](https://github.com/thanhphuc85/AuraDCA/actions/workflows/dca.yml)
 

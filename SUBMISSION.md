@@ -59,7 +59,7 @@ today: [`0xe54ee0…e3a3`](https://testnet.arcscan.app/tx/0xe54ee0951bed8c726307
 (`0.50 USDC → 0.402303 EURC`). Reproduce it yourself with `npm run prove-swap`.
 
 **The cirBTC market does not.** `USDC → cirBTC` has returned *"No route available"*
-on every attempt across 10+ consecutive days. It's a liquidity outage on Arc
+on every attempt across 12+ consecutive days. It's a liquidity outage on Arc
 Testnet, not a bug in the agent — and `npm run check-routes` shows it's isolated
 to cirBTC, which is the only volatile asset Arc carries (the chain is
 stablecoin-native down to its USDC gas token).
@@ -67,14 +67,16 @@ stablecoin-native down to its USDC gas token).
 **The agent handled it the way we'd want it to.** It recognised the failures as
 *structural rather than transient*, recorded that reasoning in its own
 [reflections](data/reflections.json), cut its probe frequency to stop burning
-fees, and withheld spend to preserve capital across all 10+ days of the outage,
+fees, and withheld spend to preserve capital across all 12+ days of the outage,
 unsupervised. Knowing when *not* to act is the harder half of an autonomous money
 agent, and this is the run of history where it was tested for real.
 
-We could have made the demo light up by pointing `TOKEN_OUT` at EURC. We didn't:
-that turns a BTC-accumulation agent into an FX trade — a working demo of a
-different product. [What we measured](#what-we-measured-and-the-pivot-we-killed)
-has the full data, including the conclusion of ours that the data overturned.
+So we didn't paper over the outage by forcing the demo onto whatever still quotes.
+Instead we made the **target token a per-user choice**: pick EURC and your buys
+settle live today (proven on-chain); leave it on cirBTC and the agent rides out
+the outage. EURC isn't a fig leaf over a dead pair — it's a real option, and
+BTC-accumulation stays intact for anyone who wants it. [What we measured](#what-we-measured-and-the-pivot-we-killed)
+is why we trust EURC enough to offer it.
 
 ## How it works (flow)
 
@@ -97,7 +99,7 @@ GitHub Actions cron (hourly — each user's own cadence decides if this hour is 
 - **Circle Swap Kit** (`@circle-fin/swap-kit`) + **Developer-Controlled Wallets** (`@circle-fin/developer-controlled-wallets`) + Circle Wallets adapter
 - **Arc Testnet** (Circle's stablecoin-native EVM L1; gas paid in USDC)
 - **GitHub Actions** for scheduling, secrets, and the commit-back audit trail
-- **Vitest** — 29 unit tests on the safety-critical paths: `clampDecision()` guardrails, the pooled pro-rata settlement, and the campaign-day arithmetic the agent reasons from
+- **Vitest** — 39 unit tests on the safety-critical paths: `clampDecision()` guardrails, the pooled pro-rata settlement (including per-token grouping), and the outage-/campaign-day arithmetic the agent reasons from
 - **Vercel** serverless functions (`api/`) for the dashboard's signed actions — set-rate, run-DCA, withdraw, chat, welcome-email
 - **Single-file dashboard** (`docs/index.html`) — EIP-6963 wallet discovery, EIP-191 signing, EN/VI, light/dark
 
@@ -137,16 +139,18 @@ What the probes actually establish:
 
 | Asset | Measured state |
 |---|---|
-| cirBTC | No liquidity — `No route available` on every attempt, 10+ days and counting |
+| cirBTC | No liquidity — `No route available` on every attempt, 12+ days and counting |
 | EURC | Live, and the rate does move — in ~hourly steps of ~0.22% |
 | WBTC / WETH / USDT / DAI / … | Not wired to Arc Testnet at all |
 
-So the pivot was viable after all. We still didn't take it — but for a reason that
-survives the correction: **retargeting `TOKEN_OUT` to EURC would turn a
-BTC-accumulation agent into an FX trade.** The demo would light up, and it would
-be a different product than the one anyone asked for. cirBTC is the only volatile
-asset Arc Testnet carries, and DCA into it is the thesis; a stablecoin FX pair is
-not a substitute for it, however conveniently it happens to be quoting.
+So the pivot was viable after all — and the twist is we didn't have to choose.
+Turning the **whole** product into a USDC/EURC FX rebalancer would have been a
+different product than anyone asked for. But **offering EURC as one token among
+several — while cirBTC stays the volatile BTC target — isn't that pivot.** It's
+the multi-token generalisation we shipped: the target is now a per-user choice,
+so EURC is available live to whoever wants it and BTC-accumulation is untouched.
+The measurement is what let us offer EURC honestly, as a real option rather than
+a demo cheat.
 
 The honest position: the agent is correct, cirBTC's market is empty, and we have
 the data to show which — including the data that proved our own first conclusion
@@ -168,7 +172,7 @@ wrong.
 
 ## What's next
 
-- Multi-asset DCA (a Claude-decided split across assets) — needs **more than one asset worth averaging into**. cirBTC is the only volatile asset Arc Testnet carries and its liquidity is out; EURC is live and its rate moves, but a stablecoin FX pair isn't a second DCA target. This unlocks the day cirBTC's market returns.
+- **Per-user token choice already ships** — each wallet picks its target (cirBTC or EURC today), and the run settles one pooled swap per token. The next step is a Claude-*decided* split across multiple **volatile** assets, which needs Arc to wire more than one; it unlocks the day cirBTC's market returns or Arc lists others.
 - A live P&L / cost-basis panel — the dashboard markup is ready and turns on automatically once cirBTC swaps clear (Arc Testnet's USDC→cirBTC route has been in an outage the agent has been reasoning around)
 - Verified sender domain for the welcome email so it reaches any user, not just the operator's inbox
 - Mainnet-readiness review when Arc mainnet ships

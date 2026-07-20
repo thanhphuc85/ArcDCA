@@ -13,11 +13,33 @@ const USDC_CONTRACT = "0x3600000000000000000000000000000000000000";
 const CIRBTC_CONTRACT = "0xf0c4a4ce82a5746abaad9425360ab04fbba432bf";
 const USDC_DECIMALS = 6;
 const CIRBTC_DECIMALS = 8;
+const EURC_DECIMALS = 6;
+// EURC's ERC-20 address on Arc Testnet isn't hardcoded — set EURC_CONTRACT in the
+// environment once it's verified. Withdrawing EURC is rejected until it is, rather
+// than risk sending to an unverified address.
+const EURC_CONTRACT = process.env.EURC_CONTRACT?.trim();
 
-const LIMITS: Record<string, { min: number; max: number }> = {
-  USDC: { min: 0.01, max: 10000 },
-  cirBTC: { min: 0.00000001, max: 100 },
+interface TokenSpec { contract: string | undefined; decimals: number; min: number; max: number }
+const TOKENS: Record<string, TokenSpec> = {
+  USDC: { contract: USDC_CONTRACT, decimals: USDC_DECIMALS, min: 0.01, max: 10000 },
+  cirBTC: { contract: CIRBTC_CONTRACT, decimals: CIRBTC_DECIMALS, min: 0.00000001, max: 100 },
+  EURC: { contract: EURC_CONTRACT, decimals: EURC_DECIMALS, min: 0.01, max: 10000 },
 };
+
+// A user's balance for a token: USDC/cirBTC keep dedicated fields; anything else
+// lives in tokenBalances[symbol]. read/write go through these so every token path
+// (reserve, refund, credit) stays consistent.
+function getTokenBalance(user: LedgerUser, token: string): number {
+  if (token === "USDC") return parseFloat(user.usdcBalance || "0");
+  if (token === "cirBTC") return parseFloat(user.cirBtcBalance || "0");
+  return parseFloat((user.tokenBalances && user.tokenBalances[token]) || "0");
+}
+function setTokenBalance(user: LedgerUser, token: string, value: number, decimals: number): void {
+  const v = Math.max(0, value).toFixed(decimals);
+  if (token === "USDC") user.usdcBalance = v;
+  else if (token === "cirBTC") user.cirBtcBalance = v;
+  else { user.tokenBalances = user.tokenBalances || {}; user.tokenBalances[token] = v; }
+}
 const RATE_LIMIT_MS = 5 * 60 * 1000;
 const MESSAGE_EXPIRY_MS = 5 * 60 * 1000;
 
@@ -29,10 +51,12 @@ interface LedgerUser {
   address: string;
   usdcBalance: string;
   cirBtcBalance: string;
+  tokenBalances?: Record<string, string>; // per-token holdings for non-cirBTC DCA targets
   totalDeposited: string;
   totalSwapped: string;
   totalWithdrawnUsdc: string;
   totalWithdrawnCirBtc: string;
+  totalWithdrawn?: Record<string, string>; // cumulative withdrawn per token (generic)
   lastActivity: string;
 }
 
@@ -143,12 +167,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(401).json({ error: "Signature does not match address" }); return;
   }
 
-  if (token !== "USDC" && token !== "cirBTC") { res.status(400).json({ error: "Invalid token" }); return; }
+  const spec = TOKENS[token];
+  if (!spec) { res.status(400).json({ error: "Invalid token" }); return; }
+  if (!spec.contract) { res.status(400).json({ error: `${token} withdrawals are not configured yet (contract address pending).` }); return; }
   const amountNum = parseFloat(amount);
   if (isNaN(amountNum) || amountNum <= 0) { res.status(400).json({ error: "Invalid amount" }); return; }
-  const limits = LIMITS[token]!;
-  if (amountNum < limits.min) { res.status(400).json({ error: `Minimum withdrawal: ${limits.min} ${token}` }); return; }
-  if (amountNum > limits.max) { res.status(400).json({ error: `Maximum withdrawal: ${limits.max} ${token}` }); return; }
+  if (amountNum < spec.min) { res.status(400).json({ error: `Minimum withdrawal: ${spec.min} ${token}` }); return; }
+  if (amountNum > spec.max) { res.status(400).json({ error: `Maximum withdrawal: ${spec.max} ${token}` }); return; }
 
   const githubToken = process.env.GH_PAT?.trim();
   if (!githubToken) { res.status(500).json({ error: "Server misconfigured: missing GH_PAT" }); return; }
@@ -165,8 +190,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const user = ledger.users[key];
   if (!user) { res.status(404).json({ error: "No account found. Deposit USDC to the agent first." }); return; }
 
-  const balanceField = token === "USDC" ? "usdcBalance" : "cirBtcBalance" as const;
-  const balance = parseFloat(user[balanceField]);
+  const decimals = spec.decimals;
+  const balance = getTokenBalance(user, token);
   if (amountNum > balance) {
     res.status(400).json({ error: `Insufficient balance: ${balance} ${token} available` }); return;
   }
@@ -192,7 +217,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(500).json({ error: "Server misconfigured: missing Circle credentials" }); return;
   }
 
-  const decimals = token === "USDC" ? USDC_DECIMALS : CIRBTC_DECIMALS;
   const wdId = `wd-${Date.now()}-${key.slice(-6)}`;
   const withdrawal: WithdrawalRecord = {
     id: wdId, address: key, token, amount, status: "processing", requestedAt: new Date().toISOString(),
@@ -203,7 +227,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   // first, GitHub rejects our now-stale sha and we abort here WITHOUT moving any
   // money. This optimistic lock is what stops two concurrent withdrawals from
   // both passing the balance check above and double-spending the pooled wallet.
-  user[balanceField] = (balance - amountNum).toFixed(decimals);
+  setTokenBalance(user, token, balance - amountNum, decimals);
   user.lastActivity = new Date().toISOString();
   ledger.withdrawals.push(withdrawal);
 
@@ -228,7 +252,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const walletAddress = walletRes.data?.wallet?.address;
     if (!walletAddress) throw new Error("Could not get agent wallet address");
 
-    const tokenAddress = token === "USDC" ? USDC_CONTRACT : CIRBTC_CONTRACT;
+    const tokenAddress = spec.contract; // guaranteed defined by the contract gate above
     const txRes = await client.createTransaction({
       walletAddress,
       blockchain: "ARC-TESTNET",
@@ -263,8 +287,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     if (!pending) {
       if (token === "USDC") {
         user.totalWithdrawnUsdc = (parseFloat(user.totalWithdrawnUsdc || "0") + amountNum).toFixed(USDC_DECIMALS);
-      } else {
+      } else if (token === "cirBTC") {
         user.totalWithdrawnCirBtc = (parseFloat(user.totalWithdrawnCirBtc || "0") + amountNum).toFixed(CIRBTC_DECIMALS);
+      } else {
+        user.totalWithdrawn = user.totalWithdrawn || {};
+        user.totalWithdrawn[token] = (parseFloat(user.totalWithdrawn[token] || "0") + amountNum).toFixed(decimals);
       }
     }
   } catch (err) {
@@ -275,7 +302,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     withdrawal.processedAt = new Date().toISOString();
     withdrawal.error = err instanceof Error ? err.message : String(err);
     if (txId) withdrawal.circleTxId = txId;
-    user[balanceField] = (parseFloat(user[balanceField]) + amountNum).toFixed(decimals);
+    setTokenBalance(user, token, getTokenBalance(user, token) + amountNum, decimals);
 
     try { await writeLedgerToGitHub(githubToken, ledger, sha2, `chore: withdrawal ${wdId} failed`); } catch {}
 

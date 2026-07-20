@@ -1308,7 +1308,7 @@
       <h3 data-t="portWithdrawTitle">Withdraw your tokens</h3>
       <p class="cs" data-t="portWithdrawSub">Sign a message to verify your identity — withdrawal completes in 10–30 seconds.</p>
       <div class="withdraw-row">
-        <select id="wdToken"><option value="USDC">USDC</option><option value="cirBTC">cirBTC</option></select>
+        <select id="wdToken"><option value="USDC">USDC</option><option value="cirBTC">cirBTC</option><option value="EURC">EURC</option></select>
         <input id="wdAmount" type="number" min="0" step="0.000001" placeholder="Amount" />
         <button class="btn" id="wdBtn" data-t="portWithdrawBtn">Withdraw now</button>
       </div>
@@ -3916,7 +3916,7 @@
     function num(id) { var el = $(id); var n = el ? parseFloat(el.value) : NaN; return isNaN(n) ? null : n; }
 
     // Sign `message` and POST to the rate endpoint; render the outcome.
-    async function signAndSave(message, okMsg) {
+    async function signAndSave(message, okMsg, optimistic) {
       var t = ct();
       var apiBase = loadStore("aura-withdraw-api", "");
       var endpoint = apiBase ? apiBase.replace(/\/+$/, "") + "/api/set-dca-rate" : "/api/set-dca-rate";
@@ -3929,7 +3929,21 @@
         var result = await res.json().catch(function () { return {}; });
         if (res.ok && result.success) {
           st.innerHTML = '<span style="color:var(--green);">✅ ' + okMsg + '</span>';
-          if (typeof fetchLedger === "function") fetchLedger().then(function (l) { _ledgerData = l; if (typeof renderPortfolio === "function") renderPortfolio(_ledgerData); });
+          // Reflect the save immediately from what we just signed. The ledger is
+          // read from a CDN that lags the GitHub commit by a few seconds, so
+          // re-fetching now would repaint the form with stale (pre-save) values.
+          // Patch the local copy, render it, then reconcile from the CDN later.
+          if (optimistic && state.account) {
+            var okey = state.account.toLowerCase();
+            _ledgerData = _ledgerData || {}; _ledgerData.users = _ledgerData.users || {};
+            _ledgerData.users[okey] = Object.assign(
+              _ledgerData.users[okey] || { address: okey, usdcBalance: "0", cirBtcBalance: "0", totalSwapped: "0", totalDeposited: "0" },
+              optimistic);
+            if (typeof renderPortfolio === "function") renderPortfolio(_ledgerData);
+          }
+          setTimeout(function () {
+            if (typeof fetchLedger === "function") fetchLedger().then(function (l) { _ledgerData = l; if (typeof renderPortfolio === "function") renderPortfolio(_ledgerData); });
+          }, 9000);
         } else {
           st.innerHTML = '<span style="color:var(--red);">❌ ' + (result.error || "Failed") + '</span>';
         }
@@ -3975,7 +3989,14 @@
         "Schedule: " + JSON.stringify(sched) + "\n" +
         "Address: " + state.account + "\n" +
         "Timestamp: " + Date.now();
-      signAndSave(message, (t.schedSavedOk || "Schedule saved.") + " " + fmt(amount, 6) + " USDC/run → " + token);
+      var optimistic = {
+        dcaTokenOut: token, dcaMode: mode, dcaPaused: false,
+        dcaRatePerDay: amount.toFixed(6), dcaAmountPerRun: amount.toFixed(6),
+        dcaFrequency: sched.freq, dcaEveryHours: sched.everyHours, dcaEveryDays: sched.everyDays,
+        dcaWeekdays: sched.weekdays, dcaDailyCapUsdc: sched.dailyCap, dcaWeeklyCapUsdc: sched.weeklyCap,
+        dcaSmartMinDipPct: sched.smartDip, dcaSmartFearBelow: sched.smartFear,
+      };
+      signAndSave(message, (t.schedSavedOk || "Schedule saved.") + " " + fmt(amount, 6) + " USDC/run → " + token, optimistic);
     }
 
     btn.addEventListener("click", submitSchedule);
@@ -3990,7 +4011,7 @@
         if (paused) { submitSchedule(); return; } // "Resume" saves the current builder
         // Pause: sign rate 0 (no Schedule line → backend marks paused).
         var message = "Aura DCA Agent — Set DCA Rate\nRate: 0.000000\nMode: auto\nAddress: " + state.account + "\nTimestamp: " + Date.now();
-        signAndSave(message, t.ratePausedOk || "DCA paused.");
+        signAndSave(message, t.ratePausedOk || "DCA paused.", { dcaPaused: true, dcaRatePerDay: "0.000000" });
       });
     }
   })();
@@ -4035,7 +4056,9 @@
       var key = state.account.toLowerCase();
       var user = _ledgerData.users[key];
       if (!user) { st.textContent = t.portNoAccount || "No account found. Deposit first."; return; }
-      var bal = parseFloat(token === "USDC" ? user.usdcBalance : user.cirBtcBalance);
+      var bal = token === "USDC" ? parseFloat(user.usdcBalance || "0")
+              : token === "cirBTC" ? parseFloat(user.cirBtcBalance || "0")
+              : parseFloat((user.tokenBalances && user.tokenBalances[token]) || "0");
       if (amount > bal) { st.textContent = (t.wdErrBalance || "Insufficient balance: ") + bal + " " + token; return; }
 
       // Default to this site's own serverless function (same-origin /api/withdraw

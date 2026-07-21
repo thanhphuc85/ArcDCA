@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeScheduledSpends, applyScheduledDistribution, groupSpendsByToken } from "../ledger/schedule.js";
+import { computeScheduledSpends, applyScheduledDistribution, groupSpendsByToken, smartSizeMultiplier } from "../ledger/schedule.js";
 import type { Ledger, UserAccount } from "../types.js";
 
 // UserSpend factory — tokenOut defaults to cirBTC (the historical single-token case).
@@ -31,6 +31,59 @@ function mkLedger(users: UserAccount[]): Ledger {
 }
 
 const NOW = "2026-06-15T10:00:00.000Z"; // a Monday, 10:00 UTC (not a legacy slot hour)
+const PAST = "2026-06-01T00:00:00.000Z"; // well before NOW, so an hourly schedule is due
+
+describe("smartSizeMultiplier — dynamic smart-mode sizing", () => {
+  it("is exactly 1.0 in a neutral or unknown market (missing data is safe)", () => {
+    expect(smartSizeMultiplier({ drawdownPct: 0, fearGreedIndex: 50 })).toBe(1);
+    expect(smartSizeMultiplier({})).toBe(1);
+    expect(smartSizeMultiplier({ fearGreedIndex: null })).toBe(1);
+  });
+
+  it("buys more in fear, less in greed", () => {
+    expect(smartSizeMultiplier({ fearGreedIndex: 10 })).toBeCloseTo(1.8, 6); // +0.8 fear
+    expect(smartSizeMultiplier({ fearGreedIndex: 85 })).toBeCloseTo(0.5, 6); // 1−0.7 = 0.3 → clamped to floor 0.5
+  });
+
+  it("buys more on deeper dips, capped", () => {
+    expect(smartSizeMultiplier({ drawdownPct: 0.10 })).toBeCloseTo(2.0, 6); // +1.0 at 10%
+    expect(smartSizeMultiplier({ drawdownPct: 0.50 })).toBeCloseTo(3.0, 6); // dip +2.0 cap → 3.0 total
+  });
+
+  it("clamps a dip + fear combo to the 3.0 ceiling and never below 0.5", () => {
+    expect(smartSizeMultiplier({ drawdownPct: 0.15, fearGreedIndex: 20 })).toBe(3); // 1+1.5+0.6 → 3.0
+    expect(smartSizeMultiplier({ drawdownPct: 0, fearGreedIndex: 100 })).toBe(0.5); // 1−1.0 = 0 → floor
+  });
+});
+
+describe("smart mode scales the scheduled spend", () => {
+  const smartUser = (over = {}) => mkUser("0xs", {
+    dcaMode: "smart", dcaFrequency: "hours", dcaEveryHours: 1,
+    dcaAmountPerRun: "1.000000", lastChargedAt: PAST, ...over,
+  });
+
+  it("scales the buy up by the market multiplier (fear → 1.8x)", () => {
+    const l = mkLedger([smartUser()]);
+    const r = computeScheduledSpends(l, NOW, { fearGreedIndex: 10 });
+    expect(r.spends).toHaveLength(1);
+    expect(r.spends[0]!.spend).toBeCloseTo(1.8, 6);
+    expect(r.spends[0]!.sizeMultiplier).toBeCloseTo(1.8, 6);
+  });
+
+  it("still lets the daily cap bound the scaled amount", () => {
+    // fear → 1.8x on a 1 USDC base = 1.8, but the 1 USDC daily cap wins.
+    const l = mkLedger([smartUser({ dcaDailyCapUsdc: "1.000000" })]);
+    const r = computeScheduledSpends(l, NOW, { fearGreedIndex: 10 });
+    expect(r.spends[0]!.spend).toBeCloseTo(1.0, 6);
+  });
+
+  it("auto mode is unaffected — no scaling", () => {
+    const l = mkLedger([mkUser("0xa", { dcaMode: "auto", dcaFrequency: "hours", dcaEveryHours: 1, dcaAmountPerRun: "1.000000", lastChargedAt: PAST })]);
+    const r = computeScheduledSpends(l, NOW, { fearGreedIndex: 10 });
+    expect(r.spends[0]!.spend).toBeCloseTo(1.0, 6); // fixed, market ignored
+    expect(r.spends[0]!.sizeMultiplier).toBeUndefined(); // annotation only on smart spends
+  });
+});
 
 describe("computeScheduledSpends — rich schedule", () => {
   it("manual users are never scheduled", () => {

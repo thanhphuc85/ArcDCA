@@ -6,6 +6,7 @@ export interface UserSpend {
   address: string;
   spend: number; // USDC this user's schedule wants to spend this run
   tokenOut: string; // the token this user DCAs into (symbol); default DEFAULT_DCA_TOKEN
+  sizeMultiplier?: number; // smart-mode dynamic-sizing factor applied this run (1 = ordinary)
 }
 
 /**
@@ -99,6 +100,33 @@ function smartConditionMet(user: UserAccount, market: MarketContext): boolean {
   return true;
 }
 
+// --- Smart-mode dynamic sizing ---
+// Turns the binary "buy / skip" gate into a continuous knob: when a smart user
+// does buy, the amount scales with how cheap the market looks. Driven by real,
+// external signals (Fear & Greed from the market analyst; cirBTC drawdown when a
+// live price exists), bounded to a safe range — and the caller still clamps the
+// result by the user's daily/weekly caps, wallet balance, and clampDecision, so
+// the multiplier can never breach a hard limit.
+const SMART_DIP_REF = 0.10;   // a 10% drawdown contributes +1.0x
+const SMART_DIP_CAP = 2.0;    // …capped so an extreme dip alone can't exceed +2.0x
+const SMART_FEAR_WEIGHT = 1.0; // extreme fear (0) → +1.0x, extreme greed (100) → −1.0x
+const SMART_MIN_MULT = 0.5;   // never buy less than half the base
+const SMART_MAX_MULT = 3.0;   // never buy more than triple the base
+
+/**
+ * How much a smart-mode buy scales this run, in [SMART_MIN_MULT, SMART_MAX_MULT].
+ * Buy MORE in dips and fear, LESS in froth; a neutral or unknown market returns
+ * exactly 1.0 (ordinary DCA), so missing data can only be safe.
+ */
+export function smartSizeMultiplier(market: MarketContext): number {
+  let mult = 1;
+  const dd = market.drawdownPct ?? 0;
+  if (dd > 0) mult += Math.min(SMART_DIP_CAP, dd / SMART_DIP_REF);
+  const fg = market.fearGreedIndex;
+  if (fg != null && Number.isFinite(fg)) mult += ((50 - fg) / 50) * SMART_FEAR_WEIGHT;
+  return Math.max(SMART_MIN_MULT, Math.min(SMART_MAX_MULT, mult));
+}
+
 /**
  * Deterministic per-user recurring DCA. Each active user contributes a spend
  * this run; the agent swaps the SUM. Two models coexist:
@@ -124,6 +152,7 @@ export function computeScheduledSpends(ledger: Ledger, nowIso: string, market: M
     if (!(balance > 0)) continue;
 
     let spend = 0;
+    let sizeMultiplier = 1;
 
     if (user.dcaFrequency) {
       // --- Rich schedule ---
@@ -131,6 +160,12 @@ export function computeScheduledSpends(ledger: Ledger, nowIso: string, market: M
       if (user.dcaMode === "smart" && !smartConditionMet(user, market)) continue;
       let amount = Number.parseFloat(user.dcaAmountPerRun ?? "0");
       if (!(amount > 0)) continue;
+      // Smart mode scales the buy by how cheap the market looks (dip + fear),
+      // bounded — then the caps below still clamp the result.
+      if (user.dcaMode === "smart") {
+        sizeMultiplier = smartSizeMultiplier(market);
+        amount *= sizeMultiplier;
+      }
       // Honor daily + weekly caps.
       amount = Math.min(
         amount,
@@ -154,7 +189,9 @@ export function computeScheduledSpends(ledger: Ledger, nowIso: string, market: M
     }
 
     if (spend > 0) {
-      spends.push({ address: user.address, spend, tokenOut: user.dcaTokenOut || defaultToken });
+      const entry: UserSpend = { address: user.address, spend, tokenOut: user.dcaTokenOut || defaultToken };
+      if (user.dcaMode === "smart") entry.sizeMultiplier = sizeMultiplier; // smart-mode annotation only
+      spends.push(entry);
       total += spend;
     }
   }

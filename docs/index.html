@@ -3948,7 +3948,7 @@
       var hint = $("schedModeHint");
       if (hint) hint.textContent =
         mode === "manual" ? (t.schedHintManual || "You trigger buys yourself from the chat — no schedule, no daily limit.")
-        : mode === "smart" ? (t.schedHintSmart || "Runs on your schedule, but only when the market conditions below are met.")
+        : mode === "smart" ? (t.schedHintSmart || "Runs when the market conditions below are met — and sizes each buy dynamically: more in dips & extreme fear, less in froth, bounded by your caps.")
         : (t.schedHintAuto || "The agent runs on the exact schedule you set below.");
       var tokSel = $("schedToken");
       var tokHint = $("schedTokenHint");

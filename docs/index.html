@@ -245,6 +245,8 @@
   .wp-token-icon { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; color: #fff; flex-shrink: 0; }
   .wp-token-icon.usdc { background: linear-gradient(135deg,#2775ca,#4f9dff); }
   .wp-token-icon.cirbtc { background: linear-gradient(135deg,#f59e0b,#fb923c); }
+  .wp-token-icon.eurc { background: linear-gradient(135deg,#1e88e5,#26c6da); }
+  .wp-token-icon.generic { background: linear-gradient(135deg,#8a5cf6,#34d399); }
   .wp-token-amt { font-family: Sora; font-weight: 700; font-size: 15px; line-height: 1; }
   .wp-token-name { font-size: 11px; color: var(--muted); }
   .wp-bottom { margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.06); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
@@ -2109,6 +2111,27 @@
     var price = getImpliedPrice();
     var totalUsd = usdc + (cirbtc * price);
 
+    // Extra token cards beyond USDC/cirBTC. Always show the other supported DCA
+    // targets (EURC) so the panel reflects what the agent can buy — like cirBTC,
+    // shown even at 0 — plus any further token this user has actually accrued in
+    // the ledger. Balances come from the ledger's per-token holdings.
+    var SHOW_TOKENS = ["EURC"]; // supported targets beyond cirBTC, always displayed
+    var TOKEN_ICON = { EURC: "eurc" };
+    var extraCards = "";
+    try {
+      var _wu = _ledgerData && _ledgerData.users ? _ledgerData.users[account.toLowerCase()] : null;
+      var _tb = (_wu && _wu.tokenBalances) || {};
+      var _syms = SHOW_TOKENS.slice();
+      Object.keys(_tb).forEach(function (s) { if (s !== "cirBTC" && _syms.indexOf(s) < 0) _syms.push(s); });
+      extraCards = _syms.map(function (sym) {
+        var b = parseFloat(_tb[sym] || "0");
+        return '<div class="wp-token">' +
+          '<div class="wp-token-icon ' + (TOKEN_ICON[sym] || "generic") + '">' + sym.slice(0, 1) + '</div>' +
+          '<div><div class="wp-token-amt">' + fmt(b, 6) + '</div><div class="wp-token-name">' + sym + '</div></div>' +
+        '</div>';
+      }).join("");
+    } catch (e) {}
+
     var WALLET_LABELS = {
       metamask: "🦊 MetaMask", coinbase: "🔵 Coinbase", rabby: "🐰 Rabby", phantom: "👻 Phantom",
       "io.metamask": "🦊 MetaMask", "com.coinbase.wallet": "🔵 Coinbase", "io.rabby": "🐰 Rabby", "app.phantom": "👻 Phantom",
@@ -2148,6 +2171,7 @@
             '<div class="wp-token-icon cirbtc">₿</div>' +
             '<div><div class="wp-token-amt">' + fmt(cirbtc, 8) + '</div><div class="wp-token-name">cirBTC</div></div>' +
           '</div>' +
+          extraCards +
         '</div>' +
         (price > 0 ? '<div style="font-size:12px;color:var(--muted);margin-top:4px;">cirBTC ≈ ' + fmt(price, 2) + ' USDC · ' + fmt(cirbtc * price, 2) + ' US$ value</div>' : '') +
         '<div class="wp-treasury-compare" style="margin-top:14px;padding:12px 16px;background:rgba(138,92,246,.04);border:1px solid rgba(138,92,246,.15);border-radius:14px;">' +

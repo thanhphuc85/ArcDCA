@@ -49,6 +49,10 @@ export interface HistoryEntry {
   amountOut?: string;
   walletUsdcBalance?: string;
   message?: string; // human-readable summary, especially for skip/error cases
+  // Present when a smart-mode user took part in this run: the market snapshot and
+  // the base (sensitivity 1) size multiplier it produced — the on-chain audit of
+  // the agent's dynamic sizing this run.
+  smartSizing?: { fearGreed: number | null; drawdownPct: number; multiplier: number };
 }
 
 export interface DecisionContext {

@@ -3572,13 +3572,17 @@
         ? '<a href="' + (e.explorerUrl || (ARC.explorer + "/tx/" + e.txHash)) + '" target="_blank" rel="noopener">' + e.txHash.slice(0, 8) + "…</a>"
         : "—";
       var reason = e.reasoning ? e.reasoning : (e.message || "");
+      var ss = e.smartSizing;
+      var smartBadge = (ss && ss.multiplier != null)
+        ? '<span style="display:inline-block;font-family:ui-monospace,monospace;font-size:10.5px;padding:1px 6px;border-radius:6px;background:rgba(138,92,246,.14);color:var(--violet);margin-right:6px;white-space:nowrap;" title="Smart sizing this run — Fear &amp; Greed ' + (ss.fearGreed != null ? ss.fearGreed : "—") + (ss.drawdownPct > 0 ? ", cirBTC dip " + (ss.drawdownPct * 100).toFixed(1) + "%" : "") + '">🧠 ×' + ss.multiplier.toFixed(2) + '</span>'
+        : '';
       return '<tr class="' + rowClass(e.status) + '">' +
         "<td>" + (e.date || "") + "</td>" +
         '<td><span class="badge ' + statusClass(e.status) + '">' + statusLabel(e.status) + "</span></td>" +
         '<td class="amt2">' + (e.requestedAmountUsdc != null ? e.requestedAmountUsdc : "—") + "</td>" +
         '<td class="amt2">' + (e.clampedAmountUsdc != null ? e.clampedAmountUsdc : "—") + "</td>" +
         "<td>" + (e.boundBy ? e.boundBy.replace(/_/g, " ") : "—") + "</td>" +
-        '<td class="reason">' + reason + "</td>" +
+        '<td class="reason">' + smartBadge + reason + "</td>" +
         "<td>" + tx + "</td></tr>";
     }).join("");
     $("runsBody").innerHTML = rows || '<tr><td colspan="7"><div class="empty-state fade-in"><div class="empty-icon">🤖</div><p class="empty-title">No runs recorded yet</p><p class="empty-desc">The agent will record its first decision after the next daily cron run.</p></div></td></tr>';

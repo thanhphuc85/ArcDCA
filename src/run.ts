@@ -4,7 +4,7 @@ import { readHistory, appendEntry, recentHistory, dayCount, alreadySpentToday, r
 import { readReflections, appendReflection } from "./history/reflectionStore.js";
 import { readLedger, writeLedger, ensureDefaultRates } from "./ledger/store.js";
 import { scanDeposits } from "./ledger/scanner.js";
-import { computeScheduledSpends, applyScheduledDistribution, groupSpendsByToken } from "./ledger/schedule.js";
+import { computeScheduledSpends, applyScheduledDistribution, groupSpendsByToken, smartSizeMultiplier } from "./ledger/schedule.js";
 import { computeAllowanceSpends, pullUsdcFromUser, sendTokenToUser } from "./ledger/allowance.js";
 import { requestWithdrawal, processPendingWithdrawals } from "./ledger/withdraw.js";
 import { ARC_TESTNET_RPC, ARC_USDC_CONTRACT, ARC_CIRBTC_CONTRACT, dcaTokenInfo } from "./ledger/constants.js";
@@ -368,6 +368,12 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
   const tokens = [...groups.keys()].sort(); // deterministic settlement order
   const entries: HistoryEntry[] = [];
 
+  // The market snapshot that drove smart-mode sizing this run, and the base
+  // (sensitivity 1) multiplier it produced — recorded on any group that had a
+  // smart participant, as the on-chain audit of the agent's dynamic sizing.
+  const smartFg = marketBrief?.fearGreedIndex ?? null;
+  const smartBaseMult = smartSizeMultiplier({ drawdownPct, fearGreedIndex: smartFg });
+
   for (const token of tokens) {
     const info = dcaTokenInfo(token);
     const groupSpends = groups.get(token)!;
@@ -388,6 +394,9 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
     }
 
     const groupExecStr = groupExec.toFixed(6);
+    const smartSizing = groupSpends.some((s) => s.sizeMultiplier != null)
+      ? { fearGreed: smartFg, drawdownPct, multiplier: smartBaseMult }
+      : undefined;
     try {
       const swapResult = await executeSwap({
         circleApiKey: config.circleApiKey,
@@ -412,6 +421,7 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
         message: swapResult.dryRun
           ? `[DRY RUN] Would swap ${groupExecStr} USDC -> ${token} across ${users} user(s)`
           : `Swapped ${groupExecStr} USDC -> ${token} across ${users} user(s)`,
+        ...(smartSizing ? { smartSizing } : {}),
       });
     } catch (err) {
       const category = err instanceof SwapExecutionError ? err.category : "unknown";
@@ -422,6 +432,7 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
         boundBy, tokenOut: token, reasoning,
         walletUsdcBalance: usdcBalance,
         message: `Swap failed [${token}/${category}]: ${(err as Error).message}`,
+        ...(smartSizing ? { smartSizing } : {}),
       });
     }
   }

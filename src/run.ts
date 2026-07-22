@@ -9,6 +9,8 @@ import { computeAllowanceSpends, pullUsdcFromUser, sendTokenToUser } from "./led
 import { requestWithdrawal, processPendingWithdrawals } from "./ledger/withdraw.js";
 import { ARC_TESTNET_RPC, ARC_USDC_CONTRACT, ARC_CIRBTC_CONTRACT, dcaTokenInfo } from "./ledger/constants.js";
 import { getClaudeDecision } from "./decision/client.js";
+import { clampDecision } from "./decision/guardrails.js";
+import { proposeSmartMultiplier } from "./decision/sizing.js";
 import { generateReflection } from "./decision/reflect.js";
 import { runMarketAnalyst } from "./decision/analyst.js";
 import { fetchAllMarketData } from "./market/external.js";
@@ -295,28 +297,53 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
   const priceHigh = recentPrices.length ? Math.max(...recentPrices) : 0;
   const priceNow = recentPrices.length ? recentPrices[recentPrices.length - 1]! : 0;
   const drawdownPct = priceHigh > 0 && priceNow > 0 ? Math.max(0, (priceHigh - priceNow) / priceHigh) : 0;
+
+  // Agent-chosen sizing (bounded). The agent reads the brief + its own reflections
+  // and proposes a market-wide size multiplier; code re-clamps it per-user and to
+  // hard caps. On any failure this is null and smart sizing falls back to the
+  // deterministic dip+F&G formula — the agent gets bounded agency, never control.
+  const sizingProposal = await proposeSmartMultiplier(config.anthropicApiKey, {
+    brief: marketBrief,
+    drawdownPct,
+    recentReflections: reflections.slice(-3).map((r) => r.insight).filter(Boolean),
+  });
+
   const schedule = computeScheduledSpends(ledger, timestamp, {
     drawdownPct,
     fearGreedIndex: marketBrief?.fearGreedIndex ?? null,
+    sizeDeviation: sizingProposal?.deviation,
   });
   const scheduledTotal = schedule.totalUsdc;
-  const available = Number.parseFloat(usdcBalance) - minReserve;
   const minSwap = Number.parseFloat(config.guardrails.minSwapUsdc);
-  const executable = Math.max(0, Math.min(scheduledTotal, available));
+  // clampDecision is the sole authority on the pooled number actually swapped: it
+  // re-derives the real cap from every hard guardrail — max/day, wallet reserve,
+  // remaining daily cap, campaign budget, dust floor. The user schedule is only
+  // the *request*; the code owns the number. (The per-user daily/weekly caps were
+  // already applied inside computeScheduledSpends; this is the global ceiling.)
+  const clamp = clampDecision(
+    { proceed: scheduledTotal > 0, amountUsdc: scheduledTotal.toFixed(6), reasoning: "per-user schedule sum" },
+    {
+      guardrails: config.guardrails,
+      walletUsdcBalance: usdcBalance,
+      alreadySpentTodayUsdc: alreadySpentToday(history, date),
+      remainingCampaignBudgetUsdc: remainingCampaignBudget(history, config.guardrails.campaignTotalBudgetUsdc),
+    },
+  );
+  const executable = clamp.proceed ? Number.parseFloat(clamp.amountUsdc) : 0;
   const executableStr = executable.toFixed(6);
 
-  if (executable < minSwap) {
-    logger.info(`Scheduled spend ${scheduledTotal} USDC (executable ${executable}) below min swap ${minSwap}; skipping`);
+  if (!clamp.proceed || executable < minSwap) {
+    logger.info(`Scheduled spend ${scheduledTotal} USDC clamped to ${executable} by ${clamp.boundBy}; skipping`);
     return writeAndReturn({
       date,
       timestamp,
       status: "skipped_guardrail_clamped",
       requestedAmountUsdc: scheduledTotal.toFixed(6),
       clampedAmountUsdc: "0",
-      boundBy: scheduledTotal < minSwap ? "scheduled_below_min" : "wallet_available_after_reserve",
+      boundBy: clamp.boundBy,
       tokenOut: config.tokenOut,
       walletUsdcBalance: usdcBalance,
-      message: `No buy this run: ${schedule.spends.length} active user(s), scheduled ${scheduledTotal.toFixed(6)} USDC, executable ${executable.toFixed(6)} < min swap ${minSwap}`,
+      message: `No buy this run: ${schedule.spends.length} active user(s), scheduled ${scheduledTotal.toFixed(6)} USDC, clamped to ${executable.toFixed(6)} by ${clamp.boundBy} (min swap ${minSwap})`,
     }, false, config.discordWebhookUrl, refCtx);
   }
 
@@ -372,7 +399,13 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
   // (sensitivity 1) multiplier it produced — recorded on any group that had a
   // smart participant, as the on-chain audit of the agent's dynamic sizing.
   const smartFg = marketBrief?.fearGreedIndex ?? null;
-  const smartBaseMult = smartSizeMultiplier({ drawdownPct, fearGreedIndex: smartFg });
+  // The base (sensitivity-1) multiplier this run: the agent's clamped choice when
+  // it made one, else the deterministic formula. Recorded per smart group for the
+  // on-chain audit + the 🧠 badge.
+  const smartBaseMult = sizingProposal
+    ? sizingProposal.multiplier
+    : smartSizeMultiplier({ drawdownPct, fearGreedIndex: smartFg });
+  const smartSource: "llm" | "formula" = sizingProposal ? "llm" : "formula";
 
   for (const token of tokens) {
     const info = dcaTokenInfo(token);
@@ -395,7 +428,7 @@ export async function runDailyDca(config: AppConfig): Promise<RunOutcome> {
 
     const groupExecStr = groupExec.toFixed(6);
     const smartSizing = groupSpends.some((s) => s.sizeMultiplier != null)
-      ? { fearGreed: smartFg, drawdownPct, multiplier: smartBaseMult }
+      ? { fearGreed: smartFg, drawdownPct, multiplier: smartBaseMult, source: smartSource, proposedMultiplier: sizingProposal?.rawMultiplier ?? null }
       : undefined;
     try {
       const swapResult = await executeSwap({

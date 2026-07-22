@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeScheduledSpends, applyScheduledDistribution, groupSpendsByToken, smartSizeMultiplier } from "../ledger/schedule.js";
+import { computeScheduledSpends, applyScheduledDistribution, groupSpendsByToken, smartSizeMultiplier, smartMarketDeviation, applySmartMultiplier } from "../ledger/schedule.js";
 import type { Ledger, UserAccount } from "../types.js";
 
 // UserSpend factory — tokenOut defaults to cirBTC (the historical single-token case).
@@ -100,6 +100,66 @@ describe("smart mode scales the scheduled spend", () => {
     const r = computeScheduledSpends(l, NOW, { fearGreedIndex: 10 });
     expect(r.spends[0]!.spend).toBeCloseTo(1.0, 6); // fixed, market ignored
     expect(r.spends[0]!.sizeMultiplier).toBeUndefined(); // annotation only on smart spends
+  });
+});
+
+describe("smartMarketDeviation / applySmartMultiplier — split formula", () => {
+  it("smartMarketDeviation is the pre-multiplier deviation (0 = neutral/unknown)", () => {
+    expect(smartMarketDeviation({ drawdownPct: 0, fearGreedIndex: 50 })).toBe(0);
+    expect(smartMarketDeviation({})).toBe(0);
+    expect(smartMarketDeviation({ drawdownPct: 0.10 })).toBeCloseTo(1.0, 6); // +1.0 at 10% dip
+    expect(smartMarketDeviation({ fearGreedIndex: 10 })).toBeCloseTo(0.8, 6); // +0.8 extreme fear
+  });
+
+  it("smartSizeMultiplier == applySmartMultiplier(deviation) — refactor preserves behavior", () => {
+    const m = { drawdownPct: 0.15, fearGreedIndex: 20 };
+    expect(smartSizeMultiplier(m)).toBe(applySmartMultiplier(smartMarketDeviation(m)));
+  });
+
+  it("applySmartMultiplier applies sensitivity and clamps to [0.5, maxMult]", () => {
+    expect(applySmartMultiplier(0)).toBe(1);
+    expect(applySmartMultiplier(0.8, { sensitivity: 2 })).toBeCloseTo(2.6, 6); // 1 + 2×0.8
+    expect(applySmartMultiplier(5, { maxMult: 3 })).toBe(3);   // ceiling
+    expect(applySmartMultiplier(-5)).toBe(0.5);                 // floor
+  });
+
+  it("treats a non-finite deviation as neutral (safe) rather than propagating NaN", () => {
+    expect(applySmartMultiplier(Number.NaN)).toBe(1);
+    expect(applySmartMultiplier(Number.POSITIVE_INFINITY)).toBe(1);
+  });
+});
+
+describe("agent-chosen sizing (market.sizeDeviation override)", () => {
+  const smartUser = (over = {}) => mkUser("0xs", {
+    dcaMode: "smart", dcaFrequency: "hours", dcaEveryHours: 1,
+    dcaAmountPerRun: "1.000000", lastChargedAt: PAST, ...over,
+  });
+
+  it("uses the agent deviation instead of the dip+F&G formula", () => {
+    // Formula would give 1.0 here (neutral market), but the agent chose +1.0 → 2.0x.
+    const l = mkLedger([smartUser()]);
+    const r = computeScheduledSpends(l, NOW, { drawdownPct: 0, fearGreedIndex: 50, sizeDeviation: 1.0 });
+    expect(r.spends[0]!.spend).toBeCloseTo(2.0, 6);
+    expect(r.spends[0]!.sizeMultiplier).toBeCloseTo(2.0, 6);
+  });
+
+  it("the per-user max-multiplier still bounds the agent's choice", () => {
+    const l = mkLedger([smartUser({ dcaSmartMaxMult: 1.5 })]);
+    const r = computeScheduledSpends(l, NOW, { sizeDeviation: 5, fearGreedIndex: 50 });
+    expect(r.spends[0]!.sizeMultiplier).toBe(1.5);
+  });
+
+  it("the per-user sensitivity still scales the agent's deviation", () => {
+    const l = mkLedger([smartUser({ dcaSmartSensitivity: 0.5 })]);
+    const r = computeScheduledSpends(l, NOW, { sizeDeviation: 1.0, fearGreedIndex: 50 });
+    expect(r.spends[0]!.sizeMultiplier).toBeCloseTo(1.5, 6); // 1 + 0.5×1.0
+  });
+
+  it("auto-mode users ignore the agent deviation entirely", () => {
+    const l = mkLedger([mkUser("0xa", { dcaMode: "auto", dcaFrequency: "hours", dcaEveryHours: 1, dcaAmountPerRun: "1.000000", lastChargedAt: PAST })]);
+    const r = computeScheduledSpends(l, NOW, { sizeDeviation: 2.0 });
+    expect(r.spends[0]!.spend).toBeCloseTo(1.0, 6);
+    expect(r.spends[0]!.sizeMultiplier).toBeUndefined();
   });
 });
 

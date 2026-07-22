@@ -51,8 +51,16 @@ export interface HistoryEntry {
   message?: string; // human-readable summary, especially for skip/error cases
   // Present when a smart-mode user took part in this run: the market snapshot and
   // the base (sensitivity 1) size multiplier it produced — the on-chain audit of
-  // the agent's dynamic sizing this run.
-  smartSizing?: { fearGreed: number | null; drawdownPct: number; multiplier: number };
+  // the agent's dynamic sizing this run. `source` says whether the agent chose the
+  // multiplier ("llm") or the deterministic formula did ("formula"); when the
+  // agent chose it, `proposedMultiplier` is its pre-clamp value.
+  smartSizing?: {
+    fearGreed: number | null;
+    drawdownPct: number;
+    multiplier: number;
+    source?: "llm" | "formula";
+    proposedMultiplier?: number | null;
+  };
 }
 
 export interface DecisionContext {

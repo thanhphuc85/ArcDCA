@@ -3573,8 +3573,12 @@
         : "—";
       var reason = e.reasoning ? e.reasoning : (e.message || "");
       var ss = e.smartSizing;
+      var ssAgent = ss && ss.source === "llm";
+      var ssTip = "Smart sizing this run — Fear & Greed " + (ss && ss.fearGreed != null ? ss.fearGreed : "—")
+        + (ss && ss.drawdownPct > 0 ? ", cirBTC dip " + (ss.drawdownPct * 100).toFixed(1) + "%" : "")
+        + (ss ? (ssAgent ? " · agent-chosen" + (ss.proposedMultiplier != null ? " (proposed ×" + ss.proposedMultiplier.toFixed(2) + ", clamped)" : "") : " · formula") : "");
       var smartBadge = (ss && ss.multiplier != null)
-        ? '<span style="display:inline-block;font-family:ui-monospace,monospace;font-size:10.5px;padding:1px 6px;border-radius:6px;background:rgba(138,92,246,.14);color:var(--violet);margin-right:6px;white-space:nowrap;" title="Smart sizing this run — Fear &amp; Greed ' + (ss.fearGreed != null ? ss.fearGreed : "—") + (ss.drawdownPct > 0 ? ", cirBTC dip " + (ss.drawdownPct * 100).toFixed(1) + "%" : "") + '">🧠 ×' + ss.multiplier.toFixed(2) + '</span>'
+        ? '<span style="display:inline-block;font-family:ui-monospace,monospace;font-size:10.5px;padding:1px 6px;border-radius:6px;background:rgba(138,92,246,.14);color:var(--violet);margin-right:6px;white-space:nowrap;" title="' + ssTip.replace(/&/g, "&amp;").replace(/"/g, "&quot;") + '">' + (ssAgent ? "⚡" : "") + '🧠 ×' + ss.multiplier.toFixed(2) + '</span>'
         : '';
       return '<tr class="' + rowClass(e.status) + '">' +
         "<td>" + (e.date || "") + "</td>" +

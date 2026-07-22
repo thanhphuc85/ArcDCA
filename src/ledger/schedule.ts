@@ -35,6 +35,12 @@ export interface ScheduleResult {
 export interface MarketContext {
   drawdownPct?: number;
   fearGreedIndex?: number | null;
+  // The agent's chosen sizing signal for this run, as a deviation from neutral
+  // (0 = ordinary DCA; +1 ≈ "buy double at sensitivity 1"). When set, smart-mode
+  // sizing uses THIS instead of the deterministic dip+F&G formula — but each
+  // user's sensitivity and max-multiplier still bound the result. Absent = fall
+  // back to smartMarketDeviation(). deviation = (agent base multiplier) − 1.
+  sizeDeviation?: number;
 }
 
 // Cap per-user elapsed time so a long outage doesn't trigger a huge catch-up buy.
@@ -110,7 +116,7 @@ function smartConditionMet(user: UserAccount, market: MarketContext): boolean {
 const SMART_DIP_REF = 0.10;   // a 10% drawdown contributes +1.0 to the deviation
 const SMART_DIP_CAP = 2.0;    // …capped so an extreme dip alone can't exceed +2.0
 const SMART_FEAR_WEIGHT = 1.0; // extreme fear (0) → +1.0, extreme greed (100) → −1.0
-const SMART_MIN_MULT = 0.5;   // hard floor — never buy less than half the base
+export const SMART_MIN_MULT = 0.5;   // hard floor — never buy less than half the base
 export const SMART_DEFAULT_MAX_MULT = 3.0; // default ceiling if the user sets none
 export const SMART_DEFAULT_SENSITIVITY = 1.0;
 
@@ -128,13 +134,35 @@ export interface SmartSizingOpts {
  * original fixed [0.5, 3.0] curve.
  */
 export function smartSizeMultiplier(market: MarketContext, opts: SmartSizingOpts = {}): number {
-  const sensitivity = opts.sensitivity != null && opts.sensitivity > 0 ? opts.sensitivity : SMART_DEFAULT_SENSITIVITY;
-  const maxMult = opts.maxMult != null && opts.maxMult >= 1 ? opts.maxMult : SMART_DEFAULT_MAX_MULT;
-  let dev = 0; // deviation from a neutral market
+  return applySmartMultiplier(smartMarketDeviation(market), opts);
+}
+
+/**
+ * The deterministic market deviation from a neutral read: how far dip + Fear &
+ * Greed push sizing away from 1.0, before any per-user tuning. 0 = neutral or
+ * unknown market. This is the fallback signal used when the agent doesn't propose
+ * one, and the reference the agent's own read is bounded against.
+ */
+export function smartMarketDeviation(market: MarketContext): number {
+  let dev = 0;
   const dd = market.drawdownPct ?? 0;
   if (dd > 0) dev += Math.min(SMART_DIP_CAP, dd / SMART_DIP_REF);
   const fg = market.fearGreedIndex;
   if (fg != null && Number.isFinite(fg)) dev += ((50 - fg) / 50) * SMART_FEAR_WEIGHT;
+  return dev;
+}
+
+/**
+ * Turn a market deviation (from the formula OR the agent's own read) into a
+ * bounded per-user multiplier: 1 + sensitivity·deviation, clamped to
+ * [SMART_MIN_MULT, maxMult]. This is the hard envelope — no deviation, however
+ * large or from wherever, can push a buy outside it. A non-finite deviation is
+ * treated as neutral (1.0), so a bad signal can only be safe.
+ */
+export function applySmartMultiplier(deviation: number, opts: SmartSizingOpts = {}): number {
+  const sensitivity = opts.sensitivity != null && opts.sensitivity > 0 ? opts.sensitivity : SMART_DEFAULT_SENSITIVITY;
+  const maxMult = opts.maxMult != null && opts.maxMult >= 1 ? opts.maxMult : SMART_DEFAULT_MAX_MULT;
+  const dev = Number.isFinite(deviation) ? deviation : 0;
   return Math.max(SMART_MIN_MULT, Math.min(maxMult, 1 + sensitivity * dev));
 }
 
@@ -174,7 +202,12 @@ export function computeScheduledSpends(ledger: Ledger, nowIso: string, market: M
       // Smart mode scales the buy by how cheap the market looks (dip + fear),
       // bounded — then the caps below still clamp the result.
       if (user.dcaMode === "smart") {
-        sizeMultiplier = smartSizeMultiplier(market, { sensitivity: user.dcaSmartSensitivity, maxMult: user.dcaSmartMaxMult });
+        // Prefer the agent's chosen sizing signal for this run; fall back to the
+        // deterministic dip+F&G formula. Either way the per-user bounds apply.
+        const opts = { sensitivity: user.dcaSmartSensitivity, maxMult: user.dcaSmartMaxMult };
+        sizeMultiplier = market.sizeDeviation != null
+          ? applySmartMultiplier(market.sizeDeviation, opts)
+          : smartSizeMultiplier(market, opts);
         amount *= sizeMultiplier;
       }
       // Honor daily + weekly caps.

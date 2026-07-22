@@ -339,5 +339,30 @@
       "budget-utilization",
       "guardrail"
     ]
+  },
+  {
+    "id": "ref-1784732666573",
+    "date": "2026-07-22",
+    "timestamp": "2026-07-22T15:04:26.573Z",
+    "runStatus": "skipped_guardrail_clamped",
+    "insight": "The campaign has stalled: 8 consecutive runs (and now day 16) show 0 active users with scheduled amount 0.000000 USDC, meaning the root cause isn't market conditions or clamping thresholds but that no user schedule/allocation is configured at all.",
+    "patterns": [
+      "100% of last 8 runs skipped with boundBy=scheduled_below_min and requested=0.000000",
+      "0 active users reported in every recent run message, indicating a config/scheduling issue rather than a funding or market issue",
+      "Cumulative spend frozen at 2.000000 USDC since day ~X, no progress despite wallet holding 34.29 USDC available",
+      "No dip-buy or clamping-due-to-price-volatility events observed - this is purely a scheduling/activation failure"
+    ],
+    "strategyAdjustment": "Stop treating this as a normal guardrail clamp cycle - escalate/flag that the scheduled DCA amount is 0 because there are 0 active users, which is an upstream configuration issue, not a market-timing or budget-pacing problem. Next run, check user/schedule activation status before evaluating swap sizing; if still 0 active users, halt further reflection cycles on 'pacing' and instead surface a distinct alert category (e.g. 'config-error') so it gets fixed rather than repeatedly logged as a clamp event. Do not adjust dip-buy or clamp thresholds further until scheduling is restored.",
+    "confidenceLevel": "high",
+    "cumulativeSpentUsdc": "2.000000",
+    "dayNumber": 16,
+    "walletBalance": "34.292676622860296748",
+    "tags": [
+      "clamping",
+      "config-error",
+      "pacing",
+      "budget",
+      "error-recovery"
+    ]
   }
 ]

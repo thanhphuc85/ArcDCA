@@ -25,6 +25,8 @@ An agent that resolves both halves of that, with **dollar-cost averaging as the 
 
 **1. Claude decides the strategy — code owns the money.** Each run feeds Claude live balances, pacing, budget, and its own trade history, and asks — via a forced, schema-validated tool call — what to do and why. Claude reads its own history, paces spending, and declines to trade when it recognises the budget is spent. But its answer is only a *recommendation*: a pure, unit-tested `clampDecision()` re-derives the real cap from hard guardrails (max/day, minimum reserve, dust threshold, campaign budget) and is the sole authority on the number actually swapped. Every run records *which* constraint bound the result.
 
+In **Smart mode** the agent's read of the market moves the number directly: `smartSizeMultiplier()` scales each buy by live drawdown-from-high and the **Fear & Greed index** — bigger in dips and extreme fear, smaller in froth — bounded by a **per-user sensitivity and max-multiplier** and still passed through `clampDecision()` and your daily/weekly caps, so the agent has real but ring-fenced agency over the amount. Every smart run writes its multiplier and Fear & Greed snapshot to the committed [`history.json`](data/history.json), making the sizing decision auditable on-chain, and the dashboard shows a **live multiplier preview before you sign** plus a `🧠 ×M` badge on each run.
+
 > Our logo is that split, drawn: two orbits that never contain each other, meeting only where a decision is made.
 
 **2. Many users, one swap, fair settlement.** Each wallet sets its own cadence, amount and caps. Every run the agent computes each user's due spend, executes the **sum as a single swap**, then distributes the received cirBTC **pro-rata by contribution** — scaling every share down together if a guardrail capped the total, and assigning the rounding remainder deterministically so the books always close. One transaction serves everyone; nobody subsidises anyone. ([`schedule.ts`](src/ledger/schedule.ts), unit-tested.)
@@ -46,6 +48,7 @@ On top of the autonomous cron, we shipped a full **dashboard** (live at **[aura-
 - **Per-user, non-custodial DCA.** Anyone connects a wallet (EIP-6963 multi-wallet) or signs in with email, sets their **own** daily DCA rate, and the agent pools everyone's schedule into each run. Every state change (`set rate`, `run DCA now`, `withdraw`) is authorized by an **EIP-191 wallet signature** and verified in a Vercel serverless function — the user stays in control of their keys.
 - **A conversational agent.** A Claude assistant (tool calling) answers "how much is in the treasury?", "explain the last trade", etc. from live on-chain data, and for sensitive actions it only **proposes** — the user confirms and signs in the UI before anything executes.
 - **Vector memory + reflection.** After each run Claude writes a reflection to `data/reflections.json`; the dashboard surfaces this "agent memory" plus an **Agent intelligence** panel (risk / market regime / confidence / pattern alerts) derived from the run history.
+- **Smart, dynamic sizing.** Opt into Smart mode and each scheduled buy is sized by live market conditions (drawdown + Fear & Greed), within a sensitivity and ceiling you set — with a live preview of this run's multiplier before you sign, and a `🧠 ×M` badge on every executed run.
 - **Multi-agent decisions.** A Claude Haiku market-analyst produces a brief that the main decision agent factors into its allocation.
 
 ## Does it run? — the honest state
@@ -99,7 +102,7 @@ GitHub Actions cron (hourly — each user's own cadence decides if this hour is 
 - **Circle Swap Kit** (`@circle-fin/swap-kit`) + **Developer-Controlled Wallets** (`@circle-fin/developer-controlled-wallets`) + Circle Wallets adapter
 - **Arc Testnet** (Circle's stablecoin-native EVM L1; gas paid in USDC)
 - **GitHub Actions** for scheduling, secrets, and the commit-back audit trail
-- **Vitest** — 39 unit tests on the safety-critical paths: `clampDecision()` guardrails, the pooled pro-rata settlement (including per-token grouping), and the outage-/campaign-day arithmetic the agent reasons from
+- **Vitest** — 49 unit tests on the safety-critical paths: `clampDecision()` guardrails, the pooled pro-rata settlement (including per-token grouping), the smart-sizing multiplier (dip + Fear & Greed, per-user sensitivity/cap bounds), and the outage-/campaign-day arithmetic the agent reasons from
 - **Vercel** serverless functions (`api/`) for the dashboard's signed actions — set-rate, run-DCA, withdraw, chat, welcome-email
 - **Single-file dashboard** (`docs/index.html`) — EIP-6963 wallet discovery, EIP-191 signing, EN/VI, light/dark
 

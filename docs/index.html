@@ -1126,27 +1126,27 @@
   </section>
 
   <section class="reveal" id="strategySection">
-    <div class="eyebrow">DCA Strategy</div>
-    <div class="h2">Per-user recurring DCA</div>
-    <p class="sub">Each wallet sets its own daily DCA rate. The agent pools everyone's schedule into one on-chain buy each run and distributes cirBTC by how much each user contributed. The dip signals below are advisory market context — they no longer size buys.</p>
+    <div class="eyebrow">Market read</div>
+    <div class="h2">How Smart mode sizes your buys</div>
+    <p class="sub">Each wallet sets its own schedule; the agent pools everyone's buys per token into one on-chain swap. In <b>Smart</b> mode it sizes each buy by the market — the cirBTC dip <b>and</b> the live Fear &amp; Greed index — proposing a multiplier that code clamps to a safe range (0.5× floor, your max). <b>Auto</b> mode buys a flat amount. The values below are live.</p>
     <div class="strategy-grid">
       <div class="strat-tile" style="--sg:rgba(138,92,246,.15);">
-        <span class="st-val" id="stBaseAmt">—</span><span class="st-label">Base DCA amount</span>
+        <span class="st-val" id="stBaseAmt">—</span><span class="st-label">Base amount / run</span>
       </div>
       <div class="strat-tile" style="--sg:rgba(47,134,230,.15);">
-        <span class="st-val" id="stSuggestedAmt">—</span><span class="st-label">Suggested today</span>
+        <span class="st-val" id="stSuggestedAmt">—</span><span class="st-label">Smart multiplier (live)</span>
       </div>
       <div class="strat-tile" style="--sg:rgba(245,165,36,.15);">
-        <span class="st-val" id="stDrawdown">—</span><span class="st-label">Drawdown from high</span>
+        <span class="st-val" id="stDrawdown">—</span><span class="st-label">cirBTC drawdown</span>
       </div>
       <div class="strat-tile" style="--sg:rgba(52,211,153,.15);">
-        <div id="stDipSignal"><span class="dip-signal dip-none"><span class="dip-pulse"></span> No signal</span></div>
-        <span class="st-label" style="margin-top:6px;display:block;">Dip signal</span>
+        <div id="stDipSignal"><span class="dip-signal dip-none"><span class="dip-pulse"></span> Loading…</span></div>
+        <span class="st-label" style="margin-top:6px;display:block;">Fear &amp; Greed (live)</span>
       </div>
     </div>
     <div class="card" style="margin-top:16px;">
-      <h3>Dip signals (advisory)</h3>
-      <p class="cs">Market context only — these dip tiers inform the agent's reasoning but no longer size buys. Your buy amount is your own DCA rate, set in "Your DCA schedule".</p>
+      <h3>The sizing curve</h3>
+      <p class="cs">Smart mode folds the cirBTC dip <b>and</b> the Fear &amp; Greed index into one bounded multiplier: the agent proposes the number, code clamps it to [0.5×, your max]. The tiers below are the deterministic dip reference (dip alone, at sensitivity 1) — extreme fear adds on top, extreme greed subtracts. During the cirBTC route outage there's no live cirBTC price, so the dip shows <b>n/a</b> and Fear &amp; Greed carries the signal.</p>
       <div class="strat-thresholds" id="stratThresholds">
         <div class="strat-th">
           <div class="th-pct" id="thMildPct">5%</div>
@@ -2108,7 +2108,7 @@
   function fetchFearGreed() {
     fetch("https://api.alternative.me/fng/?limit=1", { cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { var d = j && j.data && j.data[0]; if (d && d.value != null) { _fng = { value: parseInt(d.value, 10), cls: d.value_classification || "" }; renderSmartLive(); } })
+      .then(function (j) { var d = j && j.data && j.data[0]; if (d && d.value != null) { _fng = { value: parseInt(d.value, 10), cls: d.value_classification || "" }; renderSmartLive(); if (typeof renderStrategy === "function") renderStrategy(_historyData); } })
       .catch(function () {});
   }
   function smartDrawdown() {
@@ -3299,19 +3299,10 @@
   }
 
   function renderStrategy(history) {
-    var swaps = [];
-    history.forEach(function (e) {
-      if (e.status !== "success" && e.status !== "dry_run") return;
-      var usdcIn = parseFloat(e.clampedAmountUsdc || "0") || 0;
-      var btcOut = parseFloat(e.amountOut || "0") || 0;
-      if (usdcIn > 0 && btcOut > 0) swaps.push({ date: e.date, price: usdcIn / btcOut });
-    });
-
     var stratSettings = loadStore("aura-dca-strategy", {
       baseAmount: "1.00", mildPct: 5, modPct: 10, strongPct: 20,
       mildMult: 1.2, modMult: 1.5, strongMult: 2.0
     });
-
     $("stBaseAmt").textContent = stratSettings.baseAmount + " USDC";
     $("thMildPct").textContent = stratSettings.mildPct + "%";
     $("thModPct").textContent = stratSettings.modPct + "%";
@@ -3320,29 +3311,41 @@
     $("thModMult").textContent = stratSettings.modMult + "x";
     $("thStrongMult").textContent = stratSettings.strongMult + "x";
 
-    if (!swaps.length) {
-      $("stSuggestedAmt").textContent = stratSettings.baseAmount + " USDC";
-      $("stDrawdown").textContent = "—";
-      return;
+    // Live smart read: cirBTC dip + live Fear & Greed → one bounded multiplier
+    // (the same formula the agent's sizing is clamped against). Fear & Greed is
+    // real external data and works during the cirBTC outage; the dip needs a live
+    // cirBTC price basis, which is absent while the route is down — shown honestly
+    // as n/a rather than faked from EURC swaps.
+    var hist = history || _historyData || [];
+    var hasCirBtcPrice = false;
+    for (var i = 0; i < hist.length; i++) {
+      var e = hist[i];
+      var tok = e.tokenOut || "cirBTC";
+      if ((e.status === "success" || e.status === "dry_run") && tok === "cirBTC" && parseFloat(e.amountOut) > 0) { hasCirBtcPrice = true; break; }
+    }
+    var dd = smartDrawdown();
+    var fg = _fng ? _fng.value : null;
+    var mult = smartMultJS(dd, fg, 1, 3);
+
+    var mEl = $("stSuggestedAmt");
+    if (mEl) { mEl.textContent = "×" + mult.toFixed(2); mEl.style.color = mult > 1.05 ? "var(--green)" : (mult < 0.95 ? "var(--amber)" : ""); }
+
+    var ddEl = $("stDrawdown");
+    if (ddEl) {
+      ddEl.textContent = hasCirBtcPrice ? (dd * 100).toFixed(1) + "%" : "n/a";
+      ddEl.title = hasCirBtcPrice ? "" : "No live cirBTC price basis — the USDC→cirBTC route is in outage on Arc Testnet.";
     }
 
-    var prices = swaps.map(function (s) { return s.price; });
-    var current = prices[prices.length - 1];
-    var highest = Math.max.apply(null, prices);
-    var drawdown = highest > 0 ? ((current - highest) / highest) : 0;
-    var absDrawdown = Math.abs(drawdown);
-
-    var signal = "none", mult = 1.0;
-    if (absDrawdown >= stratSettings.strongPct / 100) { signal = "strong"; mult = stratSettings.strongMult; }
-    else if (absDrawdown >= stratSettings.modPct / 100) { signal = "moderate"; mult = stratSettings.modMult; }
-    else if (absDrawdown >= stratSettings.mildPct / 100) { signal = "mild"; mult = stratSettings.mildMult; }
-
-    var suggested = (parseFloat(stratSettings.baseAmount) * mult).toFixed(2);
-    $("stSuggestedAmt").textContent = suggested + " USDC";
-    $("stDrawdown").textContent = (drawdown * 100).toFixed(1) + "%";
-
-    var signalLabels = { none: "No signal", mild: "Mild dip", moderate: "Moderate dip", strong: "Strong dip — buy more!" };
-    $("stDipSignal").innerHTML = '<span class="dip-signal dip-' + signal + '"><span class="dip-pulse"></span> ' + signalLabels[signal] + (mult > 1 ? " (" + mult + "x)" : "") + '</span>';
+    var sigEl = $("stDipSignal");
+    if (sigEl) {
+      if (fg == null) {
+        sigEl.innerHTML = '<span class="dip-signal dip-none"><span class="dip-pulse"></span> Loading…</span>';
+      } else {
+        // Low F&G (fear) is a buy signal → green; high (greed) → amber-ish.
+        var cls = fg <= 25 ? "strong" : (fg <= 45 ? "moderate" : (fg < 55 ? "none" : "mild"));
+        sigEl.innerHTML = '<span class="dip-signal dip-' + cls + '"><span class="dip-pulse"></span> ' + fg + ' · ' + (_fng.cls || "—") + '</span>';
+      }
+    }
   }
 
   function renderPerformance(history) {

@@ -2821,12 +2821,25 @@
     // Prefer the connected wallet's provider; fall back to a direct RPC call.
     var rpcProvider = state.provider || window.ethereum;
     if (rpcProvider) {
-      try { return BigInt(await rpcProvider.request({ method: "eth_call", params: [{ to: token, data: data }, "latest"] }) || "0x0"); } catch (e) {}
+      try {
+        var pr = await rpcProvider.request({ method: "eth_call", params: [{ to: token, data: data }, "latest"] });
+        if (pr && pr !== "0x") return BigInt(pr);
+      } catch (e) {}
     }
-    var r = await fetch(ARC.rpc, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to: token, data: data }, "latest"] }) });
-    var j = await r.json();
-    return BigInt(j.result || "0x0");
+    // Arc's public RPC rate-limits aggressively (-32011), and an error response
+    // has no `result`. Coercing that to "0x0" used to silently render real
+    // balances as zero — so retry with backoff, then fail loudly (every caller
+    // catches and shows "—"/omits instead of a false 0).
+    var lastErr = null;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise(function (res) { setTimeout(res, 800 * attempt); });
+      var r = await fetch(ARC.rpc, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to: token, data: data }, "latest"] }) });
+      var j = await r.json();
+      if (!j.error && j.result && j.result !== "0x") return BigInt(j.result);
+      lastErr = new Error(j.error && j.error.message ? j.error.message : "empty eth_call result");
+    }
+    throw lastErr;
   }
   async function readUsdcBalance(holder) { return readTokenBalance(ARC.usdc, holder); }
   var _treasuryTimer = null;
@@ -2837,20 +2850,24 @@
     } catch (e) { $("treasuryBal").textContent = "—"; }
 
     // The treasury is multi-token now — USDC alone no longer describes what the
-    // agent holds. Read each supported target straight from chain; a token that
-    // fails to read is simply omitted rather than shown as a false zero.
+    // agent holds. Read each supported target straight from chain, SEQUENTIALLY
+    // with a small gap: Arc's public RPC rate-limits back-to-back calls, and the
+    // limited call used to render as a false zero. A token that fails to read is
+    // omitted rather than shown as 0.
     var el = $("treasuryTokens");
     if (!el) return;
+    function pause(ms) { return new Promise(function (res) { setTimeout(res, ms); }); }
     try {
-      var res = await Promise.all([
-        readTokenBalance(ARC.cirbtc, ARC.agent).catch(function () { return null; }),
-        readTokenBalance(ARC.eurc, ARC.agent).catch(function () { return null; })
-      ]);
       var parts = [];
-      if (res[0] != null) parts.push("cirBTC " + fmt(Number(res[0]) / 1e8, 8));
-      if (res[1] != null) parts.push("EURC " + fmt(Number(res[1]) / 1e6, 2));
-      el.textContent = parts.length ? "Holdings: " + parts.join(" · ") : "";
-    } catch (e) { el.textContent = ""; }
+      await pause(600);
+      var cb = await readTokenBalance(ARC.cirbtc, ARC.agent).catch(function () { return null; });
+      if (cb != null) parts.push("cirBTC " + fmt(Number(cb) / 1e8, 8));
+      await pause(600);
+      var eu = await readTokenBalance(ARC.eurc, ARC.agent).catch(function () { return null; });
+      if (eu != null) parts.push("EURC " + fmt(Number(eu) / 1e6, 2));
+      if (parts.length) el.textContent = "Holdings: " + parts.join(" · ");
+      // keep the previous reading on a transient total failure instead of blanking
+    } catch (e) {}
   }
   function startTreasuryAutoRefresh() {
     if (_treasuryTimer) clearInterval(_treasuryTimer);

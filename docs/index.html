@@ -1146,22 +1146,25 @@
     </div>
     <div class="card" style="margin-top:16px;">
       <h3>The sizing curve</h3>
-      <p class="cs">Smart mode folds the cirBTC dip <b>and</b> the Fear &amp; Greed index into one bounded multiplier: the agent proposes the number, code clamps it to [0.5×, your max]. The tiers below are the deterministic dip reference (dip alone, at sensitivity 1) — extreme fear adds on top, extreme greed subtracts. During the cirBTC route outage there's no live cirBTC price, so the dip shows <b>n/a</b> and Fear &amp; Greed carries the signal.</p>
+      <p class="cs">Smart mode folds the cirBTC dip <b>and</b> the Fear &amp; Greed index into one bounded multiplier: the agent proposes the number, code clamps it to [0.5×, your max]. The tiers below are computed from that same formula at sensitivity 1 — the large number is the dip acting alone, and the line under it is what <b>today's</b> Fear &amp; Greed turns it into (extreme fear adds on top, extreme greed subtracts). During the cirBTC route outage there's no live cirBTC price, so the dip reads <b>n/a</b> and Fear &amp; Greed carries the signal on its own.</p>
       <div class="strat-thresholds" id="stratThresholds">
         <div class="strat-th">
-          <div class="th-pct" id="thMildPct">5%</div>
-          <div class="th-mult" id="thMildMult">1.2x</div>
+          <div class="th-pct">5% dip</div>
+          <div class="th-mult" id="thMildMult">—</div>
           <div class="th-label">Mild dip</div>
+          <div class="th-label" id="thMildLive" style="margin-top:6px;color:var(--cyan);"></div>
         </div>
         <div class="strat-th">
-          <div class="th-pct" id="thModPct">10%</div>
-          <div class="th-mult" id="thModMult">1.5x</div>
+          <div class="th-pct">10% dip</div>
+          <div class="th-mult" id="thModMult">—</div>
           <div class="th-label">Moderate dip</div>
+          <div class="th-label" id="thModLive" style="margin-top:6px;color:var(--cyan);"></div>
         </div>
         <div class="strat-th">
-          <div class="th-pct" id="thStrongPct">20%</div>
-          <div class="th-mult" id="thStrongMult">2.0x</div>
+          <div class="th-pct">20% dip</div>
+          <div class="th-mult" id="thStrongMult">—</div>
           <div class="th-label">Strong dip</div>
+          <div class="th-label" id="thStrongLive" style="margin-top:6px;color:var(--cyan);"></div>
         </div>
       </div>
     </div>
@@ -3341,12 +3344,6 @@
       mildMult: 1.2, modMult: 1.5, strongMult: 2.0
     });
     $("stBaseAmt").textContent = stratSettings.baseAmount + " USDC";
-    $("thMildPct").textContent = stratSettings.mildPct + "%";
-    $("thModPct").textContent = stratSettings.modPct + "%";
-    $("thStrongPct").textContent = stratSettings.strongPct + "%";
-    $("thMildMult").textContent = stratSettings.mildMult + "x";
-    $("thModMult").textContent = stratSettings.modMult + "x";
-    $("thStrongMult").textContent = stratSettings.strongMult + "x";
 
     // Live smart read: cirBTC dip + live Fear & Greed → one bounded multiplier
     // (the same formula the agent's sizing is clamped against). Fear & Greed is
@@ -3372,6 +3369,25 @@
       ddEl.textContent = hasCirBtcPrice ? (dd * 100).toFixed(1) + "%" : "n/a";
       ddEl.title = hasCirBtcPrice ? "" : "No live cirBTC price basis — the USDC→cirBTC route is in outage on Arc Testnet.";
     }
+
+    // The reference curve, derived from the SAME function that produces the live
+    // multiplier above — so the table can never drift from the formula it claims
+    // to illustrate. (It previously showed the legacy dip-ladder constants, which
+    // disagreed with the real curve by up to 50%.) Each tier shows the dip acting
+    // alone, plus what today's Fear & Greed turns it into.
+    [
+      { dip: 0.05, mult: "thMildMult", live: "thMildLive" },
+      { dip: 0.10, mult: "thModMult", live: "thModLive" },
+      { dip: 0.20, mult: "thStrongMult", live: "thStrongLive" }
+    ].forEach(function (t) {
+      var mEl = $(t.mult);
+      if (mEl) mEl.textContent = "×" + smartMultJS(t.dip, null, 1, 3).toFixed(2);
+      var lEl = $(t.live);
+      if (!lEl) return;
+      if (fg == null) { lEl.textContent = ""; return; }
+      var withFg = smartMultJS(t.dip, fg, 1, 3);
+      lEl.textContent = "at F&G " + fg + " → ×" + withFg.toFixed(2) + (withFg >= 3 ? " (cap)" : "");
+    });
 
     var sigEl = $("stDipSignal");
     if (sigEl) {

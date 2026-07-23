@@ -3909,8 +3909,8 @@
       else ach.textContent = 'Set your DCA rate below to start.';
     }
 
-    // Withdrawal history
-    var wds = (ledger && ledger.withdrawals || []).filter(function (w) { return w.address === key; });
+    // Withdrawal history — newest first, so the entry you just made is on top.
+    var wds = (ledger && ledger.withdrawals || []).filter(function (w) { return w.address === key; }).reverse();
     var wdHtml = "";
     if (wds.length > 0) {
       wdHtml = "<h4 style='margin:12px 0 8px;font-size:14px;'>Withdrawal history</h4>";

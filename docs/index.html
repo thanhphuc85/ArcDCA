@@ -1131,7 +1131,7 @@
     <p class="sub">Each wallet sets its own schedule; the agent pools everyone's buys per token into one on-chain swap. In <b>Smart</b> mode it sizes each buy by the market — the cirBTC dip <b>and</b> the live Fear &amp; Greed index — proposing a multiplier that code clamps to a safe range (0.5× floor, your max). <b>Auto</b> mode buys a flat amount. The values below are live.</p>
     <div class="strategy-grid">
       <div class="strat-tile" style="--sg:rgba(138,92,246,.15);">
-        <span class="st-val" id="stBaseAmt">—</span><span class="st-label">Base amount / run</span>
+        <span class="st-val" id="stBaseAmt">—</span><span class="st-label" id="stBaseLabel">Base amount / run</span>
       </div>
       <div class="strat-tile" style="--sg:rgba(47,134,230,.15);">
         <span class="st-val" id="stSuggestedAmt">—</span><span class="st-label">Smart multiplier (live)</span>
@@ -3343,7 +3343,19 @@
       baseAmount: "1.00", mildPct: 5, modPct: 10, strongPct: 20,
       mildMult: 1.2, modMult: 1.5, strongMult: 2.0
     });
-    $("stBaseAmt").textContent = stratSettings.baseAmount + " USDC";
+    // Base amount: show the connected user's real per-run amount when we have it,
+    // otherwise a labelled example — this page also renders with no wallet, where
+    // no personal amount exists.
+    var baseStr = stratSettings.baseAmount, baseIsExample = true;
+    var _bk = state.account && state.account.toLowerCase();
+    var _bu = _bk && _ledgerData && _ledgerData.users ? _ledgerData.users[_bk] : null;
+    if (_bu) {
+      var perRun = parseFloat(_bu.dcaAmountPerRun || _bu.dcaRatePerDay || "0");
+      if (perRun > 0) { baseStr = String(perRun); baseIsExample = false; }
+    }
+    $("stBaseAmt").textContent = baseStr + " USDC";
+    var _bl = $("stBaseLabel");
+    if (_bl) _bl.textContent = baseIsExample ? "Example base / run" : "Base amount / run";
 
     // Live smart read: cirBTC dip + live Fear & Greed → one bounded multiplier
     // (the same formula the agent's sizing is clamped against). Fear & Greed is
@@ -3827,6 +3839,9 @@
   function renderPortfolio(ledger) {
     var sec = $("portfolioSection");
     if (!sec) return;
+    // Keep the strategy page's "base amount" tile in step with connect/disconnect
+    // and ledger updates (it personalises to the user's real per-run amount).
+    if (typeof renderStrategy === "function") renderStrategy(_historyData);
     if (!state.account) {
       // On the "My DCA Schedule" page, keep the section visible with a connect
       // prompt instead of blanking the page; elsewhere hide it.

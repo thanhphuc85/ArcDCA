@@ -708,5 +708,17 @@
     "tokenOut": "cirBTC",
     "walletUsdcBalance": "34.286212744693523924",
     "message": "No buy this run: 0 active user(s), scheduled 0.000000 USDC, clamped to 0.000000 by llm_declined (min swap 0.1)"
+  },
+  {
+    "date": "2026-07-23",
+    "timestamp": "2026-07-23T07:27:19.500Z",
+    "status": "dry_run",
+    "requestedAmountUsdc": "5.000000",
+    "clampedAmountUsdc": "5.000000",
+    "boundBy": "user_schedule",
+    "tokenOut": "cirBTC",
+    "reasoning": "Rate-based DCA: 1 active user(s), executing 5.000000 USDC this run.",
+    "walletUsdcBalance": "34.285238006485523924",
+    "message": "[DRY RUN] Would swap 5.000000 USDC -> cirBTC across 1 user(s)"
   }
 ]

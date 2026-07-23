@@ -5053,7 +5053,12 @@
         alerts.push({ icon: "📉", title: T[currentLang].intelAlertDip || "Significant dip", detail: (dd * 100).toFixed(1) + "% from high — dip-buying opportunity" });
       }
     }
-    var clampCount = last10.filter(function (e) { return e.boundBy && e.boundBy !== "proposed_amount"; }).length;
+    // Count only runs where a hard guardrail actually bound the amount. Every
+    // pooled run now records boundBy — "user_schedule" on a normal buy and
+    // "no_scheduled_spend" when nobody was due are routine outcomes, not clamps,
+    // and counting them made this alert read 10/10 forever.
+    var GUARDRAIL_BOUNDS = { max_daily_usdc: 1, wallet_available_after_reserve: 1, remaining_daily_cap: 1, remaining_campaign_budget: 1, group_below_min_swap: 1, allowance_below_min: 1 };
+    var clampCount = last10.filter(function (e) { return GUARDRAIL_BOUNDS[e.boundBy]; }).length;
     if (clampCount >= 5) {
       alerts.push({ icon: "⚠️", title: T[currentLang].intelAlertClamping || "Frequent clamping", detail: clampCount + "/10 recent runs clamped by guardrails" });
     }
@@ -5063,7 +5068,11 @@
     if (Array.isArray(reflections) && reflections.length >= 3) {
       var latestRef = reflections[reflections.length - 1];
       if (latestRef.strategyAdjustment && latestRef.confidenceLevel === "high") {
-        alerts.push({ icon: "🧠", title: T[currentLang].intelAlertStrategy || "Strategy update", detail: latestRef.strategyAdjustment.length > 80 ? latestRef.strategyAdjustment.slice(0, 80) + "…" : latestRef.strategyAdjustment });
+        // Date the advice: reflections stop generating when the LLM is
+        // unavailable, so the latest one can be days old — showing it undated
+        // made stale guidance read as current.
+        var refText = latestRef.strategyAdjustment.length > 80 ? latestRef.strategyAdjustment.slice(0, 80) + "…" : latestRef.strategyAdjustment;
+        alerts.push({ icon: "🧠", title: T[currentLang].intelAlertStrategy || "Strategy update", detail: (latestRef.date ? latestRef.date + " — " : "") + refText });
       }
     }
     var pa = $("patternAlerts");

@@ -1026,14 +1026,15 @@
     </div>
     <div class="status-note" id="tgStatus" style="margin-top:6px;"></div>
     <p style="font-size:11px;color:var(--muted);margin:8px 0 0;">Create a bot via <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a>, get your chat ID from <a href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a>. These messages are sent from your browser (only while this tab is open). For <b>always-on</b> alerts from the autonomous agent — a buy landing, an error, the smart multiplier used — set <code>TELEGRAM_BOT_TOKEN</code> and <code>TELEGRAM_CHAT_ID</code> as GitHub Actions secrets; the cron then pushes on every run.</p>
-    <h3 style="margin:18px 0 14px;" data-t="setWithdrawApiTitle">Withdrawal API</h3>
+    <h3 style="margin:18px 0 14px;" data-t="setWithdrawApiTitle">Backend API</h3>
     <div class="settings-grid">
       <div class="setting-group" style="grid-column:1/-1;">
         <label for="setWdApi" data-t="setWdApiLabel">API base URL (optional)</label>
-        <input type="url" id="setWdApi" placeholder="Leave empty — uses this site's /api/withdraw" style="font-family:ui-monospace,monospace;font-size:12px;width:100%;" />
+        <input type="url" id="setWdApi" placeholder="Leave empty — uses this site's own /api/*" style="font-family:ui-monospace,monospace;font-size:12px;width:100%;" />
       </div>
     </div>
-    <p style="font-size:11px;color:var(--muted);margin:8px 0 0;" data-t="setWdApiHelp">Leave empty to use this site's own <code>/api/withdraw</code> (works when deployed to Vercel). Only set a URL to route withdrawals through a different backend. Processed in real-time (10–30s).</p>
+    <p style="font-size:11px;color:var(--muted);margin:8px 0 0;" data-t="setWdApiHelp">Routes every signed action — withdraw, set schedule, run now, chat — to a backend. Leave empty to use this site's own <code>/api/*</code> (works on the Vercel deployment). Set a URL only when the dashboard is served from a static host with no serverless functions.</p>
+    <p id="setApiHostWarn" style="font-size:11px;color:var(--amber);margin:8px 0 0;display:none;"></p>
     <div class="settings-saved" id="settingsSaved">Settings saved</div>
   </div>
 
@@ -1774,13 +1775,30 @@
 
     var wdApiInput = document.getElementById("setWdApi");
     var wdApiUrl = loadStore("aura-withdraw-api", "");
+    // On a static host (the GitHub Pages mirror) there are no serverless
+    // functions, so leaving this empty means every signed action 404s with a
+    // confusing error. Say so up front instead of letting the user find out by
+    // signing a message that goes nowhere.
+    function refreshApiHostWarn() {
+      var warn = document.getElementById("setApiHostWarn");
+      if (!warn) return;
+      var configured = loadStore("aura-withdraw-api", "");
+      if (isStaticHost() && !configured) {
+        warn.textContent = "⚠️ This page is served from a static host with no /api/* — withdrawals, schedule changes, run-now and chat need a URL here. Use https://aura-dca.vercel.app";
+        warn.style.display = "";
+      } else {
+        warn.style.display = "none";
+      }
+    }
     if (wdApiInput) {
       wdApiInput.value = wdApiUrl || "";
       wdApiInput.addEventListener("change", function () {
         saveStore("aura-withdraw-api", (wdApiInput.value || "").trim().replace(/\/+$/, ""));
+        refreshApiHostWarn();
         flashSaved();
       });
     }
+    refreshApiHostWarn();
 
     if (sd && userSettings.defaultDeposit) {
       var depInput = document.getElementById("depositAmt");
@@ -1854,6 +1872,22 @@
     agent: "0x00Ebbd3aFCCaD08970ED8FdaE591244c8475a0aC",  // the agent's Circle wallet (DCA treasury)
   };
   var state = { account: null, loginType: null, provider: null, showAllRuns: false };
+
+  // Every signed action runs on a serverless function that exists only on the
+  // Vercel deployment. The GitHub Pages mirror is a static host with no /api/*,
+  // so ALL endpoints resolve through one optional base URL (Settings). This used
+  // to be applied to only three of the five, leaving chat and the welcome email
+  // permanently broken on the mirror with no way to point them anywhere.
+  // Storage key kept as-is so anyone who already set a URL keeps working.
+  function apiUrl(path) {
+    var base = loadStore("aura-withdraw-api", "");
+    return base ? base.replace(/\/+$/, "") + path : path;
+  }
+  // True when this page is served from somewhere that has no serverless API.
+  function isStaticHost() {
+    var h = location.hostname;
+    return h.indexOf("github.io") >= 0 || location.protocol === "file:";
+  }
 
   // ---------- EIP-6963 multi-wallet discovery ----------
   // Each installed wallet announces its own provider + metadata (rdns), so we
@@ -2556,7 +2590,7 @@
 
     // Fire a real welcome email to the user's inbox (non-fatal: wallet is already
     // created, so email failures never block sign-in).
-    fetch("/api/send-welcome", {
+    fetch(apiUrl("/api/send-welcome"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: nameVal, email: emailVal, address: account })
@@ -4155,8 +4189,7 @@
     // Sign `message` and POST to the rate endpoint; render the outcome.
     async function signAndSave(message, okMsg, optimistic) {
       var t = ct();
-      var apiBase = loadStore("aura-withdraw-api", "");
-      var endpoint = apiBase ? apiBase.replace(/\/+$/, "") + "/api/set-dca-rate" : "/api/set-dca-rate";
+      var endpoint = apiUrl("/api/set-dca-rate");
       btn.disabled = true; if (pauseBtn) pauseBtn.disabled = true;
       st.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;color:var(--amber);"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> ' + (t.rateSigning || "Sign in your wallet…") + '</span>';
       try {
@@ -4303,8 +4336,7 @@
 
       // Default to this site's own serverless function (same-origin /api/withdraw
       // when deployed to Vercel). An optional override can point at another backend.
-      var apiBase = loadStore("aura-withdraw-api", "");
-      var endpoint = apiBase ? apiBase.replace(/\/+$/, "") + "/api/withdraw" : "/api/withdraw";
+      var endpoint = apiUrl("/api/withdraw");
 
       btn.disabled = true;
       prog.style.display = "";
@@ -4718,8 +4750,8 @@
       wdErrConnect: "Connect your wallet first.", wdErrProvider: "MetaMask not available.",
       wdErrAmount: "Enter a valid amount.", wdErrLedger: "Ledger not loaded yet. Please try again.", wdLoadingLedger: "Loading account…",
       wdErrBalance: "Insufficient balance: ", wdErrApiUrl: "Set your Withdrawal API URL in Settings first.",
-      setWithdrawApiTitle: "Withdrawal API", setWdApiLabel: "API base URL (optional)",
-      setWdApiHelp: "Leave empty to use this site's own /api/withdraw (works when deployed to Vercel). Only set a URL to route withdrawals through a different backend. Processed in real-time (10–30s).",
+      setWithdrawApiTitle: "Backend API", setWdApiLabel: "API base URL (optional)",
+      setWdApiHelp: "Routes every signed action — withdraw, set schedule, run now, chat — to a backend. Leave empty to use this site's own /api/* (works on the Vercel deployment). Set a URL only when the dashboard is served from a static host with no serverless functions.",
       depErrConnect: "Connect your wallet first.", depErrAmount: "Enter an amount greater than 0.",
       depConfirm: "Confirm in wallet…", depSuccess: "Deposited", depCancelled: "Transaction cancelled.",
       depFailed: "Transfer failed: ", depBtn: "Deposit to agent",
@@ -4833,8 +4865,8 @@
       wdErrConnect: "Kết nối ví trước.", wdErrProvider: "MetaMask không khả dụng.",
       wdErrAmount: "Nhập số tiền hợp lệ.", wdErrLedger: "Chưa tải được sổ cái. Vui lòng thử lại.", wdLoadingLedger: "Đang tải tài khoản…",
       wdErrBalance: "Số dư không đủ: ", wdErrApiUrl: "Cấu hình URL API rút tiền trong Cài đặt trước.",
-      setWithdrawApiTitle: "API rút tiền", setWdApiLabel: "URL cơ sở API (tùy chọn)",
-      setWdApiHelp: "Để trống để dùng /api/withdraw của chính site này (hoạt động khi deploy lên Vercel). Chỉ nhập URL nếu muốn định tuyến rút tiền qua backend khác. Xử lý thời gian thực (10–30 giây).",
+      setWithdrawApiTitle: "API backend", setWdApiLabel: "URL cơ sở API (tùy chọn)",
+      setWdApiHelp: "Định tuyến mọi hành động có ký — rút tiền, đặt lịch, chạy ngay, chat — tới một backend. Để trống để dùng /api/* của chính site này (chạy trên bản deploy Vercel). Chỉ nhập URL khi dashboard được phục vụ từ host tĩnh không có serverless function.",
       depErrConnect: "Kết nối ví trước.", depErrAmount: "Nhập số tiền lớn hơn 0.",
       depConfirm: "Xác nhận trong ví…", depSuccess: "Đã nạp", depCancelled: "Đã hủy giao dịch.",
       depFailed: "Chuyển tiền thất bại: ", depBtn: "Nạp vào agent",
@@ -5255,7 +5287,7 @@
       convo.push({ role: "user", content: text });
       setBusy(true);
       var typing = addTyping();
-      fetch("/api/chat", {
+      fetch(apiUrl("/api/chat"), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: convo, address: state.account || null })
       }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
@@ -5331,8 +5363,7 @@
       lines.push("Address: " + state.account);
       lines.push("Timestamp: " + timestamp);
       var message = lines.join("\n");
-      var apiBase = loadStore("aura-withdraw-api", "");
-      var endpoint = apiBase ? apiBase.replace(/\/+$/, "") + "/api/set-dca-rate" : "/api/set-dca-rate";
+      var endpoint = apiUrl("/api/set-dca-rate");
       state.provider.request({ method: "personal_sign", params: [message, state.account] })
         .then(function (signature) {
           status.textContent = ct().saving;
@@ -5363,8 +5394,7 @@
       var amtStr = Number(amount).toFixed(6);
       var timestamp = Date.now();
       var message = "Aura DCA Agent — Run DCA\n" + "Amount: " + amtStr + "\n" + "Address: " + state.account + "\n" + "Timestamp: " + timestamp;
-      var apiBase = loadStore("aura-withdraw-api", "");
-      var endpoint = apiBase ? apiBase.replace(/\/+$/, "") + "/api/run-dca" : "/api/run-dca";
+      var endpoint = apiUrl("/api/run-dca");
       state.provider.request({ method: "personal_sign", params: [message, state.account] })
         .then(function (signature) {
           status.textContent = ct().runSubmitting;

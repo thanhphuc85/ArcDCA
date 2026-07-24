@@ -3811,6 +3811,9 @@
       })
       .catch(function () {});
     if (typeof refreshTreasury === "function") refreshTreasury();
+    // Deposits are ledger-backed, so they change with the same data — refresh the
+    // leaderboard on the same cycle instead of only once at page load.
+    if (typeof fetchLeaderboard === "function") fetchLeaderboard();
   }
 
   // initial load: show cached data instantly, then fetch fresh
@@ -4520,42 +4523,49 @@
   }
 
   // ---------- leaderboard / treasury deposits ----------
+  // Deposits come from the committed ledger, which the agent builds by scanning
+  // USDC Transfer logs into its wallet on every run. The browser used to redo
+  // that scan across ~20 log ranges, but Arc's public RPC rate-limits those calls
+  // and each failure was swallowed — so a throttled read rendered as "No deposits
+  // yet": a false empty on the page whose entire purpose is transparency.
   async function fetchLeaderboard() {
     var sec = $("leaderboardSection");
     try {
-      var latest = await rpcCall("eth_blockNumber", []);
-      var latestNum = parseInt(latest, 16);
-      var agentPad = "0x000000000000000000000000" + ARC.agent.slice(2).toLowerCase();
-      var CHUNK = 9999, LOOKBACK = 200000;
-      var logs = [];
-      var end = latestNum;
-      var earliest = Math.max(0, latestNum - LOOKBACK);
-      for (var from = end - CHUNK; from >= earliest; from -= CHUNK) {
-        var fb = "0x" + Math.max(0, from).toString(16);
-        var tb = "0x" + Math.min(end, from + CHUNK).toString(16);
-        try {
-          var batch = await rpcCall("eth_getLogs", [{ fromBlock: fb, toBlock: tb, address: ARC.usdc, topics: ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", null, agentPad] }]) || [];
-          logs = logs.concat(batch);
-        } catch (e) {}
-        end = from;
-        if (logs.length > 0 && from < latestNum - CHUNK * 3) break;
+      var ledger = _ledgerData;
+      if (!ledger || !Array.isArray(ledger.deposits)) {
+        try { var fresh = await fetchLedger(); if (fresh) { _ledgerData = fresh; ledger = fresh; } } catch (e) {}
       }
-      if (!logs.length) {
-        sec.style.display = "";
+      sec.style.display = "";
+      var deps = (ledger && Array.isArray(ledger.deposits)) ? ledger.deposits : null;
+
+      if (!deps) {
+        // Distinguish "couldn't read" from "nobody has deposited".
+        $("lbSummary").innerHTML =
+          '<div class="lb-stat"><div class="lb-val">—</div><div class="lb-label">Total deposited</div></div>' +
+          '<div class="lb-stat"><div class="lb-val">—</div><div class="lb-label">Depositors</div></div>' +
+          '<div class="lb-stat"><div class="lb-val">—</div><div class="lb-label">Unavailable</div></div>';
+        $("lbCount").textContent = "Could not load deposit data";
+        $("lbList").innerHTML = '<div class="empty-state fade-in"><div class="empty-icon">🔌</div><p class="empty-title">Deposit data unavailable</p><p class="empty-desc">The public ledger could not be reached. Refresh to try again.</p></div>';
+        return;
+      }
+
+      if (!deps.length) {
         $("lbSummary").innerHTML =
           '<div class="lb-stat"><div class="lb-val">0</div><div class="lb-label">Total deposited</div></div>' +
           '<div class="lb-stat"><div class="lb-val">0</div><div class="lb-label">Depositors</div></div>' +
           '<div class="lb-stat"><div class="lb-val">—</div><div class="lb-label">Be the first!</div></div>';
         $("lbCount").textContent = "No deposits found yet";
-        $("lbList").innerHTML = '<div class="empty-state fade-in"><div class="empty-icon">🏆</div><p class="empty-title">No deposits yet</p><p class="empty-desc">Be the first to deposit testnet USDC into the DCA treasury! The agent will DCA it into cirBTC automatically.</p></div>';
+        $("lbList").innerHTML = '<div class="empty-state fade-in"><div class="empty-icon">🏆</div><p class="empty-title">No deposits yet</p><p class="empty-desc">Be the first to deposit testnet USDC into the DCA treasury! The agent DCAs it into the token each depositor chooses.</p></div>';
         return;
       }
-      sec.style.display = "";
+
       var depositors = {};
       var totalDeposited = 0;
-      logs.forEach(function (l) {
-        var from = "0x" + (l.topics[1] || "").slice(26);
-        var val = Number(BigInt(l.data || "0x0")) / 1e6;
+      deps.forEach(function (d) {
+        var from = (d.from || "").toLowerCase();
+        if (!from) return;
+        var val = parseFloat(d.amount || "0");
+        if (!isFinite(val)) val = 0;
         if (!depositors[from]) depositors[from] = { address: from, total: 0, count: 0 };
         depositors[from].total += val;
         depositors[from].count++;
@@ -4566,9 +4576,9 @@
       $("lbSummary").innerHTML =
         '<div class="lb-stat"><div class="lb-val">' + fmt(totalDeposited, 2) + '</div><div class="lb-label">Total deposited (USDC)</div></div>' +
         '<div class="lb-stat"><div class="lb-val">' + sorted.length + '</div><div class="lb-label">Unique depositors</div></div>' +
-        '<div class="lb-stat"><div class="lb-val">' + logs.length + '</div><div class="lb-label">Total deposits</div></div>';
+        '<div class="lb-stat"><div class="lb-val">' + deps.length + '</div><div class="lb-label">Total deposits</div></div>';
 
-      $("lbCount").textContent = sorted.length + " depositor(s) · " + logs.length + " transaction(s)";
+      $("lbCount").textContent = sorted.length + " depositor(s) · " + deps.length + " transaction(s)";
       var maxAmt = sorted[0] ? sorted[0].total : 1;
       var tLb = (typeof T !== "undefined" && T[currentLang]) ? T[currentLang] : {};
       $("lbList").innerHTML = sorted.slice(0, 20).map(function (d, i) {
